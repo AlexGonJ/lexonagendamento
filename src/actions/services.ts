@@ -57,7 +57,7 @@ export async function createService(formData: FormData) {
       .webp({ quality: 80 })
       .toBuffer();
 
-    const fileName = `${tenantId}/${crypto.randomUUID()}.webp`;
+    const fileName = `${tenantId}/service_${crypto.randomUUID()}.webp`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
@@ -126,7 +126,7 @@ export async function updateService(id: string, formData: FormData) {
       .webp({ quality: 80 })
       .toBuffer();
 
-    const fileName = `${tenantId}/${crypto.randomUUID()}.webp`;
+    const fileName = `${tenantId}/service_${crypto.randomUUID()}.webp`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')

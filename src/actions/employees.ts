@@ -44,7 +44,7 @@ export async function createEmployee(formData: FormData) {
       .webp({ quality: 80 })
       .toBuffer();
 
-    const fileName = `${tenantId}/avatars/${crypto.randomUUID()}.webp`;
+    const fileName = `${tenantId}/avatars/avatar_${crypto.randomUUID()}.webp`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
