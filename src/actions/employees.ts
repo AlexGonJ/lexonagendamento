@@ -4,19 +4,20 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import crypto from "crypto";
+import { getCurrentSession } from "./auth";
 
 function hashPassword(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex");
 }
 
-async function getDefaultTenant() {
-  const tenant = await prisma.tenant.findFirst();
-  if (!tenant) throw new Error("Estabelecimento não encontrado.");
-  return tenant.id;
+async function getActiveTenantId() {
+  const session = await getCurrentSession();
+  if (!session) throw new Error("Não autenticado.");
+  return session.tenantId;
 }
 
 export async function getEmployees() {
-  const tenantId = await getDefaultTenant();
+  const tenantId = await getActiveTenantId();
   return await prisma.employee.findMany({
     where: { tenantId },
     orderBy: { createdAt: "desc" },
@@ -59,7 +60,7 @@ async function uploadAvatar(imageFile: File, tenantId: string): Promise<string> 
 }
 
 export async function createEmployee(formData: FormData) {
-  const tenantId = await getDefaultTenant();
+  const tenantId = await getActiveTenantId();
 
   const name = formData.get("name") as string;
   const role = formData.get("role") as string;
@@ -106,7 +107,7 @@ export async function createEmployee(formData: FormData) {
 }
 
 export async function updateEmployee(id: string, formData: FormData) {
-  const tenantId = await getDefaultTenant();
+  const tenantId = await getActiveTenantId();
 
   const name = formData.get("name") as string;
   const role = formData.get("role") as string;

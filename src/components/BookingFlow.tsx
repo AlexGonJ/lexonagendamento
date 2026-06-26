@@ -7,7 +7,17 @@ import { createBooking } from '@/actions/booking';
 import { addDays, format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export default function BookingFlow({ tenantSlug, services, employees }: { tenantSlug: string, services: any[], employees: any[] }) {
+export default function BookingFlow({ 
+  tenantSlug, 
+  services, 
+  employees,
+  initialClient 
+}: { 
+  tenantSlug: string, 
+  services: any[], 
+  employees: any[],
+  initialClient?: { name: string, phone: string } | null
+}) {
   // Estados do Agendamento
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<any>(null);
@@ -16,8 +26,8 @@ export default function BookingFlow({ tenantSlug, services, employees }: { tenan
   const [selectedTime, setSelectedTime] = useState<string>('');
 
   // Estados do Cliente (Passo 4)
-  const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
+  const [clientName, setClientName] = useState(initialClient?.name || '');
+  const [clientPhone, setClientPhone] = useState(initialClient?.phone || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);

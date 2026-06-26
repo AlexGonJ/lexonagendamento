@@ -151,19 +151,18 @@ export async function getDashboardStats(view: string = "daily") {
     createdAt: {
       gte: rangeStart,
       lte: rangeEnd
-    }
-  };
-  if (!session.isAdmin) {
-    clientRangeWhereClause.bookings = {
+    },
+    bookings: {
       some: {
-        employeeId: session.userId,
+        tenantId,
+        ...( !session.isAdmin ? { employeeId: session.userId } : {} ),
         date: {
           gte: rangeStart,
           lte: rangeEnd
         }
       }
-    };
-  }
+    }
+  };
   const newClientsCount = await prisma.client.count({
     where: clientRangeWhereClause
   });
@@ -387,5 +386,31 @@ export async function deleteBooking(bookingId: string) {
   } catch (error: any) {
     console.error("Erro ao deletar agendamento:", error);
     return { success: false, error: error.message || "Erro ao deletar agendamento." };
+  }
+}
+
+export async function cancelBooking(bookingId: string) {
+  try {
+    const booking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: "CANCELLED" }
+    });
+    
+    // Obter o slug do inquilino para revalidar a rota correspondente
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: booking.tenantId }
+    });
+    
+    revalidatePath("/admin");
+    revalidatePath("/admin/bookings");
+    if (tenant) {
+      revalidatePath(`/${tenant.slug}/perfil`);
+      revalidatePath(`/${tenant.slug}/book`);
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao cancelar agendamento:", error);
+    return { success: false, error: "Erro ao cancelar agendamento." };
   }
 }

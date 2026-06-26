@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import prisma from '@/lib/prisma';
 import { notFound } from 'next/navigation';
+import { getCurrentClientSession } from '@/actions/auth';
 
 export default async function TenantPage({
   params,
@@ -24,6 +25,8 @@ export default async function TenantPage({
     notFound();
   }
 
+  const clientSession = await getCurrentClientSession();
+
   // Fallbacks para as imagens e textos caso não estejam configurados
   const coverUrl = tenant.coverUrl || 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
   const logoUrl = tenant.logoUrl || 'https://images.unsplash.com/photo-1599305090598-fe179d501227?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80';
@@ -37,6 +40,17 @@ export default async function TenantPage({
         style={{ backgroundImage: `url(${coverUrl})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
+        
+        {/* Barra superior/Botão da conta do cliente */}
+        <div className="absolute top-4 right-4 z-20">
+          <Link
+            href={`/${tenantSlug}/perfil`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-white bg-slate-900/80 backdrop-blur border border-white/10 shadow hover:bg-slate-900 transition-all"
+          >
+            <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            {clientSession ? `Olá, ${clientSession.name.split(' ')[0]}` : 'Meus Agendamentos'}
+          </Link>
+        </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">

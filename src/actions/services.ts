@@ -4,24 +4,16 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import crypto from "crypto";
+import { getCurrentSession } from "./auth";
 
-// Função utilitária para pegar o tenant padrão (já que não temos login de multi-empresa ainda no MVP)
-async function getDefaultTenant() {
-  let tenant = await prisma.tenant.findFirst();
-  if (!tenant) {
-    tenant = await prisma.tenant.create({
-      data: {
-        name: "Brutus Barbearia",
-        slug: "brutusbarbearia",
-        description: "A melhor barbearia da região.",
-      }
-    });
-  }
-  return tenant.id;
+async function getActiveTenantId() {
+  const session = await getCurrentSession();
+  if (!session) throw new Error("Não autenticado.");
+  return session.tenantId;
 }
 
 export async function getServices() {
-  const tenantId = await getDefaultTenant();
+  const tenantId = await getActiveTenantId();
   return await prisma.service.findMany({
     where: { tenantId },
     orderBy: { createdAt: 'desc' },
@@ -30,7 +22,7 @@ export async function getServices() {
 }
 
 export async function createService(formData: FormData) {
-  const tenantId = await getDefaultTenant();
+  const tenantId = await getActiveTenantId();
   
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -99,7 +91,7 @@ export async function createService(formData: FormData) {
 }
 
 export async function updateService(id: string, formData: FormData) {
-  const tenantId = await getDefaultTenant();
+  const tenantId = await getActiveTenantId();
   
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
