@@ -3,7 +3,6 @@
 import prisma from "@/lib/prisma";
 import { getCurrentSession } from "@/actions/auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import sharp from "sharp";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 
@@ -53,23 +52,18 @@ export async function updateTenantSettings(formData: FormData) {
   let logoUrl = currentTenant.logoUrl;
   let coverUrl = currentTenant.coverUrl;
 
-  // Processar upload de Logo
+  // Upload de Logo
   if (logoFile && logoFile.size > 0) {
     const arrayBuffer = await logoFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Otimiza logotipo: Redimensiona para max 300x300 e converte para webp
-    const processedLogo = await sharp(buffer)
-      .resize(300, 300, { fit: 'cover' })
-      .webp({ quality: 85 })
-      .toBuffer();
-
-    const logoPath = `${tenantId}/settings/logo_${crypto.randomUUID()}.webp`;
+    const ext = logoFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const logoPath = `${tenantId}/settings/logo_${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
-      .upload(logoPath, processedLogo, {
-        contentType: 'image/webp',
+      .upload(logoPath, buffer, {
+        contentType: logoFile.type,
         upsert: true
       });
 
@@ -80,28 +74,25 @@ export async function updateTenantSettings(formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(logoPath);
+      .getPublicUrl(logoPath, {
+        transform: { width: 300, height: 300, resize: 'cover', quality: 85 }
+      });
 
     logoUrl = publicUrlData.publicUrl;
   }
 
-  // Processar upload de Capa/Banner
+  // Upload de Capa/Banner
   if (coverFile && coverFile.size > 0) {
     const arrayBuffer = await coverFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Otimiza capa/banner: Redimensiona para 1200x600 (aspect ratio ideal para capa) e converte para webp
-    const processedCover = await sharp(buffer)
-      .resize(1200, 600, { fit: 'cover' })
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    const coverPath = `${tenantId}/settings/cover_${crypto.randomUUID()}.webp`;
+    const ext = coverFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const coverPath = `${tenantId}/settings/cover_${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
-      .upload(coverPath, processedCover, {
-        contentType: 'image/webp',
+      .upload(coverPath, buffer, {
+        contentType: coverFile.type,
         upsert: true
       });
 
@@ -112,7 +103,9 @@ export async function updateTenantSettings(formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(coverPath);
+      .getPublicUrl(coverPath, {
+        transform: { width: 1200, height: 600, resize: 'cover', quality: 80 }
+      });
 
     coverUrl = publicUrlData.publicUrl;
   }

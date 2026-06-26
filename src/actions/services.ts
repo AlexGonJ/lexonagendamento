@@ -3,7 +3,6 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
-import sharp from "sharp";
 import crypto from "crypto";
 
 // Função utilitária para pegar o tenant padrão (já que não temos login de multi-empresa ainda no MVP)
@@ -52,17 +51,15 @@ export async function createService(formData: FormData) {
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const processedImageBuffer = await sharp(buffer)
-      .resize(500, 500, { fit: 'cover', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    const fileName = `${tenantId}/service_${crypto.randomUUID()}.webp`;
+    // Upload the original file directly - sharp has binary platform issues on Vercel
+    // Supabase Image Transform API handles resizing at serve time
+    const ext = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${tenantId}/service_${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
-      .upload(fileName, processedImageBuffer, {
-        contentType: 'image/webp',
+      .upload(fileName, buffer, {
+        contentType: imageFile.type,
         upsert: false
       });
 
@@ -73,7 +70,9 @@ export async function createService(formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(fileName);
+      .getPublicUrl(fileName, {
+        transform: { width: 500, height: 500, resize: 'cover', quality: 80 }
+      });
 
     finalImageUrl = publicUrlData.publicUrl;
   }
@@ -121,17 +120,14 @@ export async function updateService(id: string, formData: FormData) {
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const processedImageBuffer = await sharp(buffer)
-      .resize(500, 500, { fit: 'cover', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    const fileName = `${tenantId}/service_${crypto.randomUUID()}.webp`;
+    // Upload the original file directly - sharp has binary platform issues on Vercel
+    const ext = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${tenantId}/service_${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
-      .upload(fileName, processedImageBuffer, {
-        contentType: 'image/webp',
+      .upload(fileName, buffer, {
+        contentType: imageFile.type,
         upsert: false
       });
 
@@ -142,7 +138,9 @@ export async function updateService(id: string, formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(fileName);
+      .getPublicUrl(fileName, {
+        transform: { width: 500, height: 500, resize: 'cover', quality: 80 }
+      });
 
     finalImageUrl = publicUrlData.publicUrl;
   }

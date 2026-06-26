@@ -3,7 +3,6 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
-import sharp from "sharp";
 import crypto from "crypto";
 
 async function getDefaultTenant() {
@@ -38,18 +37,15 @@ export async function createEmployee(formData: FormData) {
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Avatar otimizado e recortado em formato quadrado (250x250)
-    const processedImageBuffer = await sharp(buffer)
-      .resize(250, 250, { fit: 'cover', position: 'top' })
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    const fileName = `${tenantId}/avatars/avatar_${crypto.randomUUID()}.webp`;
+    // Upload the original file directly - sharp has binary platform issues on Vercel
+    // Supabase Image Transform API handles resizing at serve time
+    const ext = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${tenantId}/avatars/avatar_${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
-      .upload(fileName, processedImageBuffer, {
-        contentType: 'image/webp',
+      .upload(fileName, buffer, {
+        contentType: imageFile.type,
         upsert: false
       });
 
@@ -60,7 +56,9 @@ export async function createEmployee(formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(fileName);
+      .getPublicUrl(fileName, {
+        transform: { width: 250, height: 250, resize: 'cover', quality: 80 }
+      });
 
     finalAvatarUrl = publicUrlData.publicUrl;
   }
