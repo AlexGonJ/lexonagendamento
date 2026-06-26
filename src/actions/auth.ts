@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { redirect } from "next/navigation";
 
 function hashPassword(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex");
@@ -66,7 +67,7 @@ export async function login(formData: FormData) {
 export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete("session_token");
-  return { success: true };
+  redirect("/login");
 }
 
 export async function getCurrentSession(): Promise<SessionData | null> {
