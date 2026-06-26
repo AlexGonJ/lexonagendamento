@@ -123,14 +123,14 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
                 }
 
                 return (
-                  <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100/50 transition-colors">
+                  <div key={booking.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100/50 transition-colors">
                     <div>
                       <p className="font-medium text-gray-900">{booking.client.name}</p>
                       <p className="text-sm text-gray-500">
                         {booking.service.name} — com {booking.employee.name}
                       </p>
                     </div>
-                    <div className="text-right flex items-center gap-3">
+                    <div className="flex flex-row items-center gap-3">
                       <span className={`px-2 py-0.5 text-xs font-medium border rounded-full ${badgeColor}`}>
                         {booking.status === "PENDING" ? "Pendente" : booking.status === "CONFIRMED" ? "Confirmado" : booking.status}
                       </span>
