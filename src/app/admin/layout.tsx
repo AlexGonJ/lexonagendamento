@@ -55,6 +55,12 @@ export default async function AdminLayout({
               >
                 Profissionais
               </Link>
+              <Link 
+                href="/admin/settings" 
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                Configurações
+              </Link>
             </>
           )}
 

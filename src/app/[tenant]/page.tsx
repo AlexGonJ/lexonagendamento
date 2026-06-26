@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import prisma from '@/lib/prisma';
+import { notFound } from 'next/navigation';
 
 export default async function TenantPage({
   params,
@@ -8,21 +10,31 @@ export default async function TenantPage({
   const resolvedParams = await params;
   const tenantSlug = resolvedParams.tenant;
 
-  // No futuro, buscaremos os dados reais via Prisma:
-  // const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug }})
-  const mockTenant = {
-    name: tenantSlug === 'brutusbarbearia' ? 'Brutus Barbearia' : 'Salão Premium',
-    description: 'A melhor barbearia da região. Profissionais qualificados e ambiente climatizado para o seu conforto.',
-    coverUrl: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
-    logoUrl: 'https://images.unsplash.com/photo-1599305090598-fe179d501227?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-  };
+  // Busca os dados do tenant e seus serviços direto do Prisma
+  const tenant = await prisma.tenant.findUnique({
+    where: { slug: tenantSlug },
+    include: {
+      services: {
+        orderBy: { createdAt: 'desc' }
+      }
+    }
+  });
+
+  if (!tenant) {
+    notFound();
+  }
+
+  // Fallbacks para as imagens e textos caso não estejam configurados
+  const coverUrl = tenant.coverUrl || 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
+  const logoUrl = tenant.logoUrl || 'https://images.unsplash.com/photo-1599305090598-fe179d501227?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80';
+  const description = tenant.description || 'A melhor barbearia da região. Profissionais qualificados e ambiente climatizado para o seu conforto.';
 
   return (
     <main className="min-h-screen bg-background relative pb-24">
       {/* Imagem de Capa */}
       <div 
         className="w-full h-64 md:h-80 bg-cover bg-center relative"
-        style={{ backgroundImage: `url(${mockTenant.coverUrl})` }}
+        style={{ backgroundImage: `url(${coverUrl})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
       </div>
@@ -31,13 +43,13 @@ export default async function TenantPage({
         {/* Info do Estabelecimento */}
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
           <img 
-            src={mockTenant.logoUrl} 
-            alt={mockTenant.name} 
+            src={logoUrl} 
+            alt={tenant.name} 
             className="w-32 h-32 rounded-full border-4 border-background shadow-lg object-cover"
           />
           <div className="mb-2">
-            <h1 className="text-3xl md:text-4xl font-bold">{mockTenant.name}</h1>
-            <p className="text-gray-400 mt-2 max-w-xl">{mockTenant.description}</p>
+            <h1 className="text-3xl md:text-4xl font-bold">{tenant.name}</h1>
+            <p className="text-gray-400 mt-2 max-w-xl">{description}</p>
           </div>
         </div>
 
@@ -52,22 +64,34 @@ export default async function TenantPage({
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Serviço Mockado 1 */}
-            <div className="glass-panel p-4 flex justify-between items-center hover:border-primary/50 transition-colors">
-              <div>
-                <h3 className="font-medium text-lg">Corte Degradê</h3>
-                <p className="text-gray-400 text-sm">45 min</p>
-              </div>
-              <p className="text-primary font-bold text-xl">R$ 50,00</p>
-            </div>
-            {/* Serviço Mockado 2 */}
-            <div className="glass-panel p-4 flex justify-between items-center hover:border-primary/50 transition-colors">
-              <div>
-                <h3 className="font-medium text-lg">Barba Terapia</h3>
-                <p className="text-gray-400 text-sm">30 min</p>
-              </div>
-              <p className="text-primary font-bold text-xl">R$ 35,00</p>
-            </div>
+            {tenant.services.length === 0 ? (
+              <p className="text-gray-500 text-sm py-4">Nenhum serviço cadastrado ainda.</p>
+            ) : (
+              tenant.services.map((service) => (
+                <div 
+                  key={service.id} 
+                  className="glass-panel p-4 flex justify-between items-center hover:border-primary/50 transition-colors gap-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={service.imageUrl || 'https://placehold.co/150x150/cccccc/ffffff?text=Sem+Foto'} 
+                      alt={service.name} 
+                      className="w-16 h-16 rounded-xl object-cover shadow-sm" 
+                    />
+                    <div>
+                      <h3 className="font-semibold text-lg text-white">{service.name}</h3>
+                      <p className="text-gray-400 text-sm">{service.duration} min</p>
+                      {service.description && (
+                        <p className="text-gray-500 text-xs mt-1 line-clamp-1">{service.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-primary font-bold text-xl whitespace-nowrap">
+                    R$ {service.price.toFixed(2).replace('.', ',')}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
