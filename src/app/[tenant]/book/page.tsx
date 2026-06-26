@@ -2,6 +2,8 @@ import prisma from "@/lib/prisma";
 import BookingFlow from "@/components/BookingFlow";
 import { notFound } from "next/navigation";
 
+export const dynamic = 'force-dynamic';
+
 export default async function BookingPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant } = await params;
 

@@ -111,6 +111,16 @@ export default function EditServiceModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Foto do Serviço (Nova foto substitui a atual)</label>
+            {service.imageUrl && (
+              <div className="mb-3">
+                <span className="block text-xs text-gray-500 mb-1">Imagem atual:</span>
+                <img 
+                  src={service.imageUrl} 
+                  alt={service.name} 
+                  className="w-20 h-20 rounded-lg object-cover border border-gray-200"
+                />
+              </div>
+            )}
             <input 
               type="file" 
               name="imageFile" 

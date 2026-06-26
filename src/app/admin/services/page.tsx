@@ -3,6 +3,8 @@ import { getEmployees } from "@/actions/employees";
 import CreateServiceForm from "./components/CreateServiceForm";
 import EditServiceButton from "./components/EditServiceButton";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminServices() {
   const [services, employees] = await Promise.all([
     getServices(),
