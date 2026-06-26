@@ -3,6 +3,7 @@
 import { login } from "@/actions/auth";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -34,11 +35,9 @@ export default function LoginPage() {
       {/* Main Card */}
       <div className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl p-8 relative z-10">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-xl mb-4 shadow-lg shadow-blue-500/30">
-            B
-          </div>
+          <Image src="/logo.png" alt="Logo" width={200} height={200} />
           <h1 className="text-2xl font-bold text-white tracking-tight">Painel de Acesso</h1>
-          <p className="text-sm text-slate-400 mt-1">Brutus Barbearia & Estabelecimentos</p>
+          <p className="text-sm text-slate-400 mt-1">Lexon Digital Agendamentos</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
