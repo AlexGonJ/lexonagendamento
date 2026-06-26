@@ -25,7 +25,8 @@ export async function getServices() {
   const tenantId = await getDefaultTenant();
   return await prisma.service.findMany({
     where: { tenantId },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    include: { employees: true }
   });
 }
 
@@ -37,6 +38,7 @@ export async function createService(formData: FormData) {
   const price = parseFloat(formData.get("price") as string);
   const duration = parseInt(formData.get("duration") as string);
   const category = formData.get("category") as string;
+  const employeeIdsStr = formData.get("employeeIds") as string;
   
   const imageFile = formData.get("imageFile") as File;
 
@@ -46,22 +48,17 @@ export async function createService(formData: FormData) {
 
   let finalImageUrl = null;
 
-  // Se o usuário selecionou uma imagem
   if (imageFile && imageFile.size > 0) {
-    // 1. Lemos o buffer do arquivo
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 2. Processamos com Sharp: Redimensiona para 500x500 (max) e converte para webp (qualidade 80)
     const processedImageBuffer = await sharp(buffer)
       .resize(500, 500, { fit: 'cover', withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer();
 
-    // 3. Geramos um nome único para o arquivo
     const fileName = `${tenantId}/${crypto.randomUUID()}.webp`;
 
-    // 4. Fazemos upload para o Supabase Storage no bucket "public-images"
     const { error: uploadError } = await supabaseAdmin.storage
       .from('public-images')
       .upload(fileName, processedImageBuffer, {
@@ -74,7 +71,6 @@ export async function createService(formData: FormData) {
       throw new Error("Erro ao fazer upload da imagem.");
     }
 
-    // 5. Pegamos a URL Pública do arquivo recém upado
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
       .getPublicUrl(fileName);
@@ -82,7 +78,8 @@ export async function createService(formData: FormData) {
     finalImageUrl = publicUrlData.publicUrl;
   }
 
-  // 6. Salvamos o serviço no Prisma
+  const employeeIds = employeeIdsStr ? JSON.parse(employeeIdsStr) : [];
+
   await prisma.service.create({
     data: {
       name,
@@ -92,16 +89,86 @@ export async function createService(formData: FormData) {
       category,
       imageUrl: finalImageUrl,
       tenantId,
+      employees: {
+        connect: employeeIds.map((id: string) => ({ id }))
+      }
     }
   });
 
-  // Revalida a página para exibir o novo serviço imediatamente
+  revalidatePath("/admin/services");
+  revalidatePath("/brutusbarbearia/book"); 
+}
+
+export async function updateService(id: string, formData: FormData) {
+  const tenantId = await getDefaultTenant();
+  
+  const name = formData.get("name") as string;
+  const description = formData.get("description") as string;
+  const price = parseFloat(formData.get("price") as string);
+  const duration = parseInt(formData.get("duration") as string);
+  const category = formData.get("category") as string;
+  const employeeIdsStr = formData.get("employeeIds") as string;
+  
+  const imageFile = formData.get("imageFile") as File;
+
+  if (!name || !price || !duration || !category) {
+    throw new Error("Preencha todos os campos obrigatórios.");
+  }
+
+  let finalImageUrl = undefined;
+
+  if (imageFile && imageFile.size > 0) {
+    const arrayBuffer = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const processedImageBuffer = await sharp(buffer)
+      .resize(500, 500, { fit: 'cover', withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    const fileName = `${tenantId}/${crypto.randomUUID()}.webp`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('public-images')
+      .upload(fileName, processedImageBuffer, {
+        contentType: 'image/webp',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error("Erro no upload do storage:", uploadError);
+      throw new Error("Erro ao fazer upload da imagem.");
+    }
+
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from('public-images')
+      .getPublicUrl(fileName);
+
+    finalImageUrl = publicUrlData.publicUrl;
+  }
+
+  const employeeIds = employeeIdsStr ? JSON.parse(employeeIdsStr) : [];
+
+  await prisma.service.update({
+    where: { id },
+    data: {
+      name,
+      description,
+      price,
+      duration,
+      category,
+      ...(finalImageUrl !== undefined && { imageUrl: finalImageUrl }),
+      employees: {
+        set: employeeIds.map((eid: string) => ({ id: eid }))
+      }
+    }
+  });
+
   revalidatePath("/admin/services");
   revalidatePath("/brutusbarbearia/book"); 
 }
 
 export async function deleteService(id: string) {
-  // Opcional: Aqui poderíamos deletar a imagem do Storage também, mas por enquanto vamos só deletar o registro.
   await prisma.service.delete({
     where: { id }
   });

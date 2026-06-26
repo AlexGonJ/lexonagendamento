@@ -192,23 +192,33 @@ export default function BookingFlow({ tenantSlug, services, employees }: { tenan
             <div className="animate-fade-in">
               <h2 className="text-xl font-bold mb-6">Escolha o Profissional</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {employees.map(emp => (
-                  <button
-                    key={emp.id}
-                    onClick={() => { setSelectedEmployee(emp); setStep(3); }}
-                    className="p-4 rounded-2xl border border-glass-border hover:border-primary bg-white/5 transition-all flex flex-col items-center text-center gap-3 group"
-                  >
-                    <img 
-                      src={emp.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random`} 
-                      alt={emp.name} 
-                      className="w-20 h-20 rounded-full object-cover group-hover:scale-105 transition-transform" 
-                    />
-                    <div>
-                      <h3 className="font-semibold text-lg">{emp.name}</h3>
-                      <p className="text-primary text-sm">{emp.role}</p>
-                    </div>
-                  </button>
-                ))}
+                {(() => {
+                  const allowedEmployees = selectedService?.employees?.length > 0
+                    ? employees.filter(emp => selectedService.employees.some((se: any) => se.id === emp.id))
+                    : employees; // fallback para todos se não configurado
+                    
+                  if (allowedEmployees.length === 0) {
+                    return <p className="text-gray-400 col-span-2">Nenhum profissional disponível para este serviço.</p>;
+                  }
+
+                  return allowedEmployees.map(emp => (
+                    <button
+                      key={emp.id}
+                      onClick={() => { setSelectedEmployee(emp); setStep(3); }}
+                      className="p-4 rounded-2xl border border-glass-border hover:border-primary bg-white/5 transition-all flex flex-col items-center text-center gap-3 group"
+                    >
+                      <img 
+                        src={emp.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random`} 
+                        alt={emp.name} 
+                        className="w-20 h-20 rounded-full object-cover group-hover:scale-105 transition-transform" 
+                      />
+                      <div>
+                        <h3 className="font-semibold text-lg">{emp.name}</h3>
+                        <p className="text-primary text-sm">{emp.role}</p>
+                      </div>
+                    </button>
+                  ));
+                })()}
               </div>
               <div className="mt-8 flex justify-between">
                 <button onClick={() => setStep(1)} className="px-6 py-3 bg-white/10 text-white font-semibold rounded-xl hover:bg-white/20 transition-all border border-glass-border">

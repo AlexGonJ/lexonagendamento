@@ -1,8 +1,13 @@
-import { getServices, createService, deleteService } from "@/actions/services";
+import { getServices, deleteService } from "@/actions/services";
+import { getEmployees } from "@/actions/employees";
+import CreateServiceForm from "./components/CreateServiceForm";
+import EditServiceButton from "./components/EditServiceButton";
 
 export default async function AdminServices() {
-  // Busca os serviços direto do banco via Prisma
-  const services = await getServices();
+  const [services, employees] = await Promise.all([
+    getServices(),
+    getEmployees()
+  ]);
 
   return (
     <div>
@@ -17,83 +22,7 @@ export default async function AdminServices() {
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Adicionar Serviço</h2>
             
-            <form action={createService} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Serviço</label>
-                <input 
-                  type="text" 
-                  name="name" 
-                  required 
-                  placeholder="Ex: Corte Degradê"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição (Opcional)</label>
-                <input 
-                  type="text" 
-                  name="description" 
-                  placeholder="Ex: Corte com máquina e tesoura"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$)</label>
-                  <input 
-                    type="number" 
-                    name="price"
-                    step="0.01" 
-                    required 
-                    placeholder="50.00"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (Min)</label>
-                  <input 
-                    type="number" 
-                    name="duration" 
-                    required 
-                    placeholder="45"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                <select 
-                  name="category"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  <option value="Cabelo">Cabelo</option>
-                  <option value="Barba">Barba</option>
-                  <option value="Combo">Combo</option>
-                  <option value="Estética">Estética</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Foto do Serviço (Opcional)</label>
-                <input 
-                  type="file" 
-                  name="imageFile" 
-                  accept="image/*"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                <p className="text-xs text-gray-500 mt-1">A imagem será cortada automaticamente e otimizada (WebP).</p>
-              </div>
-
-              <button 
-                type="submit"
-                className="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors mt-2"
-              >
-                Salvar Serviço
-              </button>
-            </form>
+            <CreateServiceForm employees={employees} />
           </div>
         </div>
 
@@ -140,14 +69,17 @@ export default async function AdminServices() {
                         </td>
                         <td className="p-4 text-sm text-gray-700">{service.duration} min</td>
                         <td className="p-4 text-center">
-                          <form action={async () => {
-                            "use server";
-                            await deleteService(service.id);
-                          }}>
-                            <button type="submit" className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors">
-                              Excluir
-                            </button>
-                          </form>
+                          <div className="flex items-center justify-center">
+                            <EditServiceButton service={service} employees={employees} />
+                            <form action={async () => {
+                              "use server";
+                              await deleteService(service.id);
+                            }}>
+                              <button type="submit" className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors">
+                                Excluir
+                              </button>
+                            </form>
+                          </div>
                         </td>
                       </tr>
                     ))

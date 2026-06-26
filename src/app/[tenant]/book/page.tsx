@@ -10,7 +10,8 @@ export default async function BookingPage({ params }: { params: Promise<{ tenant
     where: { slug: tenant },
     include: {
       services: {
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: { employees: true }
       },
       employees: {
         orderBy: { createdAt: 'desc' }

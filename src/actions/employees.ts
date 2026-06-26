@@ -16,7 +16,8 @@ export async function getEmployees() {
   const tenantId = await getDefaultTenant();
   return await prisma.employee.findMany({
     where: { tenantId },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    include: { services: true }
   });
 }
 
