@@ -4,19 +4,23 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { getAvailableSlots } from '@/actions/availability';
 import { createBooking } from '@/actions/booking';
+import { getActiveSubscription } from '@/actions/plans';
 import { addDays, format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { sendClientOtp, verifyClientOtp, loginClientOAuth, verifyGoogleIdToken } from '@/actions/auth';
 
 export default function BookingFlow({ 
+  tenantId,
   tenantSlug, 
   services, 
   employees,
   initialClient 
 }: { 
+  tenantId: string,
   tenantSlug: string, 
   services: any[], 
   employees: any[],
-  initialClient?: { name: string, phone: string } | null
+  initialClient?: { name: string, phone: string, email?: string | null } | null
 }) {
   // Estados do Agendamento
   const [step, setStep] = useState(1);
@@ -25,10 +29,220 @@ export default function BookingFlow({
   const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
 
+  // Estado de Sessão Ativa do Cliente no fluxo
+  const [client, setClient] = useState<any>(initialClient || null);
+
   // Estados do Cliente (Passo 4)
   const [clientName, setClientName] = useState(initialClient?.name || '');
   const [clientPhone, setClientPhone] = useState(initialClient?.phone || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados de Assinatura do Cliente
+  const [activePlan, setActivePlan] = useState<any>(null);
+  const [usePlanCredit, setUsePlanCredit] = useState(false);
+
+  // Estados de Verificação e OTP
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [msg, setMsg] = useState({ type: "", text: "" });
+
+  // Estados para Google OAuth
+  const [showGooglePhoneLink, setShowGooglePhoneLink] = useState(false);
+  const [oauthData, setOauthData] = useState<any>(null);
+
+  // Carregar script do Google Identity Services
+  useEffect(() => {
+    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!googleClientId) return;
+
+    if (step !== 4) return;
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if ((window as any).google) {
+        (window as any).google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleCredentialResponse,
+        });
+        (window as any).google.accounts.id.renderButton(
+          document.getElementById("google-signin-button-booking"),
+          { theme: "outline", size: "large", width: 280 }
+        );
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      try {
+        document.body.removeChild(script);
+      } catch (e) {
+        // Silenciar erro
+      }
+    };
+  }, [step]);
+
+  // Resetar validação se o telefone digitado for modificado e não bater com a sessão ativa
+  useEffect(() => {
+    const cleanInput = clientPhone.replace(/\D/g, "");
+    const cleanSession = client?.phone?.replace(/\D/g, "") || "";
+    
+    if (client && cleanInput !== cleanSession) {
+      setClient(null);
+      setOtpVerified(false);
+      setOtpSent(false);
+      setMsg({ type: "", text: "" });
+    }
+  }, [clientPhone, client]);
+
+  async function handleGoogleCredentialResponse(response: any) {
+    if (!response.credential) return;
+    setIsSubmitting(true);
+    setMsg({ type: "", text: "" });
+
+    try {
+      const verifyRes = await verifyGoogleIdToken(response.credential);
+      if (verifyRes.success && verifyRes.googleId && verifyRes.email) {
+        const oauthRes = await loginClientOAuth({
+          email: verifyRes.email,
+          googleId: verifyRes.googleId,
+          name: verifyRes.name || "Cliente Google",
+        });
+
+        if (oauthRes.success) {
+          if (oauthRes.linked && oauthRes.client) {
+            setClient(oauthRes.client);
+            setClientName(oauthRes.client.name);
+            setClientPhone(oauthRes.client.phone);
+            setMsg({ type: "ok", text: "Autenticado via Google com sucesso!" });
+          } else {
+            // Precisa vincular telefone
+            setOauthData(oauthRes.oauthData);
+            setShowGooglePhoneLink(true);
+            setMsg({ type: "info", text: "Para concluir seu login com o Google, precisamos vincular seu número de WhatsApp." });
+          }
+        } else {
+          setMsg({ type: "err", text: oauthRes.error || "Erro ao logar com o Google." });
+        }
+      } else {
+        setMsg({ type: "err", text: verifyRes.error || "Token do Google inválido." });
+      }
+    } catch (err: any) {
+      console.error("Erro no login social do agendamento:", err);
+      setMsg({ type: "err", text: "Erro ao processar login com o Google." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSimulateGoogle() {
+    setIsSubmitting(true);
+    setMsg({ type: "", text: "" });
+
+    const mockData = {
+      email: "cliente.google@exemplo.com",
+      googleId: `g_${Math.random().toString(36).substr(2, 9)}`,
+      name: "Cliente Simulado Google",
+    };
+
+    try {
+      const oauthRes = await loginClientOAuth(mockData);
+      if (oauthRes.success) {
+        if (oauthRes.linked && oauthRes.client) {
+          setClient(oauthRes.client);
+          setClientName(oauthRes.client.name);
+          setClientPhone(oauthRes.client.phone);
+          setMsg({ type: "ok", text: "Simulação de Login Social realizada!" });
+        } else {
+          setOauthData(oauthRes.oauthData);
+          setShowGooglePhoneLink(true);
+          setMsg({ type: "info", text: "Vincule um WhatsApp para concluir o login simulado." });
+        }
+      } else {
+        setMsg({ type: "err", text: oauthRes.error || "Erro ao simular login." });
+      }
+    } catch (err) {
+      setMsg({ type: "err", text: "Erro ao processar simulação." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSendOtp() {
+    if (!clientPhone) {
+      alert("Por favor, digite seu número de WhatsApp.");
+      return;
+    }
+    setIsSubmitting(true);
+    setMsg({ type: "", text: "" });
+
+    const res = await sendClientOtp(clientPhone, tenantId);
+    setIsSubmitting(false);
+
+    if (res.success) {
+      setOtpSent(true);
+      if (res.code) {
+        setMsg({ type: "ok", text: `[Modo de Teste] Código enviado via WhatsApp: ${res.code}` });
+      } else {
+        setMsg({ type: "ok", text: "Código enviado com sucesso via WhatsApp." });
+      }
+    } else {
+      setMsg({ type: "err", text: res.error || "Erro ao enviar código de segurança." });
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpCode) return;
+    setIsSubmitting(true);
+    setMsg({ type: "", text: "" });
+
+    if (showGooglePhoneLink && oauthData) {
+      const res = await verifyClientOtp(clientPhone, otpCode, oauthData.name || clientName);
+      if (res.success) {
+        const oauthRes = await loginClientOAuth({
+          ...oauthData,
+          phone: clientPhone
+        });
+        setIsSubmitting(false);
+        if (oauthRes.success && oauthRes.client) {
+          setClient(oauthRes.client);
+          setClientName(oauthRes.client.name);
+          setClientPhone(oauthRes.client.phone);
+          setShowGooglePhoneLink(false);
+          setOauthData(null);
+          setOtpSent(false);
+          setOtpCode("");
+          setMsg({ type: "ok", text: "Número vinculado e login com Google concluído!" });
+        } else {
+          setMsg({ type: "err", text: oauthRes.error || "Erro ao vincular conta." });
+        }
+      } else {
+        setIsSubmitting(false);
+        setMsg({ type: "err", text: res.error || "Código incorreto." });
+      }
+      return;
+    }
+
+    const res = await verifyClientOtp(clientPhone, otpCode, clientName);
+    setIsSubmitting(false);
+
+    if (res.success && res.client) {
+      setClient(res.client);
+      setClientName(res.client.name);
+      setClientPhone(res.client.phone);
+      setOtpVerified(true);
+      setOtpSent(false);
+      setOtpCode("");
+      setMsg({ type: "ok", text: "Celular verificado com sucesso!" });
+    } else if (res.needsName) {
+      setMsg({ type: "info", text: "Primeiro acesso! Por favor, informe seu nome completo para prosseguir." });
+    } else {
+      setMsg({ type: "err", text: res.error || "Código incorreto." });
+    }
+  }
 
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [isLoadingTimes, setIsLoadingTimes] = useState(false);
@@ -63,11 +277,40 @@ export default function BookingFlow({
     }
   }, [selectedDateStr, selectedEmployee, selectedService]);
 
+  // Efeito para carregar assinatura ativa quando o telefone mudar
+  useEffect(() => {
+    const clean = clientPhone.replace(/\D/g, "");
+    if (clean.length >= 10) {
+      getActiveSubscription(clean, tenantSlug)
+        .then(sub => {
+          if (sub) {
+            setActivePlan(sub);
+            setUsePlanCredit(true); // padrão é usar se disponível
+          } else {
+            setActivePlan(null);
+            setUsePlanCredit(false);
+          }
+        })
+        .catch(() => {
+          setActivePlan(null);
+          setUsePlanCredit(false);
+        });
+    } else {
+      setActivePlan(null);
+      setUsePlanCredit(false);
+    }
+  }, [clientPhone, tenantSlug]);
+
   const stepTitles = ["Serviço", "Profissional", "Data e horário", "Pagamento"];
 
   const handleConfirmBooking = async () => {
     if (!clientName || !clientPhone) {
       alert("Por favor, preencha seu nome e WhatsApp.");
+      return;
+    }
+
+    if (!client) {
+      alert("Por favor, valide seu celular ou faça login antes de confirmar.");
       return;
     }
 
@@ -80,7 +323,8 @@ export default function BookingFlow({
       dateStr: selectedDateStr,
       timeStr: selectedTime,
       clientName,
-      clientPhone
+      clientPhone,
+      customerSubscriptionId: usePlanCredit && activePlan ? activePlan.id : undefined,
     });
 
     setIsSubmitting(false);
@@ -337,30 +581,185 @@ export default function BookingFlow({
           {step === 4 && (
             <div className="animate-fade-in">
               <h2 className="text-2xl font-bold mb-2">Finalizar Agendamento</h2>
-              <p className="text-gray-400 text-sm mb-6">Para confirmar, informe seus dados.</p>
+              <p className="text-gray-400 text-sm mb-6">Valide sua identidade antes de agendar para garantir a segurança da reserva.</p>
               
               <div className="space-y-4">
-                <input 
-                  type="text" 
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Seu Nome Completo" 
-                  className="w-full p-4 rounded-2xl bg-black/50 border border-glass-border text-white focus:outline-none focus:border-primary transition-colors"
-                />
-                <input 
-                  type="tel" 
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
-                  placeholder="WhatsApp (ex: 11999999999)" 
-                  className="w-full p-4 rounded-2xl bg-black/50 border border-glass-border text-white focus:outline-none focus:border-primary transition-colors"
-                />
-                <button 
-                  disabled={isSubmitting}
-                  className={`w-full bg-gradient-to-r from-primary to-accent text-background font-bold py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all mt-4 flex justify-center items-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  onClick={handleConfirmBooking}
-                >
-                  {isSubmitting ? 'Confirmando...' : 'Confirmar Agendamento'}
-                </button>
+                
+                {/* 1. SE ESTIVER LOGADO E VALIDADO */}
+                {client ? (
+                  <div className="bg-white/5 border border-primary/30 p-5 rounded-2xl space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-primary font-bold uppercase tracking-wider">Identidade Confirmada</p>
+                        <h4 className="text-lg font-bold text-white mt-1">{client.name}</h4>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">{client.phone}</p>
+                        {client.email && <p className="text-xs text-slate-500 mt-0.5">{client.email}</p>}
+                      </div>
+                      <span className="text-2xl">✓</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClient(null);
+                        setOtpVerified(false);
+                      }}
+                      className="text-xs text-red-400 hover:text-red-300 underline font-medium cursor-pointer"
+                    >
+                      Alterar Identificação / Sair
+                    </button>
+                  </div>
+                ) : (
+                  /* 2. SE NÃO ESTIVER LOGADO (FORMULÁRIO DE LOGIN E VERIFICAÇÃO) */
+                  <div className="space-y-4">
+                    {/* Campos de Nome e Celular */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nome Completo</label>
+                        <input 
+                          type="text" 
+                          disabled={otpSent}
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          placeholder="Ex: João Silva" 
+                          className="w-full p-4 rounded-2xl bg-black/50 border border-glass-border text-white focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">WhatsApp para Verificação</label>
+                        <input 
+                          type="tel" 
+                          disabled={otpSent}
+                          value={clientPhone}
+                          onChange={(e) => setClientPhone(e.target.value)}
+                          placeholder="Ex: 11999999999" 
+                          className="w-full p-4 rounded-2xl bg-black/50 border border-glass-border text-white focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+
+                    {msg.text && (
+                      <div className={`text-xs p-3.5 rounded-xl ${
+                        msg.type === "ok" 
+                          ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono" 
+                          : msg.type === "info" 
+                            ? "bg-blue-500/10 border border-blue-500/20 text-blue-400" 
+                            : "bg-red-500/10 border border-red-500/20 text-red-400"
+                      }`}>
+                        {msg.text}
+                      </div>
+                    )}
+
+                    {/* Exibir envio de código OTP */}
+                    {otpSent ? (
+                      <div className="bg-white/5 border border-glass-border p-4 rounded-2xl space-y-3 animate-fade-in">
+                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Código de 6 dígitos recebido:</label>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                          placeholder="000000"
+                          className="w-full text-center tracking-[10px] text-lg bg-black/70 border border-glass-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-all placeholder:text-slate-800"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOtpSent(false);
+                              setOtpCode("");
+                              setMsg({ type: "", text: "" });
+                            }}
+                            className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold border border-white/5 transition-all cursor-pointer"
+                          >
+                            Voltar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleVerifyOtp}
+                            disabled={isSubmitting || otpCode.length < 6}
+                            className="flex-[2] py-3 bg-gradient-to-r from-primary to-accent text-background rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isSubmitting ? "Validando..." : "Verificar Código"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Botão de Enviar OTP */}
+                        <button
+                          type="button"
+                          onClick={handleSendOtp}
+                          disabled={isSubmitting || !clientPhone || clientPhone.replace(/\D/g, "").length < 10}
+                          className="w-full bg-white/10 hover:bg-white/15 border border-glass-border text-white font-bold py-3.5 rounded-2xl transition-all cursor-pointer disabled:opacity-50 text-sm"
+                        >
+                          {isSubmitting ? "Carregando..." : "Validar WhatsApp para Agendar"}
+                        </button>
+
+                        {!showGooglePhoneLink && (
+                          <>
+                            {/* Divisor */}
+                            <div className="relative flex items-center justify-center my-6">
+                              <div className="w-full h-px bg-slate-800"></div>
+                              <span className="absolute px-3 bg-background text-slate-500 text-xs font-medium uppercase tracking-wider">
+                                ou autenticar com
+                              </span>
+                            </div>
+
+                            {/* Google Sign-In real ou mock */}
+                            {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+                              <div className="flex justify-center w-full">
+                                <div id="google-signin-button-booking"></div>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleSimulateGoogle}
+                                className="w-full flex items-center justify-center gap-2 py-3 bg-black/60 hover:bg-slate-900 border border-slate-800 text-white text-xs font-semibold rounded-2xl transition-all cursor-pointer"
+                              >
+                                <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.176 4.113-3.415 0-6.19-2.775-6.19-6.19 0-3.415 2.775-6.19 6.19-6.19 1.488 0 2.85.535 3.903 1.488l3.123-3.123C18.91 2.215 15.8 1 12.24 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.48 0 11.24-4.514 11.24-11.24 0-.765-.078-1.503-.23-1.955H12.24z" />
+                                </svg>
+                                Login com Google (Simulado)
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Bloco de Assinatura */}
+                {client && activePlan && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center justify-between animate-fade-in">
+                    <div>
+                      <p className="text-emerald-400 font-bold text-xs">Você tem um plano ativo!</p>
+                      <p className="text-white font-semibold text-sm mt-0.5">{activePlan.plan.name}</p>
+                      <p className="text-slate-400 text-[11px] mt-0.5">{activePlan.remainingSlots} créditos restantes</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="use-credit" className="text-xs text-white cursor-pointer font-medium">Usar plano?</label>
+                      <input
+                        id="use-credit"
+                        type="checkbox"
+                        checked={usePlanCredit}
+                        onChange={(e) => setUsePlanCredit(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded bg-black/40 border-glass-border focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Botão de Confirmação Final de Agendamento */}
+                {client && (
+                  <button 
+                    disabled={isSubmitting}
+                    className={`w-full bg-gradient-to-r from-primary to-accent text-background font-bold py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all mt-4 flex justify-center items-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    onClick={handleConfirmBooking}
+                  >
+                    {isSubmitting ? 'Confirmando...' : 'Confirmar Agendamento'}
+                  </button>
+                )}
               </div>
 
               <div className="mt-8">
@@ -377,13 +776,46 @@ export default function BookingFlow({
                 <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">Agendamento Confirmado!</h2>
-              <p className="text-gray-400 mb-8 max-w-md">
+              <p className="text-gray-400 mb-6 max-w-md">
                 Tudo certo, <strong>{clientName}</strong>! Seu horário com {selectedEmployee?.name} está marcado para {selectedDateStr.split('-').reverse().join('/')} às {selectedTime}.
               </p>
+
+              {/* Botão de Exportar para o Google Calendar */}
+              {(() => {
+                try {
+                  const start = new Date(`${selectedDateStr}T${selectedTime}:00.000Z`);
+                  const end = new Date(start.getTime() + (selectedService?.duration || 30) * 60 * 1000);
+                  
+                  const formatUTC = (date: Date) => {
+                    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+                  };
+
+                  const title = `${selectedService.name} - ${tenantSlug.toUpperCase()}`;
+                  const details = `Seu agendamento foi confirmado com sucesso!\n\nProfissional: ${selectedEmployee?.name}\nServiço: ${selectedService.name}\nDuração: ${selectedService.duration} min\nValor: R$ ${selectedService.price.toFixed(2)}`;
+                  
+                  const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatUTC(start)}/${formatUTC(end)}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(tenantSlug.toUpperCase())}`;
+
+                  return (
+                    <a 
+                      href={gCalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full max-w-xs mb-6 flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-md cursor-pointer border border-blue-500 text-sm animate-fade-in"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
+                      </svg>
+                      Adicionar ao Google Agenda
+                    </a>
+                  );
+                } catch (e) {
+                  return null;
+                }
+              })()}
               
               <Link 
                 href={`/${tenantSlug}`}
-                className="px-8 py-4 bg-white/10 text-white font-bold rounded-2xl hover:bg-white/20 transition-all border border-glass-border"
+                className="px-8 py-4 bg-white/10 text-white font-bold rounded-2xl hover:bg-white/20 transition-all border border-glass-border w-full max-w-xs block text-center"
               >
                 Voltar para o Início
               </Link>

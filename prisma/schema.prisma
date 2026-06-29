@@ -23,6 +23,34 @@ model Tenant {
   employees   Employee[]
   bookings    Booking[]
   tenantPlans TenantPlan[]
+
+  // WhatsApp Integration Settings
+  whatsappEnabled          Boolean   @default(false)
+  whatsappProvider         String    @default("simulador") // "simulador", "evolution", "meta"
+  whatsappApiUrl           String?
+  whatsappToken            String?
+  whatsappNumber           String?   // Nome da Instância (Evolution) ou Phone Number ID (Meta)
+  whatsappWabaId           String?   // Meta WABA ID
+
+  // WhatsApp Automations
+  whatsappConfirmEnabled   Boolean   @default(false)
+  whatsappConfirmTemplate  String?   @default("Olá {nome}, seu agendamento para {servico} com {profissional} no dia {data} às {hora} foi confirmado!")
+
+  whatsappReminderEnabled  Boolean   @default(false)
+  whatsappReminderHours    Int       @default(2)
+  whatsappReminderTemplate String?   @default("Olá {nome}, passando para lembrar do seu horário de {servico} hoje às {hora} com {profissional}!")
+
+  whatsappInactiveEnabled  Boolean   @default(false)
+  whatsappInactiveDays     Int       @default(30)
+  whatsappInactiveTemplate String?   @default("Olá {nome}, faz {dias} dias que você não nos visita! Que tal agendar um novo horário?")
+
+  // WhatsApp cancellation notification to professional
+  whatsappCancelNotifyEnabled  Boolean @default(true)
+  whatsappCancelNotifyTemplate String? @default("Olá {profissional}, o cliente {nome} desmarcou o agendamento de {servico} do dia {data} às {hora}.")
+
+  customerPlans         CustomerPlan[]
+  customerSubscriptions CustomerSubscription[]
+  expenses              Expense[]
 }
 
 model Plan {
@@ -75,6 +103,8 @@ model Employee {
   avatarUrl          String?
   googleCalendarSync Boolean    @default(false)
   calendarToken      String?    // Refresh token for OAuth Google Calendar Sync
+  phone              String?
+  commissionRate     Float      @default(50.0) // Percentage of commission (e.g. 50.0 = 50%)
   tenantId           String
   tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt          DateTime   @default(now())
@@ -103,23 +133,30 @@ model Client {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   bookings  Booking[]
+
+  whatsappInactiveSentAt DateTime?
+  customerSubscriptions  CustomerSubscription[]
 }
 
 model Booking {
-  id         String   @id @default(uuid())
-  date       DateTime // Selected date & time
-  status     String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
-  notes      String?
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  serviceId  String
-  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  clientId   String
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                     String                @id @default(uuid())
+  date                   DateTime // Selected date & time
+  status                 String                @default("PENDING") // PENDING, CONFIRMED, CANCELLED
+  notes                  String?
+  tenantId               String
+  tenant                 Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serviceId              String
+  service                Service               @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  employeeId             String
+  employee               Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  clientId               String
+  client                 Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  customerSubscriptionId String?
+  customerSubscription   CustomerSubscription? @relation(fields: [customerSubscriptionId], references: [id], onDelete: SetNull)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  whatsappReminderSent Boolean @default(false)
 }
 
 model OtpVerification {
@@ -128,4 +165,57 @@ model OtpVerification {
   code      String
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model WhatsappLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  recipient  String
+  message    String
+  type       String   // CONFIRMATION, REMINDER, INACTIVE, TEST
+  status     String   // SENT, FAILED, SIMULATED
+  createdAt  DateTime @default(now())
+}
+
+model CustomerPlan {
+  id           String                 @id @default(uuid())
+  name         String                 // ex: "Clube da Barba Mensal"
+  price        Float                  // Preço cobrado do cliente
+  slots        Int                    // Qtd de agendamentos inclusos
+  periodDays   Int                    @default(30)
+  tenantId     String
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  isActive     Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  subscriptions CustomerSubscription[]
+}
+
+model CustomerSubscription {
+  id             String        @id @default(uuid())
+  clientId       String
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           CustomerPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  startDate      DateTime      @default(now())
+  endDate        DateTime
+  status         String        @default("ACTIVE") // ACTIVE, EXPIRED, CANCELLED
+  remainingSlots Int           // Slots restantes no ciclo atual
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  bookings       Booking[]
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  description String
+  amount      Float
+  date        DateTime
+  category    String   // ex: "Aluguel", "Energia", "Produtos", "Marketing", "Outros"
+  tenantId    String
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -174,30 +174,33 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
           </div>
 
           {/* Premium CSS Chart */}
-          <div className="flex-1 flex items-end justify-between gap-3 h-48 pt-6 pb-2 px-1 border-b border-gray-100">
+          <div className="flex-1 flex items-stretch justify-between gap-3 h-48 pt-6 pb-2 px-1 border-b border-gray-100">
             {chartData.map((d, idx) => {
               const maxRevenue = Math.max(...chartData.map(c => c.revenue), 1);
               const pctHeight = (d.revenue / maxRevenue) * 100;
               
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center group relative">
+                <div key={idx} className="flex-1 flex flex-col items-center group relative h-full">
                   {/* Tooltip on Hover */}
                   <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] font-bold py-1 px-2 rounded pointer-events-none shadow-md z-30 whitespace-nowrap">
                     R$ {d.revenue.toFixed(2).replace('.', ',')}
                   </div>
                   
-                  {/* Vertical Bar */}
-                  <div 
-                    className={`w-full rounded-t-md transition-all duration-300 ${
-                      idx === 5 
-                        ? "bg-gradient-to-t from-blue-600 to-blue-500 shadow-sm" 
-                        : "bg-slate-200 hover:bg-slate-300"
-                    }`}
-                    style={{ height: `${Math.max(pctHeight, 5)}%` }} // Force min height of 5% so it's visible even with 0 revenue
-                  ></div>
+                  {/* Container for the Bar to align it to the bottom of the graph area */}
+                  <div className="flex-1 w-full flex items-end justify-center mb-1">
+                    {/* Vertical Bar */}
+                    <div 
+                      className={`w-full rounded-t-md transition-all duration-300 ${
+                        idx === 5 
+                          ? "bg-gradient-to-t from-blue-600 to-blue-500 shadow-sm" 
+                          : "bg-slate-200 hover:bg-slate-300"
+                      }`}
+                      style={{ height: `${Math.max(pctHeight, 5)}%` }} // Force min height of 5% so it's visible even with 0 revenue
+                    ></div>
+                  </div>
                   
                   {/* Month Label */}
-                  <span className="text-[10px] font-bold text-gray-500 mt-2 block whitespace-nowrap">
+                  <span className="text-[10px] font-bold text-gray-500 mt-1 block whitespace-nowrap">
                     {d.monthLabel}
                   </span>
                 </div>

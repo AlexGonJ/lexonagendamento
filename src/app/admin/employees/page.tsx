@@ -40,6 +40,30 @@ export default async function AdminEmployees() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp / Celular (com DDD)</label>
+                <input
+                  type="text"
+                  name="phone"
+                  placeholder="Ex: 11999999999"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Taxa de Comissão (%) *</label>
+                <input
+                  type="number"
+                  name="commissionRate"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  required
+                  defaultValue={50}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
               <hr className="border-gray-200" />
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Acesso ao Sistema</p>
 
@@ -109,6 +133,7 @@ export default async function AdminEmployees() {
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="p-4 text-sm font-semibold text-gray-700">Profissional</th>
                     <th className="p-4 text-sm font-semibold text-gray-700">Cargo / Especialidade</th>
+                    <th className="p-4 text-sm font-semibold text-gray-700">Comissão</th>
                     <th className="p-4 text-sm font-semibold text-gray-700">Acesso</th>
                     <th className="p-4 text-sm font-semibold text-gray-700 text-center">Ações</th>
                   </tr>
@@ -138,7 +163,8 @@ export default async function AdminEmployees() {
                             )}
                           </div>
                         </td>
-                        <td className="p-4 text-sm text-gray-700">{emp.role}</td>
+                         <td className="p-4 text-sm text-gray-700">{emp.role}</td>
+                        <td className="p-4 text-sm text-gray-700 font-medium">{emp.commissionRate}%</td>
                         <td className="p-4 text-sm text-gray-500">
                           {emp.email ? (
                             <span className="flex items-center gap-1.5">

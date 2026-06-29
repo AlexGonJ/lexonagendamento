@@ -31,6 +31,7 @@ export default async function BookingPage({ params }: { params: Promise<{ tenant
 
   return (
     <BookingFlow 
+      tenantId={tenantData.id}
       tenantSlug={tenant} 
       services={tenantData.services} 
       employees={tenantData.employees} 

@@ -12,6 +12,8 @@ interface Employee {
   email: string | null;
   avatarUrl: string | null;
   isAdmin: boolean;
+  phone?: string | null;
+  commissionRate?: number;
 }
 
 interface EditEmployeeFormProps {
@@ -126,6 +128,31 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
                 name="role"
                 required
                 defaultValue={employee.role}
+                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp / Celular (com DDD)</label>
+              <input
+                type="text"
+                name="phone"
+                defaultValue={employee.phone || ""}
+                placeholder="Ex: 11999999999"
+                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Taxa de Comissão (%) *</label>
+              <input
+                type="number"
+                name="commissionRate"
+                min="0"
+                max="100"
+                step="0.1"
+                required
+                defaultValue={employee.commissionRate ?? 50.0}
                 className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>

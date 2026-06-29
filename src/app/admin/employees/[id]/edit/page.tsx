@@ -23,6 +23,8 @@ export default async function EditEmployeePage({ params }: PageProps) {
         email: employee.email,
         avatarUrl: employee.avatarUrl,
         isAdmin: employee.isAdmin,
+        phone: employee.phone,
+        commissionRate: employee.commissionRate,
       }}
     />
   );

@@ -68,6 +68,9 @@ export async function createEmployee(formData: FormData) {
   const password = formData.get("password") as string | null;
   const isAdmin = formData.get("isAdmin") === "on";
   const imageFile = formData.get("imageFile") as File;
+  const phone = formData.get("phone") as string | null;
+  const commissionRateStr = formData.get("commissionRate") as string | null;
+  const commissionRate = commissionRateStr ? parseFloat(commissionRateStr) : 50.0;
 
   if (!name || !role) {
     throw new Error("Preencha todos os campos obrigatórios.");
@@ -98,6 +101,8 @@ export async function createEmployee(formData: FormData) {
       passwordHash: password ? hashPassword(password) : null,
       isAdmin,
       avatarUrl: finalAvatarUrl,
+      phone: phone || null,
+      commissionRate,
       tenantId,
     },
   });
@@ -115,6 +120,9 @@ export async function updateEmployee(id: string, formData: FormData) {
   const newPassword = formData.get("password") as string | null;
   const isAdmin = formData.get("isAdmin") === "on";
   const imageFile = formData.get("imageFile") as File;
+  const phone = formData.get("phone") as string | null;
+  const commissionRateStr = formData.get("commissionRate") as string | null;
+  const commissionRate = commissionRateStr ? parseFloat(commissionRateStr) : 50.0;
 
   if (!name || !role) {
     throw new Error("Preencha todos os campos obrigatórios.");
@@ -147,6 +155,8 @@ export async function updateEmployee(id: string, formData: FormData) {
       passwordHash: newPassword ? hashPassword(newPassword) : current.passwordHash,
       isAdmin,
       avatarUrl: finalAvatarUrl,
+      phone: phone || null,
+      commissionRate,
     },
   });
 

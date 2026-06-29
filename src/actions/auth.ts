@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
+import { sendWhatsappMessage } from "@/lib/whatsapp";
 
 function hashPassword(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex");
@@ -105,7 +106,7 @@ export async function getCurrentClientSession(): Promise<ClientSessionData | nul
   }
 }
 
-export async function sendClientOtp(phone: string) {
+export async function sendClientOtp(phone: string, tenantId?: string) {
   try {
     if (!phone) return { success: false, error: "Telefone é obrigatório." };
 
@@ -125,6 +126,30 @@ export async function sendClientOtp(phone: string) {
         expiresAt,
       },
     });
+
+    // Se houver um tenantId e ele tiver WhatsApp habilitado, envia a mensagem de verdade
+    if (tenantId) {
+      try {
+        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (tenant && tenant.whatsappEnabled) {
+          await sendWhatsappMessage({
+            tenantId,
+            recipient: cleanPhone,
+            type: "TEST",
+            overrideMessage: `Seu código de verificação para acesso é: ${code}`,
+            data: {
+              clientName: "Cliente",
+              serviceName: "",
+              employeeName: "",
+              dateStr: "",
+              timeStr: ""
+            }
+          });
+        }
+      } catch (whatsappErr) {
+        console.error("Falha ao enviar OTP real via WhatsApp:", whatsappErr);
+      }
+    }
 
     console.log(`[WHATSAPP OTP] Código enviado para ${cleanPhone}: ${code}`);
     return {
@@ -208,6 +233,26 @@ export async function verifyClientOtp(phone: string, code: string, name?: string
   } catch (error: any) {
     console.error("Erro ao verificar OTP:", error);
     return { success: false, error: "Erro ao verificar código de segurança." };
+  }
+}
+
+export async function verifyGoogleIdToken(token: string) {
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    if (!res.ok) {
+      const errText = await res.text();
+      return { success: false, error: `Token inválido do Google: ${errText}` };
+    }
+    const payload = await res.json();
+    return {
+      success: true,
+      email: payload.email,
+      googleId: payload.sub,
+      name: payload.name,
+    };
+  } catch (error: any) {
+    console.error("Erro ao verificar token do Google:", error);
+    return { success: false, error: "Falha na validação do token do Google." };
   }
 }
 

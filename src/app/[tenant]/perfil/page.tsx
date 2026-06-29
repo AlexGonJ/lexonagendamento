@@ -20,8 +20,9 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   // 2. Buscar a sessão do cliente
   const clientSession = await getCurrentClientSession();
 
-  // 3. Se estiver logado, buscar agendamentos dele específicos para este estabelecimento (tenant)
+  // 3. Se estiver logado, buscar agendamentos dele e assinatura ativa específicos para este estabelecimento (tenant)
   let bookings: any[] = [];
+  let activeSubscription = null;
   if (clientSession) {
     bookings = await prisma.booking.findMany({
       where: {
@@ -36,17 +37,31 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
         date: "desc"
       }
     });
+
+    activeSubscription = await prisma.customerSubscription.findFirst({
+      where: {
+        clientId: clientSession.clientId,
+        tenantId: tenant.id,
+        status: "ACTIVE",
+        endDate: { gte: new Date() }
+      },
+      include: {
+        plan: true
+      }
+    });
   }
 
   const logoUrl = tenant.logoUrl || 'https://images.unsplash.com/photo-1599305090598-fe179d501227?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80';
 
   return (
     <ClientPortal
+      tenantId={tenant.id}
       tenantSlug={tenantSlug}
       tenantName={tenant.name}
       logoUrl={logoUrl}
       initialClient={clientSession}
       bookings={bookings}
+      activeSubscription={activeSubscription}
     />
   );
 }

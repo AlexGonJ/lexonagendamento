@@ -82,6 +82,34 @@ export default function AdminLayoutClient({
               >
                 Configurações
               </Link>
+              <Link 
+                href="/admin/whatsapp" 
+                onClick={() => setIsSidebarOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                Integração WhatsApp
+              </Link>
+              <Link 
+                href="/admin/crm" 
+                onClick={() => setIsSidebarOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                CRM Clientes
+              </Link>
+              <Link 
+                href="/admin/financial" 
+                onClick={() => setIsSidebarOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                Gerenciamento Financeiro
+              </Link>
+              <Link 
+                href="/admin/plans" 
+                onClick={() => setIsSidebarOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                Planos de Clientes
+              </Link>
             </>
           )}
 
