@@ -21,35 +21,35 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const clientSession = await getCurrentClientSession();
 
   // 3. Se estiver logado, buscar agendamentos dele e assinatura ativa específicos para este estabelecimento (tenant)
-  let bookings: any[] = [];
-  let activeSubscription = null;
-  if (clientSession) {
-    bookings = await prisma.booking.findMany({
-      where: {
-        clientId: clientSession.clientId,
-        tenantId: tenant.id
-      },
-      include: {
-        service: true,
-        employee: true
-      },
-      orderBy: {
-        date: "desc"
-      }
-    });
+  const bookings = clientSession
+    ? await prisma.booking.findMany({
+        where: {
+          clientId: clientSession.clientId,
+          tenantId: tenant.id
+        },
+        include: {
+          service: true,
+          employee: true
+        },
+        orderBy: {
+          date: "desc"
+        }
+      })
+    : [];
 
-    activeSubscription = await prisma.customerSubscription.findFirst({
-      where: {
-        clientId: clientSession.clientId,
-        tenantId: tenant.id,
-        status: "ACTIVE",
-        endDate: { gte: new Date() }
-      },
-      include: {
-        plan: true
-      }
-    });
-  }
+  const activeSubscription = clientSession
+    ? await prisma.customerSubscription.findFirst({
+        where: {
+          clientId: clientSession.clientId,
+          tenantId: tenant.id,
+          status: "ACTIVE",
+          endDate: { gte: new Date() }
+        },
+        include: {
+          plan: true
+        }
+      })
+    : null;
 
   const logoUrl = tenant.logoUrl || 'https://images.unsplash.com/photo-1599305090598-fe179d501227?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80';
 

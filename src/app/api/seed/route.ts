@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { Employee, Client } from '@prisma/client'
 import crypto from 'crypto'
 
 function hashPassword(password: string): string {
@@ -8,6 +9,10 @@ function hashPassword(password: string): string {
 
 export async function GET() {
   try {
+    if (process.env.NODE_ENV === "production" || process.env.ALLOW_SEED_ROUTE !== "true") {
+      return NextResponse.json({ error: "Rota desabilitada" }, { status: 403 })
+    }
+
     // Limpar dados anteriores para permitir execuções repetidas do seed
     await db.booking.deleteMany()
     await db.service.deleteMany()
@@ -57,7 +62,7 @@ export async function GET() {
       { name: 'Nathália Bié', role: 'Enfermeira especialista em piercing', email: 'nathalia@brutus.com', password: 'nathalia123', isAdmin: false },
     ]
 
-    const employees: any[] = []
+    const employees: Employee[] = []
     for (const emp of employeesData) {
       const dbEmp = await db.employee.create({
         data: {
@@ -90,7 +95,7 @@ export async function GET() {
       { name: 'Felipe Ramos', phone: '11966666666' }
     ]
 
-    const clients: any[] = []
+    const clients: Client[] = []
     for (const c of clientsData) {
       const dbClient = await db.client.create({
         data: {
@@ -199,8 +204,9 @@ export async function GET() {
       message: 'Banco de dados da Brutus Barbearia semeado com sucesso com agendamentos de teste!',
       tenantId: tenant.id
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao semear banco:', error)
-    return NextResponse.json({ error: 'Erro interno do servidor', details: error.message }, { status: 500 })
+    const errMessage = error instanceof Error ? error.message : "Erro desconhecido";
+    return NextResponse.json({ error: 'Erro interno do servidor', details: errMessage }, { status: 500 })
   }
 }

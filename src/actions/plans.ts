@@ -3,7 +3,7 @@
 import prisma from "@/lib/prisma";
 import { getCurrentSession } from "./auth";
 import { revalidatePath } from "next/cache";
-import { addDays, parseISO } from "date-fns";
+import { addDays } from "date-fns";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();

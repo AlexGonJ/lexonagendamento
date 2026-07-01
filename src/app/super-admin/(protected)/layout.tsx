@@ -1,13 +1,17 @@
-﻿import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { checkSuperAdminAuth } from "@/actions/superadmin";
 import SuperAdminLayoutClient from "../SuperAdminLayoutClient";
 
-export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("super_admin_token");
-  const validSecret = process.env.SUPER_ADMIN_SECRET;
+export const dynamic = "force-dynamic";
 
-  if (!token?.value || token.value !== validSecret) {
+export default async function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const authorized = await checkSuperAdminAuth();
+
+  if (!authorized) {
     redirect("/super-admin/login");
   }
 

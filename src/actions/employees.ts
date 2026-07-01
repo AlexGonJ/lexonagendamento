@@ -16,6 +16,24 @@ async function getActiveTenantId() {
   return session.tenantId;
 }
 
+async function requireAdminSession() {
+  const session = await getCurrentSession();
+  if (!session) throw new Error("Não autenticado.");
+  if (!session.isAdmin) throw new Error("Apenas administradores podem executar esta ação.");
+  return session;
+}
+
+async function assertEmployeeBelongsToTenant(employeeId: string, tenantId: string) {
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, tenantId },
+    select: { id: true },
+  });
+
+  if (!employee) {
+    throw new Error("Profissional não encontrado para este estabelecimento.");
+  }
+}
+
 export async function getEmployees() {
   const tenantId = await getActiveTenantId();
   return await prisma.employee.findMany({
@@ -26,8 +44,9 @@ export async function getEmployees() {
 }
 
 export async function getEmployee(id: string) {
-  return await prisma.employee.findUnique({
-    where: { id },
+  const tenantId = await getActiveTenantId();
+  return await prisma.employee.findFirst({
+    where: { id, tenantId },
     include: { services: true },
   });
 }
@@ -60,6 +79,7 @@ async function uploadAvatar(imageFile: File, tenantId: string): Promise<string> 
 }
 
 export async function createEmployee(formData: FormData) {
+  await requireAdminSession();
   const tenantId = await getActiveTenantId();
 
   const name = formData.get("name") as string;
@@ -112,6 +132,7 @@ export async function createEmployee(formData: FormData) {
 }
 
 export async function updateEmployee(id: string, formData: FormData) {
+  await requireAdminSession();
   const tenantId = await getActiveTenantId();
 
   const name = formData.get("name") as string;
@@ -137,7 +158,7 @@ export async function updateEmployee(id: string, formData: FormData) {
   }
 
   // Buscar dados atuais para manter a senha se não for alterada
-  const current = await prisma.employee.findUnique({ where: { id } });
+  const current = await prisma.employee.findFirst({ where: { id, tenantId } });
   if (!current) throw new Error("Profissional não encontrado.");
 
   let finalAvatarUrl = current.avatarUrl;
@@ -166,6 +187,9 @@ export async function updateEmployee(id: string, formData: FormData) {
 }
 
 export async function deleteEmployee(id: string) {
+  await requireAdminSession();
+  const tenantId = await getActiveTenantId();
+  await assertEmployeeBelongsToTenant(id, tenantId);
   await prisma.employee.delete({
     where: { id },
   });

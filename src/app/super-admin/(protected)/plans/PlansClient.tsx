@@ -1,15 +1,14 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPlan, updatePlan } from "@/actions/superadmin";
 
-type Feature = { slug: string; label: string; description: string };
-type Plan = { id: string; name: string; price: number; maxEmployees: number; features: string[]; isActive: boolean; _count: { tenantPlans: number } };
+export type Feature = { slug: string; label: string; description: string };
+export type Plan = { id: string; name: string; price: number; maxEmployees: number; features: string[]; isActive: boolean; _count: { tenantPlans: number } };
 
 export default function PlansClient({ plans: initialPlans, features }: { plans: Plan[]; features: Feature[] }) {
   const router = useRouter();
-  const [plans, setPlans] = useState(initialPlans);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", price: "", maxEmployees: "1", features: [] as string[] });
@@ -44,13 +43,12 @@ export default function PlansClient({ plans: initialPlans, features }: { plans: 
       maxEmployees: parseInt(formData.maxEmployees, 10),
       features: formData.features,
     };
-    let result;
+    let result: { success: boolean; error?: string };
     if (editingId) {
       result = await updatePlan(editingId, payload);
     } else {
       const fd = new FormData();
       Object.entries(payload).forEach(([k, v]) => fd.set(k, Array.isArray(v) ? v.join(",") : String(v)));
-      const { createPlan } = await import("@/actions/superadmin");
       result = await createPlan(fd);
     }
     setSaving(false);
@@ -60,7 +58,7 @@ export default function PlansClient({ plans: initialPlans, features }: { plans: 
       resetForm();
       router.refresh();
     } else {
-      setMsg({ type: "err", text: (result as any).error || "Erro" });
+      setMsg({ type: "err", text: result.error || "Erro" });
     }
   }
 

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createCustomerPlan, deleteCustomerPlan, createSubscription, cancelSubscription } from "@/actions/plans";
-import { Award, Plus, Trash2, UserPlus, Clock, Calendar, CheckCircle, ShieldAlert, Users, CreditCard } from "lucide-react";
+import { Plus, Trash2, UserPlus } from "lucide-react";
 
 interface CustomerPlan {
   id: string;
@@ -46,9 +46,24 @@ interface PlansClientProps {
   services: Service[];
 }
 
+interface FixedSchedulePayload {
+  employeeId: string;
+  serviceId: string;
+  dayOfWeek: number;
+  timeStr: string;
+}
+
+interface CreateSubscriptionPayload {
+  clientId: string;
+  planId: string;
+  startDateStr: string;
+  fixedSchedule: FixedSchedulePayload | null;
+}
+
 export default function PlansClient({ plans, subscriptions, clients, employees, services }: PlansClientProps) {
   const [activeTab, setActiveTab] = useState<"plans" | "subscriptions">("subscriptions");
   const [isPending, startTransition] = useTransition();
+  const [now] = useState(() => Date.now());
 
   // Estados de Nova Assinatura
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -80,7 +95,7 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
       return;
     }
 
-    const payload: any = {
+    const payload: CreateSubscriptionPayload = {
       clientId: selectedClientId,
       planId: selectedPlanId,
       startDateStr,
@@ -108,8 +123,9 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
         setSelectedPlanId("");
         setShowFixedSchedule(false);
         setTimeout(() => setSubMsg(null), 3000);
-      } catch (err: any) {
-        setSubMsg({ type: "err", text: err.message || "Erro ao criar assinatura." });
+      } catch (err) {
+        const errMessage = err instanceof Error ? err.message : "Erro ao criar assinatura.";
+        setSubMsg({ type: "err", text: errMessage });
       }
     });
   }
@@ -118,8 +134,9 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
     if (!confirm("Tem certeza que deseja cancelar esta assinatura? Agendamentos futuros permanecerão, mas o cliente perderá o benefício do plano.")) return;
     try {
       await cancelSubscription(id);
-    } catch (err: any) {
-      alert(err.message || "Erro ao cancelar assinatura.");
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Erro ao cancelar assinatura.";
+      alert(errMessage);
     }
   }
 
@@ -127,8 +144,9 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
     if (!confirm("Tem certeza que deseja excluir este plano? Clientes com assinaturas ativas dele não serão afetados, mas novas assinaturas não poderão ser criadas.")) return;
     try {
       await deleteCustomerPlan(id);
-    } catch (err: any) {
-      alert(err.message || "Erro ao excluir plano.");
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Erro ao excluir plano.";
+      alert(errMessage);
     }
   }
 
@@ -357,7 +375,7 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
                         let statusBadge = "bg-green-50 text-green-700 border-green-200";
                         if (sub.status === "CANCELLED") {
                           statusBadge = "bg-red-50 text-red-700 border-red-200";
-                        } else if (new Date(sub.endDate).getTime() < Date.now()) {
+                        } else if (new Date(sub.endDate).getTime() < now) {
                           statusBadge = "bg-gray-100 text-gray-600 border-gray-200";
                         }
 
@@ -379,7 +397,7 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
                             </td>
                             <td className="p-4 text-xs">
                               <span className={`px-2 py-0.5 font-bold border rounded-full ${statusBadge}`}>
-                                {sub.status === "ACTIVE" && new Date(sub.endDate).getTime() >= Date.now()
+                                {sub.status === "ACTIVE" && new Date(sub.endDate).getTime() >= now
                                   ? "Ativo"
                                   : sub.status === "CANCELLED"
                                   ? "Cancelado"
@@ -387,7 +405,7 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
                               </span>
                             </td>
                             <td className="p-4 text-center">
-                              {sub.status === "ACTIVE" && new Date(sub.endDate).getTime() >= Date.now() && (
+                              {sub.status === "ACTIVE" && new Date(sub.endDate).getTime() >= now && (
                                 <button
                                   onClick={() => handleCancelSubscription(sub.id)}
                                   className="px-2.5 py-1 text-red-600 hover:bg-red-50 hover:text-red-700 border border-red-200 rounded-lg text-xs font-bold transition-all cursor-pointer inline-block"

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { createSignedToken, verifySignedToken } from "@/lib/session";
 
 // --- Auth -------------------------------------------------------------------
 
@@ -13,13 +14,17 @@ export async function superAdminLogin(formData: FormData) {
   if (!validSecret) return { success: false, error: "Super admin nao configurado no servidor." };
   if (secret !== validSecret) return { success: false, error: "Senha incorreta." };
   const cookieStore = await cookies();
-  cookieStore.set("super_admin_token", validSecret, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 8,
-    path: "/",
-  });
+  cookieStore.set(
+    "super_admin_token",
+    createSignedToken("super-admin", "allowed", 60 * 60 * 8),
+    {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 8,
+      path: "/",
+    }
+  );
   return { success: true };
 }
 
@@ -34,15 +39,23 @@ export async function checkSuperAdminAuth(): Promise<boolean> {
     const cookieStore = await cookies();
     const token = cookieStore.get("super_admin_token");
     if (!token?.value) return false;
-    return token.value === process.env.SUPER_ADMIN_SECRET;
+    return verifySignedToken<string>(token.value, "super-admin") === "allowed";
   } catch {
     return false;
+  }
+}
+
+async function requireSuperAdminAuth() {
+  const authorized = await checkSuperAdminAuth();
+  if (!authorized) {
+    throw new Error("Não autorizado.");
   }
 }
 
 // --- Dashboard Stats ---------------------------------------------------------
 
 export async function getSuperAdminStats() {
+  await requireSuperAdminAuth();
   const [totalTenants, activeTenants, totalPlans, recentTenants, planDistribution] =
     await Promise.all([
       prisma.tenant.count(),
@@ -81,6 +94,7 @@ export async function getSuperAdminStats() {
 // --- Tenants -----------------------------------------------------------------
 
 export async function getTenants() {
+  await requireSuperAdminAuth();
   return prisma.tenant.findMany({
     orderBy: { createdAt: "desc" },
     include: {
@@ -96,6 +110,7 @@ export async function getTenants() {
 }
 
 export async function getTenantById(id: string) {
+  await requireSuperAdminAuth();
   return prisma.tenant.findUnique({
     where: { id },
     include: {
@@ -111,6 +126,7 @@ export async function createTenantEmployee(
   data: { name: string; role: string; email: string; password?: string; isAdmin: boolean }
 ) {
   try {
+    await requireSuperAdminAuth();
     const { name, role, email, password, isAdmin } = data;
     if (!name || !role || !email) {
       return { success: false, error: "Nome, cargo e e-mail são obrigatórios." };
@@ -141,7 +157,7 @@ export async function createTenantEmployee(
     });
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao criar funcionário:", error);
     return { success: false, error: "Erro interno no servidor ao cadastrar funcionário." };
   }
@@ -149,6 +165,7 @@ export async function createTenantEmployee(
 
 
 export async function createTenant(formData: FormData) {
+  await requireSuperAdminAuth();
   const name = formData.get("name") as string;
   const slug = formData.get("slug") as string;
   const description = formData.get("description") as string;
@@ -163,14 +180,17 @@ export async function createTenant(formData: FormData) {
       await prisma.tenantPlan.create({ data: { tenantId: tenant.id, planId, status: "ACTIVE" } });
     }
     return { success: true, tenantId: tenant.id };
-  } catch (error: any) {
-    if (error.code === "P2002") return { success: false, error: "Ja existe uma loja com esse slug." };
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      return { success: false, error: "Ja existe uma loja com esse slug." };
+    }
     return { success: false, error: "Erro ao criar loja." };
   }
 }
 
 export async function toggleTenantStatus(id: string, isActive: boolean) {
   try {
+    await requireSuperAdminAuth();
     await prisma.tenant.update({ where: { id }, data: { isActive } });
     return { success: true };
   } catch {
@@ -180,6 +200,7 @@ export async function toggleTenantStatus(id: string, isActive: boolean) {
 
 export async function updateTenantFeatures(id: string, features: string[]) {
   try {
+    await requireSuperAdminAuth();
     await prisma.tenant.update({ where: { id }, data: { features } });
     return { success: true };
   } catch {
@@ -189,6 +210,7 @@ export async function updateTenantFeatures(id: string, features: string[]) {
 
 export async function assignPlanToTenant(tenantId: string, planId: string) {
   try {
+    await requireSuperAdminAuth();
     await prisma.tenantPlan.updateMany({ where: { tenantId, status: "ACTIVE" }, data: { status: "CANCELLED", endDate: new Date() } });
     const tenantPlan = await prisma.tenantPlan.create({
       data: { tenantId, planId, status: "ACTIVE" },
@@ -208,6 +230,7 @@ export async function assignPlanToTenant(tenantId: string, planId: string) {
 
 
 export async function getPlans() {
+  await requireSuperAdminAuth();
   return prisma.plan.findMany({
     orderBy: { price: "asc" },
     include: { _count: { select: { tenantPlans: { where: { status: "ACTIVE" } } } } },
@@ -215,6 +238,7 @@ export async function getPlans() {
 }
 
 export async function createPlan(formData: FormData) {
+  await requireSuperAdminAuth();
   const name = formData.get("name") as string;
   const price = parseFloat(formData.get("price") as string);
   const maxEmployees = parseInt(formData.get("maxEmployees") as string, 10);
@@ -231,6 +255,7 @@ export async function createPlan(formData: FormData) {
 
 export async function updatePlan(id: string, data: { name?: string; price?: number; maxEmployees?: number; features?: string[]; isActive?: boolean }) {
   try {
+    await requireSuperAdminAuth();
     await prisma.plan.update({ where: { id }, data });
     return { success: true };
   } catch {

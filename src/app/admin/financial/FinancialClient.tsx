@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { createExpense, deleteExpense } from "@/actions/financial";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { DollarSign, Wallet, ShoppingBag, Plus, Trash2, Calendar, FileText, TrendingUp, TrendingDown, Users } from "lucide-react";
+import { DollarSign, ShoppingBag, Plus, Trash2, FileText, TrendingUp, TrendingDown, Users } from "lucide-react";
 
 interface ExpenseData {
   id: string;
@@ -104,8 +104,9 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
         setDescription("");
         setAmount("");
         setTimeout(() => setFormSuccess(false), 2000);
-      } catch (err: any) {
-        setFormError(err.message || "Erro ao adicionar despesa.");
+      } catch (err) {
+        const errMessage = err instanceof Error ? err.message : "Erro ao adicionar despesa.";
+        setFormError(errMessage);
       }
     });
   }
@@ -114,8 +115,9 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
     if (!confirm("Deseja realmente excluir esta despesa?")) return;
     try {
       await deleteExpense(id);
-    } catch (err: any) {
-      alert(err.message || "Erro ao excluir despesa.");
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Erro ao excluir despesa.";
+      alert(errMessage);
     }
   }
 
@@ -237,6 +239,7 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
                 summary.employeeSummaries.map((emp) => (
                   <div key={emp.employeeId} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/50 transition-colors">
                     <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={emp.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random`}
                         alt={emp.name}

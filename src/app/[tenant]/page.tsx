@@ -56,6 +56,7 @@ export default async function TenantPage({
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">
         {/* Info do Estabelecimento */}
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
             src={logoUrl} 
             alt={tenant.name} 
@@ -87,6 +88,7 @@ export default async function TenantPage({
                   className="glass-panel p-4 flex justify-between items-center hover:border-primary/50 transition-colors gap-4"
                 >
                   <div className="flex items-center gap-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
                       src={service.imageUrl || 'https://placehold.co/150x150/cccccc/ffffff?text=Sem+Foto'} 
                       alt={service.name} 

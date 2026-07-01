@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { createService } from '@/actions/services';
 
-export default function CreateServiceForm({ employees }: { employees: any[] }) {
+import { Employee } from '@prisma/client';
+
+export default function CreateServiceForm({ employees }: { employees: Employee[] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 

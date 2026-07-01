@@ -9,6 +9,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Identificadores OAuth ausentes' }, { status: 400 })
     }
 
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : email
+
     // 1. Tentar encontrar cliente por googleId ou appleId
     let client = null
     if (googleId) {
@@ -18,8 +20,8 @@ export async function POST(request: Request) {
     }
 
     // 2. Se não encontrou por ID, tentar por email
-    if (!client && email) {
-      client = await db.client.findUnique({ where: { email } })
+    if (!client && normalizedEmail) {
+      client = await db.client.findUnique({ where: { email: normalizedEmail } })
       
       // Se encontrou por email, associa o Google/Apple ID a este registro existente
       if (client) {
@@ -47,9 +49,9 @@ export async function POST(request: Request) {
       success: true,
       linked: false,
       message: 'Vínculo de telefone necessário',
-      oauthData: { email, googleId, appleId, name }
+      oauthData: { email: normalizedEmail, googleId, appleId, name }
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro no sync OAuth:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

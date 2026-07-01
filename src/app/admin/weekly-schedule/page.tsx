@@ -387,7 +387,7 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
                 <div>
                   <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Observações do Cliente</span>
                   <p className="text-sm bg-gray-50 p-3 rounded-lg border border-gray-100 text-gray-700 italic">
-                    "{selectedBooking.notes}"
+                    &quot;{selectedBooking.notes}&quot;
                   </p>
                 </div>
               )}

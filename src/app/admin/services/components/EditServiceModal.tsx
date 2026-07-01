@@ -2,19 +2,24 @@
 
 import { useState } from 'react';
 import { updateService } from '@/actions/services';
+import { Service, Employee } from '@prisma/client';
+
+interface ServiceWithEmployees extends Service {
+  employees: Employee[];
+}
 
 export default function EditServiceModal({ 
   service, 
   employees, 
   onClose 
 }: { 
-  service: any, 
-  employees: any[],
+  service: ServiceWithEmployees, 
+  employees: Employee[],
   onClose: () => void 
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>(
-    service.employees?.map((e: any) => e.id) || []
+    service.employees?.map((e: Employee) => e.id) || []
   );
 
   const toggleEmployee = (id: string) => {
@@ -114,6 +119,7 @@ export default function EditServiceModal({
             {service.imageUrl && (
               <div className="mb-3">
                 <span className="block text-xs text-gray-500 mb-1">Imagem atual:</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
                   src={service.imageUrl} 
                   alt={service.name} 

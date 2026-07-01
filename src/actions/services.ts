@@ -12,6 +12,40 @@ async function getActiveTenantId() {
   return session.tenantId;
 }
 
+async function requireAdminSession() {
+  const session = await getCurrentSession();
+  if (!session) throw new Error("Não autenticado.");
+  if (!session.isAdmin) throw new Error("Apenas administradores podem executar esta ação.");
+  return session;
+}
+
+async function assertServiceBelongsToTenant(serviceId: string, tenantId: string) {
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, tenantId },
+    select: { id: true },
+  });
+
+  if (!service) {
+    throw new Error("Serviço não encontrado para este estabelecimento.");
+  }
+}
+
+async function assertEmployeeIdsBelongToTenant(employeeIds: string[], tenantId: string) {
+  if (employeeIds.length === 0) return;
+
+  const employees = await prisma.employee.findMany({
+    where: {
+      id: { in: employeeIds },
+      tenantId,
+    },
+    select: { id: true },
+  });
+
+  if (employees.length !== employeeIds.length) {
+    throw new Error("Um ou mais profissionais selecionados não pertencem a este estabelecimento.");
+  }
+}
+
 export async function getServices() {
   const tenantId = await getActiveTenantId();
   return await prisma.service.findMany({
@@ -22,6 +56,7 @@ export async function getServices() {
 }
 
 export async function createService(formData: FormData) {
+  await requireAdminSession();
   const tenantId = await getActiveTenantId();
   
   const name = formData.get("name") as string;
@@ -70,6 +105,7 @@ export async function createService(formData: FormData) {
   }
 
   const employeeIds = employeeIdsStr ? JSON.parse(employeeIdsStr) : [];
+  await assertEmployeeIdsBelongToTenant(employeeIds, tenantId);
 
   await prisma.service.create({
     data: {
@@ -91,6 +127,7 @@ export async function createService(formData: FormData) {
 }
 
 export async function updateService(id: string, formData: FormData) {
+  await requireAdminSession();
   const tenantId = await getActiveTenantId();
   
   const name = formData.get("name") as string;
@@ -138,6 +175,8 @@ export async function updateService(id: string, formData: FormData) {
   }
 
   const employeeIds = employeeIdsStr ? JSON.parse(employeeIdsStr) : [];
+  await assertServiceBelongsToTenant(id, tenantId);
+  await assertEmployeeIdsBelongToTenant(employeeIds, tenantId);
 
   await prisma.service.update({
     where: { id },
@@ -159,6 +198,9 @@ export async function updateService(id: string, formData: FormData) {
 }
 
 export async function deleteService(id: string) {
+  await requireAdminSession();
+  const tenantId = await getActiveTenantId();
+  await assertServiceBelongsToTenant(id, tenantId);
   await prisma.service.delete({
     where: { id }
   });

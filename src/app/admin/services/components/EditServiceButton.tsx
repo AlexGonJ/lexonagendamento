@@ -3,7 +3,13 @@
 import { useState } from 'react';
 import EditServiceModal from './EditServiceModal';
 
-export default function EditServiceButton({ service, employees }: { service: any, employees: any[] }) {
+import { Service, Employee } from '@prisma/client';
+
+interface ServiceWithEmployees extends Service {
+  employees: Employee[];
+}
+
+export default function EditServiceButton({ service, employees }: { service: ServiceWithEmployees, employees: Employee[] }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (

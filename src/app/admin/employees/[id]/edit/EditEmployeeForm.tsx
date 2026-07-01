@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { updateEmployee } from "@/actions/employees";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -48,8 +48,9 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
         await updateEmployee(employee.id, formData);
         setSuccess(true);
         setTimeout(() => router.push("/admin/employees"), 1500);
-      } catch (err: any) {
-        setError(err.message || "Erro ao salvar alterações.");
+      } catch (err) {
+        const errMessage = err instanceof Error ? err.message : "Erro ao salvar alterações.";
+        setError(errMessage);
       }
     });
   }
@@ -78,6 +79,7 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
         {/* Avatar */}
         <div className="flex flex-col items-center gap-3 pb-4 border-b border-gray-100">
           <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name)}&background=random&size=200`}
               alt={employee.name}

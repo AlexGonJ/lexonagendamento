@@ -5,13 +5,15 @@ import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import { logout } from '@/actions/auth';
 
+import { SessionData } from '@/actions/auth';
+
 export default function AdminLayoutClient({
   session,
   avatar,
   roleDisplay,
   children
 }: {
-  session: any;
+  session: SessionData;
   avatar: string;
   roleDisplay: string;
   children: React.ReactNode;
@@ -167,6 +169,7 @@ export default function AdminLayoutClient({
               <p className="text-sm font-medium text-gray-900">{session.name}</p>
               <p className="text-xs text-gray-500">{roleDisplay}</p>
             </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={avatar} 
               alt={session.name}

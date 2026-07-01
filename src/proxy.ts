@@ -22,10 +22,6 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (pathname.startsWith("/login") && sessionCookie) {
-    return NextResponse.redirect(new URL("/admin", request.url));
-  }
-
   return NextResponse.next();
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useCallback } from "react";
 import { 
   getWhatsappSettings, 
   updateWhatsappSettings, 
@@ -25,10 +25,20 @@ import {
   ToggleRight
 } from "lucide-react";
 
+interface WhatsappLog {
+  id: string;
+  tenantId: string;
+  recipient: string;
+  message: string;
+  type: string;
+  status: string;
+  createdAt: Date;
+}
+
 export default function WhatsappIntegrationPage() {
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(true);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<WhatsappLog[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<{ status: string; error?: string | null }>({
     status: "DISCONNECTED",
     error: null
@@ -65,8 +75,26 @@ export default function WhatsappIntegrationPage() {
   const [runningReminderJob, setRunningReminderJob] = useState(false);
   const [runningInactiveJob, setRunningInactiveJob] = useState(false);
 
+  // Check connection action
+  const verifyConnection = useCallback(async () => {
+    setCheckingConnection(true);
+    try {
+      const result = await checkWhatsappConnection();
+      if (result.success) {
+        setConnectionStatus({ status: "CONNECTED", error: null });
+      } else {
+        setConnectionStatus({ status: "DISCONNECTED", error: result.error || "Desconectado" });
+      }
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Falha na verificação.";
+      setConnectionStatus({ status: "DISCONNECTED", error: errMessage });
+    } finally {
+      setCheckingConnection(false);
+    }
+  }, []);
+
   // Load configs and logs
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const config = await getWhatsappSettings();
       setWhatsappEnabled(config.whatsappEnabled);
@@ -94,33 +122,20 @@ export default function WhatsappIntegrationPage() {
       if (config.whatsappEnabled) {
         verifyConnection();
       }
-    } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Erro ao carregar dados do WhatsApp." });
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Erro ao carregar dados do WhatsApp.";
+      setMessage({ type: "error", text: errMessage });
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [verifyConnection]);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  // Check connection action
-  async function verifyConnection() {
-    setCheckingConnection(true);
-    try {
-      const result = await checkWhatsappConnection();
-      if (result.success) {
-        setConnectionStatus({ status: "CONNECTED", error: null });
-      } else {
-        setConnectionStatus({ status: "DISCONNECTED", error: result.error || "Desconectado" });
-      }
-    } catch (err: any) {
-      setConnectionStatus({ status: "DISCONNECTED", error: err.message || "Falha na verificação." });
-    } finally {
-      setCheckingConnection(false);
-    }
-  }
+    const timer = setTimeout(() => {
+      loadData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadData]);
 
   // Save Settings
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -156,8 +171,9 @@ export default function WhatsappIntegrationPage() {
           const updatedLogs = await getWhatsappLogs();
           setLogs(updatedLogs);
         }
-      } catch (err: any) {
-        setMessage({ type: "error", text: err.message || "Erro ao salvar configurações." });
+      } catch (err) {
+        const errMessage = err instanceof Error ? err.message : "Erro ao salvar configurações.";
+        setMessage({ type: "error", text: errMessage });
       }
     });
   };
@@ -188,8 +204,9 @@ export default function WhatsappIntegrationPage() {
       } else {
         setMessage({ type: "error", text: `Falha ao enviar: ${res.error}` });
       }
-    } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Erro ao enviar teste." });
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Erro ao enviar teste.";
+      setMessage({ type: "error", text: errMessage });
     } finally {
       setSendingTest(false);
     }
@@ -212,8 +229,9 @@ export default function WhatsappIntegrationPage() {
       } else {
         setMessage({ type: "error", text: `Erro: ${res.message}` });
       }
-    } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Erro na rotina." });
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Erro na rotina.";
+      setMessage({ type: "error", text: errMessage });
     } finally {
       setRunningReminderJob(false);
     }
@@ -236,8 +254,9 @@ export default function WhatsappIntegrationPage() {
       } else {
         setMessage({ type: "error", text: `Erro: ${res.message}` });
       }
-    } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Erro na rotina." });
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Erro na rotina.";
+      setMessage({ type: "error", text: errMessage });
     } finally {
       setRunningInactiveJob(false);
     }

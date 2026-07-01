@@ -110,8 +110,9 @@ export async function verifyWhatsappConnection(
       } else {
         return { success: false, status: "DISCONNECTED", error: `Instância em estado: ${state || "desconhecido"}` };
       }
-    } catch (err: any) {
-      return { success: false, status: "DISCONNECTED", error: err.message || "Erro de conexão com o servidor Evolution API." };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro de conexão com o servidor Evolution API.";
+      return { success: false, status: "DISCONNECTED", error: message };
     }
   }
 
@@ -138,8 +139,9 @@ export async function verifyWhatsappConnection(
       }
 
       return { success: true, status: "CONNECTED" };
-    } catch (err: any) {
-      return { success: false, status: "DISCONNECTED", error: err.message || "Erro de conexão com os servidores da Meta." };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro de conexão com os servidores da Meta.";
+      return { success: false, status: "DISCONNECTED", error: message };
     }
   }
 
@@ -268,7 +270,7 @@ export async function sendWhatsappMessage(
 
       const url = `https://graph.facebook.com/v19.0/${number}/messages`;
 
-      let body: any;
+      let body: Record<string, unknown>;
 
       if (type === "TEST" && overrideMessage) {
         // Envio de mensagem de texto simples
@@ -344,8 +346,9 @@ export async function sendWhatsappMessage(
     }
 
     return { success: false, status: "FAILED", error: "Provedor de WhatsApp não suportado." };
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro no sendWhatsappMessage:", err);
+    const errMessage = err instanceof Error ? err.message : "Erro desconhecido";
 
     // Tenta registrar a falha no log do banco
     try {
@@ -353,7 +356,7 @@ export async function sendWhatsappMessage(
         data: {
           tenantId,
           recipient: recipient,
-          message: `Falha no envio: ${err.message || "Erro desconhecido"}`,
+          message: `Falha no envio: ${errMessage}`,
           type,
           status: "FAILED",
         },
@@ -362,6 +365,6 @@ export async function sendWhatsappMessage(
       console.error("Não foi possível salvar o log de erro no banco:", logErr);
     }
 
-    return { success: false, status: "FAILED", error: err.message || "Erro desconhecido ao disparar WhatsApp." };
+    return { success: false, status: "FAILED", error: errMessage || "Erro desconhecido ao disparar WhatsApp." };
   }
 }

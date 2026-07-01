@@ -5,6 +5,9 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { sendWhatsappMessage } from "@/lib/whatsapp";
+import { createSignedToken, verifySignedToken } from "@/lib/session";
+import { assertRateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 function hashPassword(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex");
@@ -50,16 +53,20 @@ export async function login(formData: FormData) {
     };
 
     const cookieStore = await cookies();
-    cookieStore.set("session_token", JSON.stringify(sessionData), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24, // 1 dia
-      path: "/",
-    });
+    cookieStore.set(
+      "session_token",
+      createSignedToken("employee-session", sessionData, 60 * 60 * 24),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24, // 1 dia
+        path: "/",
+      }
+    );
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro no login:", error);
     return { success: false, error: "Erro interno no servidor ao tentar fazer login." };
   }
@@ -78,7 +85,7 @@ export async function getCurrentSession(): Promise<SessionData | null> {
     if (!sessionCookie || !sessionCookie.value) {
       return null;
     }
-    return JSON.parse(sessionCookie.value) as SessionData;
+    return verifySignedToken<SessionData>(sessionCookie.value, "employee-session");
   } catch {
     return null;
   }
@@ -100,13 +107,17 @@ export async function getCurrentClientSession(): Promise<ClientSessionData | nul
     if (!sessionCookie || !sessionCookie.value) {
       return null;
     }
-    return JSON.parse(sessionCookie.value) as ClientSessionData;
+    return verifySignedToken<ClientSessionData>(sessionCookie.value, "client-session");
   } catch {
     return null;
   }
 }
 
-export async function sendClientOtp(phone: string, tenantId?: string) {
+export async function sendClientOtp(
+  phone: string,
+  tenantId?: string,
+  captchaToken?: string
+) {
   try {
     if (!phone) return { success: false, error: "Telefone é obrigatório." };
 
@@ -114,6 +125,24 @@ export async function sendClientOtp(phone: string, tenantId?: string) {
     const cleanPhone = phone.replace(/\D/g, "");
     if (cleanPhone.length < 10) {
       return { success: false, error: "Número de telefone inválido." };
+    }
+
+    const rateLimit = await assertRateLimit(`otp:send:phone:${cleanPhone}`, {
+      limit: 3,
+      windowMs: 60 * 1000,
+      blockMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: "Muitas solicitações. Tente novamente em alguns minutos.",
+      };
+    }
+
+    const captchaResult = await verifyTurnstileToken(captchaToken);
+    if (!captchaResult.success) {
+      return { success: false, error: captchaResult.error };
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -157,19 +186,36 @@ export async function sendClientOtp(phone: string, tenantId?: string) {
       message: "Código enviado via WhatsApp.",
       code: process.env.NODE_ENV !== "production" ? code : undefined,
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao enviar OTP:", error);
     return { success: false, error: "Erro ao enviar código de verificação." };
   }
 }
 
-export async function verifyClientOtp(phone: string, code: string, name?: string) {
+export async function verifyClientOtp(
+  phone: string,
+  code: string,
+  name?: string
+) {
   try {
     if (!phone || !code) {
       return { success: false, error: "Telefone e código são obrigatórios." };
     }
 
     const cleanPhone = phone.replace(/\D/g, "");
+
+    const rateLimit = await assertRateLimit(`otp:verify:phone:${cleanPhone}`, {
+      limit: 10,
+      windowMs: 10 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+      };
+    }
 
     const verification = await prisma.otpVerification.findFirst({
       where: {
@@ -221,16 +267,20 @@ export async function verifyClientOtp(phone: string, code: string, name?: string
     };
 
     const cookieStore = await cookies();
-    cookieStore.set("client_token", JSON.stringify(sessionData), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30, // 30 dias
-      path: "/",
-    });
+    cookieStore.set(
+      "client_token",
+      createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 30, // 30 dias
+        path: "/",
+      }
+    );
 
     return { success: true, client };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao verificar OTP:", error);
     return { success: false, error: "Erro ao verificar código de segurança." };
   }
@@ -250,7 +300,7 @@ export async function verifyGoogleIdToken(token: string) {
       googleId: payload.sub,
       name: payload.name,
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao verificar token do Google:", error);
     return { success: false, error: "Falha na validação do token do Google." };
   }
@@ -299,13 +349,17 @@ export async function loginClientOAuth(data: {
       };
 
       const cookieStore = await cookies();
-      cookieStore.set("client_token", JSON.stringify(sessionData), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 30,
-        path: "/",
-      });
+      cookieStore.set(
+        "client_token",
+        createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 30,
+          path: "/",
+        }
+      );
 
       return { success: true, linked: true, client };
     }
@@ -315,7 +369,7 @@ export async function loginClientOAuth(data: {
       const cleanPhone = phone.replace(/\D/g, "");
       
       // Buscar se já existe outro cliente com este telefone
-      let existingClientByPhone = await prisma.client.findUnique({
+      const existingClientByPhone = await prisma.client.findUnique({
         where: { phone: cleanPhone }
       });
 
@@ -352,13 +406,17 @@ export async function loginClientOAuth(data: {
       };
 
       const cookieStore = await cookies();
-      cookieStore.set("client_token", JSON.stringify(sessionData), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 30,
-        path: "/",
-      });
+      cookieStore.set(
+        "client_token",
+        createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 30,
+          path: "/",
+        }
+      );
 
       return { success: true, linked: true, client };
     }
@@ -369,7 +427,7 @@ export async function loginClientOAuth(data: {
       linked: false,
       oauthData: { email, googleId, appleId, name },
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro no login social do cliente:", error);
     return { success: false, error: "Erro interno no servidor ao tentar logar com rede social." };
   }
@@ -379,4 +437,3 @@ export async function logoutClient() {
   const cookieStore = await cookies();
   cookieStore.delete("client_token");
 }
-

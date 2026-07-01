@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { assertRateLimit } from '@/lib/rate-limit'
+
+function getRequestIp(request: Request) {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -9,10 +18,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Telefone e código são obrigatórios' }, { status: 400 })
     }
 
+    const cleanPhone = phone.replace(/\D/g, "")
+
+    const ip = getRequestIp(request)
+
+    const phoneLimit = await assertRateLimit(`otp:verify:phone:${cleanPhone}`, {
+      limit: 10,
+      windowMs: 10 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    })
+    const ipLimit = await assertRateLimit(`otp:verify:ip:${ip}`, {
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    })
+
+    if (!phoneLimit.allowed || !ipLimit.allowed) {
+      return NextResponse.json({ error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' }, { status: 429 })
+    }
+
     // Buscar a verificação mais recente ativa para o telefone e código fornecidos
     const verification = await db.otpVerification.findFirst({
       where: {
-        phone,
+        phone: cleanPhone,
         code,
         expiresAt: { gt: new Date() }
       },
@@ -32,7 +60,7 @@ export async function POST(request: Request) {
 
     // Buscar ou criar o cliente no banco de dados
     let client = await db.client.findUnique({
-      where: { phone }
+      where: { phone: cleanPhone }
     })
 
     if (!client) {
@@ -41,7 +69,7 @@ export async function POST(request: Request) {
       }
       client = await db.client.create({
         data: {
-          phone,
+          phone: cleanPhone,
           name
         }
       })
@@ -58,7 +86,7 @@ export async function POST(request: Request) {
       message: 'Autenticação bem-sucedida',
       client
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao verificar OTP:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

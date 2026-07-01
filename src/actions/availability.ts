@@ -22,8 +22,11 @@ function minutesToTime(minutes: number): string {
 export async function getAvailableSlots(
   employeeId: string, 
   dateStr: string, // formato "YYYY-MM-DD"
-  serviceDuration: number // em minutos
+  serviceDuration: number, // em minutos
+  tx?: any
 ) {
+  const client = (tx || prisma) as typeof prisma;
+
   // 1. Descobrir o dia da semana da data solicitada
   // No JavaScript, getDay() de uma string UTC pode bugar por fuso horário.
   // Vamos forçar o parse correto. "2026-06-25T12:00:00" garante o dia local.
@@ -31,7 +34,7 @@ export async function getAvailableSlots(
   const dayOfWeek = dateObj.getUTCDay(); // 0 = Dom, 1 = Seg...
 
   // 2. Buscar a agenda padrão do funcionário para este dia da semana
-  const schedules = await prisma.employeeSchedule.findMany({
+  const schedules = await client.employeeSchedule.findMany({
     where: { employeeId, dayOfWeek }
   });
 
@@ -44,7 +47,7 @@ export async function getAvailableSlots(
   const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
   const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
-  const bookings = await prisma.booking.findMany({
+  const bookings = await client.booking.findMany({
     where: {
       employeeId,
       status: { not: 'CANCELLED' },
@@ -90,7 +93,7 @@ export async function getAvailableSlots(
 
       // Bônus: Não permitir agendar no passado (se for o dia de hoje)
       const now = new Date();
-      let isPast = false;
+      const isPast = false;
       if (dateStr === now.toISOString().split('T')[0]) {
         // Aqui precisaria comparar o currentStart com a hora/minuto atual
         // Para simplificar o MVP, não bloquearemos rigorosamente fuso horário, 

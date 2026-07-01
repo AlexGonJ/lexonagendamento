@@ -29,8 +29,9 @@ export default function TenantSettingsPage() {
         setDescription(tenant.description || "");
         setLogoUrl(tenant.logoUrl);
         setCoverUrl(tenant.coverUrl);
-      } catch (err: any) {
-        setMessage({ type: "error", text: err.message || "Erro ao carregar configurações." });
+      } catch (err) {
+        const errMessage = err instanceof Error ? err.message : "Erro ao carregar configurações.";
+        setMessage({ type: "error", text: errMessage });
       } finally {
         setIsLoading(false);
       }
@@ -84,8 +85,9 @@ export default function TenantSettingsPage() {
           setLogoPreview(null);
           setCoverPreview(null);
         }
-      } catch (err: any) {
-        setMessage({ type: "error", text: err.message || "Ocorreu um erro ao salvar." });
+      } catch (err) {
+        const errMessage = err instanceof Error ? err.message : "Ocorreu um erro ao salvar.";
+        setMessage({ type: "error", text: errMessage });
       }
     });
   };
@@ -150,8 +152,10 @@ export default function TenantSettingsPage() {
           <div className="md:col-span-2 flex flex-col sm:flex-row items-center gap-4">
             <div className="w-24 h-24 rounded-full border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0 relative">
               {logoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoPreview} alt="Preview Logo" className="w-full h-full object-cover" />
               ) : logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-gray-400 text-xs">Sem Foto</span>
@@ -178,8 +182,10 @@ export default function TenantSettingsPage() {
           <div className="md:col-span-2 flex flex-col gap-4 w-full">
             <div className="w-full h-32 md:h-40 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden relative">
               {coverPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={coverPreview} alt="Preview Capa" className="w-full h-full object-cover" />
               ) : coverUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={coverUrl} alt="Capa" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-gray-400 text-sm">Sem Foto de Capa</span>

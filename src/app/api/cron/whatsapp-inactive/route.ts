@@ -6,6 +6,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
+    const cronSecret = process.env.CRON_SECRET || process.env.SUPER_ADMIN_SECRET;
+    const providedSecret = req.headers.get("x-cron-secret");
+
+    if (!cronSecret || providedSecret !== cronSecret) {
+      return NextResponse.json({ success: false, error: "Não autorizado." }, { status: 401 });
+    }
+
     // Executa a automação de inatividade para todos os estabelecimentos com a opção ativa
     const activeTenants = await prisma.tenant.findMany({
       where: {
@@ -30,8 +37,9 @@ export async function GET(req: Request) {
       processedTenants: activeTenants.length,
       results
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro no cron de inatividade:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    const errMessage = err instanceof Error ? err.message : "Erro desconhecido";
+    return NextResponse.json({ success: false, error: errMessage }, { status: 500 });
   }
 }

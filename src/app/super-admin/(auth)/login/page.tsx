@@ -1,16 +1,16 @@
-﻿"use client";
+"use client";
 
 import { useActionState } from "react";
 import { superAdminLogin } from "@/actions/superadmin";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const initialState = { success: false, error: "" };
+const initialState: { success: boolean; error?: string } = { success: false, error: "" };
 
 export default function SuperAdminLoginPage() {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
-    async (_prev: any, formData: FormData) => {
+    async (_prev: { success: boolean; error?: string }, formData: FormData) => {
       const result = await superAdminLogin(formData);
       return result;
     },

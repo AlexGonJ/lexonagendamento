@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Calendar, User, Phone, Mail, Award, Clock } from "lucide-react";
+import { Search, Calendar, Phone, Mail, Award, Clock } from "lucide-react";
 
 interface Booking {
   id: string;

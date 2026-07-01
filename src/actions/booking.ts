@@ -1,9 +1,14 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { getCurrentSession } from "@/actions/auth";
+import { getCurrentSession, getCurrentClientSession } from "@/actions/auth";
 import { sendWhatsappMessage } from "@/lib/whatsapp";
+import { getAvailableSlots } from "@/actions/availability";
+import { acquireEmployeeDayLock } from "@/lib/booking-lock";
+import { assertRateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 interface CreateBookingParams {
   tenantSlug: string;
@@ -14,10 +19,16 @@ interface CreateBookingParams {
   clientName: string;
   clientPhone: string;
   customerSubscriptionId?: string;
+  captchaToken?: string;
 }
 
 export async function createBooking(data: CreateBookingParams) {
   try {
+    const clientSession = await getCurrentClientSession();
+    if (!clientSession) {
+      throw new Error("Cliente não autenticado. Verifique seu telefone antes de agendar.");
+    }
+
     // 1. Encontrar o Tenant
     const tenant = await prisma.tenant.findUnique({
       where: { slug: data.tenantSlug }
@@ -27,52 +38,146 @@ export async function createBooking(data: CreateBookingParams) {
       throw new Error("Barbearia não encontrada.");
     }
 
-    // 2. Lidar com o Cliente (Buscar por telefone ou criar novo)
-    let client = await prisma.client.findUnique({
-      where: { phone: data.clientPhone }
-    });
+    if (!tenant.isActive) {
+      throw new Error("Este estabelecimento está indisponível no momento.");
+    }
 
-    if (!client) {
-      client = await prisma.client.create({
-        data: {
-          name: data.clientName,
-          phone: data.clientPhone,
-        }
+    // 2. Garantir que o cliente da sessão é o mesmo que está tentando agendar
+    const cleanPhone = data.clientPhone.replace(/\D/g, "");
+    if (clientSession.clientId !== undefined) {
+      const currentClient = await prisma.client.findUnique({
+        where: { id: clientSession.clientId },
       });
+
+      if (!currentClient) {
+        throw new Error("Sessão do cliente inválida. Faça login novamente.");
+      }
+
+      if (currentClient.phone.replace(/\D/g, "") !== cleanPhone) {
+        throw new Error("O telefone informado não corresponde à sessão autenticada.");
+      }
+    }
+
+    const bookingRateLimit = await assertRateLimit(
+      `booking:create:phone:${cleanPhone}:${tenant.slug}`,
+      {
+        limit: 5,
+        windowMs: 60 * 60 * 1000,
+        blockMs: 2 * 60 * 60 * 1000,
+      }
+    );
+
+    if (!bookingRateLimit.allowed) {
+      throw new Error("Muitas marcações em pouco tempo. Tente novamente mais tarde.");
+    }
+
+    const captchaResult = await verifyTurnstileToken(data.captchaToken);
+    if (!captchaResult.success) {
+      throw new Error(captchaResult.error);
     }
 
     // 3. Montar o objeto de Data final (Date + Time)
     const bookingDate = new Date(`${data.dateStr}T${data.timeStr}:00.000Z`);
-
-    // 4. Criar o Agendamento
-    const newBooking = await prisma.booking.create({
-      data: {
-        date: bookingDate,
-        status: "CONFIRMED", // MVP: Confirmação direta sem OTP
-        tenantId: tenant.id,
-        serviceId: data.serviceId,
-        employeeId: data.employeeId,
-        clientId: client.id,
-        customerSubscriptionId: data.customerSubscriptionId || null,
-      }
-    });
-
-    // Se usou plano, decrementa os slots da assinatura
-    if (data.customerSubscriptionId) {
-      await prisma.customerSubscription.update({
-        where: { id: data.customerSubscriptionId },
-        data: { remainingSlots: { decrement: 1 } }
-      });
+    if (Number.isNaN(bookingDate.getTime())) {
+      throw new Error("Data ou horário inválidos.");
     }
+
+    const bookingResult = await prisma.$transaction(async (tx) => {
+      await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${data.employeeId}:${data.dateStr}`);
+
+      const serviceRecord = await tx.service.findFirst({
+        where: {
+          id: data.serviceId,
+          tenantId: tenant.id,
+        },
+        include: {
+          employees: true,
+        },
+      });
+
+      if (!serviceRecord) {
+        throw new Error("Serviço inválido para este estabelecimento.");
+      }
+
+      const employeeRecord = await tx.employee.findFirst({
+        where: {
+          id: data.employeeId,
+          tenantId: tenant.id,
+        },
+        include: {
+          services: true,
+        },
+      });
+
+      if (!employeeRecord) {
+        throw new Error("Profissional inválido para este estabelecimento.");
+      }
+
+      if (!employeeRecord.services.some((svc) => svc.id === serviceRecord.id)) {
+        throw new Error("Este profissional não atende o serviço selecionado.");
+      }
+
+      const availableSlots = await getAvailableSlots(employeeRecord.id, data.dateStr, serviceRecord.duration, tx);
+      if (!availableSlots.includes(data.timeStr)) {
+        throw new Error("O horário selecionado não está mais disponível.");
+      }
+
+      const client = await tx.client.findUnique({
+        where: { id: clientSession.clientId },
+      });
+
+      if (!client) {
+        throw new Error("Cliente não encontrado.");
+      }
+
+      let customerSubscription: { id: string } | null = null;
+      if (data.customerSubscriptionId) {
+        customerSubscription = await tx.customerSubscription.findFirst({
+          where: {
+            id: data.customerSubscriptionId,
+            tenantId: tenant.id,
+            clientId: client.id,
+            status: "ACTIVE",
+            remainingSlots: { gt: 0 },
+          },
+          select: { id: true },
+        });
+
+        if (!customerSubscription) {
+          throw new Error("A assinatura informada está inválida ou sem créditos.");
+        }
+      }
+
+      const newBooking = await tx.booking.create({
+        data: {
+          date: bookingDate,
+          status: "CONFIRMED",
+          tenantId: tenant.id,
+          serviceId: serviceRecord.id,
+          employeeId: employeeRecord.id,
+          clientId: client.id,
+          customerSubscriptionId: customerSubscription?.id || null,
+        },
+      });
+
+      if (customerSubscription) {
+        await tx.customerSubscription.update({
+          where: { id: customerSubscription.id },
+          data: { remainingSlots: { decrement: 1 } },
+        });
+      }
+
+      return {
+        bookingId: newBooking.id,
+        serviceName: serviceRecord.name,
+        employeeName: employeeRecord.name,
+        clientName: client.name,
+        clientPhone: client.phone,
+      };
+    });
 
     // Trigger WhatsApp Confirmation
     try {
-      const service = await prisma.service.findUnique({
-        where: { id: data.serviceId }
-      });
-      const employee = await prisma.employee.findUnique({
-        where: { id: data.employeeId }
-      });
       const formatDateBR = (date: Date) => {
         return new Intl.DateTimeFormat('pt-BR', {
           timeZone: 'America/Sao_Paulo',
@@ -92,12 +197,12 @@ export async function createBooking(data: CreateBookingParams) {
 
       await sendWhatsappMessage({
         tenantId: tenant.id,
-        recipient: client.phone,
+        recipient: bookingResult.clientPhone,
         type: "CONFIRMATION",
         data: {
-          clientName: client.name,
-          serviceName: service?.name || "Serviço",
-          employeeName: employee?.name || "Profissional",
+          clientName: bookingResult.clientName,
+          serviceName: bookingResult.serviceName,
+          employeeName: bookingResult.employeeName,
           dateStr: formatDateBR(bookingDate),
           timeStr: formatTimeBR(bookingDate)
         }
@@ -111,26 +216,13 @@ export async function createBooking(data: CreateBookingParams) {
     revalidatePath("/admin/bookings");
     revalidatePath(`/${data.tenantSlug}/book`);
 
-    return { success: true, bookingId: newBooking.id };
+    return { success: true, bookingId: bookingResult.bookingId };
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao criar agendamento:", error);
-    return { success: false, error: error.message || "Ocorreu um erro ao salvar o agendamento." };
+    const message = error instanceof Error ? error.message : "Ocorreu um erro ao salvar o agendamento.";
+    return { success: false, error: message };
   }
-}
-
-async function getDefaultTenant() {
-  let tenant = await prisma.tenant.findFirst();
-  if (!tenant) {
-    tenant = await prisma.tenant.create({
-      data: {
-        name: "Brutus Barbearia",
-        slug: "brutusbarbearia",
-        description: "A melhor barbearia da região.",
-      }
-    });
-  }
-  return tenant.id;
 }
 
 export async function getDashboardStats(view: string = "daily") {
@@ -185,16 +277,14 @@ export async function getDashboardStats(view: string = "daily") {
   }
 
   // 2. Buscar agendamentos do intervalo selecionado
-  const rangeWhereClause: any = {
+  const rangeWhereClause: Prisma.BookingWhereInput = {
     tenantId,
     date: {
       gte: rangeStart,
       lte: rangeEnd
-    }
+    },
+    ...( !session.isAdmin ? { employeeId: session.userId } : {} )
   };
-  if (!session.isAdmin) {
-    rangeWhereClause.employeeId = session.userId;
-  }
 
   const rangeBookings = await prisma.booking.findMany({
     where: rangeWhereClause,
@@ -209,7 +299,7 @@ export async function getDashboardStats(view: string = "daily") {
     .reduce((sum, b) => sum + (session.isAdmin ? b.service.price : (b.service.price * commissionRate / 100)), 0);
 
   // Novos clientes no intervalo (removida a restrição de data do agendamento para contar corretamente clientes que agendam em outras datas)
-  const clientRangeWhereClause: any = {
+  const clientRangeWhereClause: Prisma.ClientWhereInput = {
     createdAt: {
       gte: rangeStart,
       lte: rangeEnd
@@ -226,17 +316,15 @@ export async function getDashboardStats(view: string = "daily") {
   });
 
   // 3. Faturamento Hoje (sempre diário) - Requisitado: "Com o faturamento do dia"
-  const todayWhereClause: any = {
+  const todayWhereClause: Prisma.BookingWhereInput = {
     tenantId,
     status: 'CONFIRMED',
     date: {
       gte: startOfToday,
       lte: endOfToday
-    }
+    },
+    ...( !session.isAdmin ? { employeeId: session.userId } : {} )
   };
-  if (!session.isAdmin) {
-    todayWhereClause.employeeId = session.userId;
-  }
   const todayBookings = await prisma.booking.findMany({
     where: todayWhereClause,
     include: {
@@ -246,16 +334,14 @@ export async function getDashboardStats(view: string = "daily") {
   const todayRevenue = todayBookings.reduce((sum, b) => sum + (session.isAdmin ? b.service.price : (b.service.price * commissionRate / 100)), 0);
 
   // 4. Próximos horários hoje (todos os ativos hoje)
-  const upcomingWhereClause: any = {
+  const upcomingWhereClause: Prisma.BookingWhereInput = {
     tenantId,
     date: {
       gte: startOfToday,
       lte: endOfToday
-    }
+    },
+    ...( !session.isAdmin ? { employeeId: session.userId } : {} )
   };
-  if (!session.isAdmin) {
-    upcomingWhereClause.employeeId = session.userId;
-  }
   const todayAllBookings = await prisma.booking.findMany({
     where: upcomingWhereClause,
     include: {
@@ -334,36 +420,25 @@ export async function getBookings(filters?: { status?: string; date?: string; se
   if (!session) throw new Error("Não autenticado");
   const tenantId = session.tenantId;
 
-  const whereClause: any = {
-    tenantId
+  const whereClause: Prisma.BookingWhereInput = {
+    tenantId,
+    ...( !session.isAdmin ? { employeeId: session.userId } : {} ),
+    ...( (filters?.status && filters.status !== 'ALL') ? { status: filters.status } : {} ),
+    ...( filters?.date ? {
+      date: {
+        gte: new Date(`${filters.date}T00:00:00.000Z`),
+        lte: new Date(`${filters.date}T23:59:59.999Z`)
+      }
+    } : {} ),
+    ...( filters?.search ? {
+      client: {
+        OR: [
+          { name: { contains: filters.search, mode: 'insensitive' } },
+          { phone: { contains: filters.search, mode: 'insensitive' } }
+        ]
+      }
+    } : {} )
   };
-
-  // Se não for admin, filtra os agendamentos pelo profissional logado
-  if (!session.isAdmin) {
-    whereClause.employeeId = session.userId;
-  }
-
-  if (filters?.status && filters.status !== 'ALL') {
-    whereClause.status = filters.status;
-  }
-
-  if (filters?.date) {
-    const startOfDay = new Date(`${filters.date}T00:00:00.000Z`);
-    const endOfDay = new Date(`${filters.date}T23:59:59.999Z`);
-    whereClause.date = {
-      gte: startOfDay,
-      lte: endOfDay
-    };
-  }
-
-  if (filters?.search) {
-    whereClause.client = {
-      OR: [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { phone: { contains: filters.search, mode: 'insensitive' } }
-      ]
-    };
-  }
 
   return await prisma.booking.findMany({
     where: whereClause,
@@ -437,7 +512,7 @@ export async function updateBookingStatus(bookingId: string, status: string) {
           await sendWhatsappMessage({
             tenantId: booking.tenantId,
             recipient: booking.employee.phone,
-            type: "CANCEL_NOTIFICATION" as any,
+            type: "CANCEL_NOTIFICATION",
             data: {
               clientName: booking.client.name,
               serviceName: booking.service.name,
@@ -459,9 +534,10 @@ export async function updateBookingStatus(bookingId: string, status: string) {
     revalidatePath("/admin");
     revalidatePath("/admin/bookings");
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao atualizar status do agendamento:", error);
-    return { success: false, error: error.message || "Erro ao atualizar status." };
+    const message = error instanceof Error ? error.message : "Erro ao atualizar status.";
+    return { success: false, error: message };
   }
 }
 
@@ -501,9 +577,10 @@ export async function deleteBooking(bookingId: string) {
     revalidatePath("/admin");
     revalidatePath("/admin/bookings");
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao deletar agendamento:", error);
-    return { success: false, error: error.message || "Erro ao deletar agendamento." };
+    const message = error instanceof Error ? error.message : "Erro ao deletar agendamento.";
+    return { success: false, error: message };
   }
 }
 
@@ -559,7 +636,7 @@ export async function cancelBooking(bookingId: string) {
         await sendWhatsappMessage({
           tenantId: booking.tenantId,
           recipient: booking.employee.phone,
-          type: "CANCEL_NOTIFICATION" as any,
+          type: "CANCEL_NOTIFICATION",
           data: {
             clientName: booking.client.name,
             serviceName: booking.service.name,
@@ -579,7 +656,7 @@ export async function cancelBooking(bookingId: string) {
     revalidatePath(`/${booking.tenant.slug}/book`);
     
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao cancelar agendamento:", error);
     return { success: false, error: "Erro ao cancelar agendamento." };
   }

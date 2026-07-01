@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { sendClientOtp, verifyClientOtp, loginClientOAuth, logoutClient, verifyGoogleIdToken } from "@/actions/auth";
 import { cancelBooking } from "@/actions/booking";
@@ -39,6 +39,17 @@ interface ClientPortalProps {
   activeSubscription?: Subscription | null;
 }
 
+interface CustomWindow extends Window {
+  google?: {
+    accounts: {
+      id: {
+        initialize: (config: { client_id: string; callback: (res: { credential?: string }) => void }) => void;
+        renderButton: (el: HTMLElement | null, options: { theme: string; size: string; width: number }) => void;
+      };
+    };
+  };
+}
+
 export default function ClientPortal({
   tenantId,
   tenantSlug,
@@ -50,42 +61,22 @@ export default function ClientPortal({
 }: ClientPortalProps) {
   const router = useRouter();
 
-  const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
+  // Estados de Login OTP
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState(1); // 1 = input phone/name, 2 = input code
+  const [needsName, setNeedsName] = useState(false);
+  const [msg, setMsg] = useState({ type: "", text: "" });
+  const [loading, setLoading] = useState(false);
 
-  // Carregar script do Google Identity Services
-  useEffect(() => {
-    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!googleClientId) return;
+  // Estados para simular fluxo de OAuth (Google/Apple)
+  const [oauthData, setOauthData] = useState<{ email?: string; googleId?: string; appleId?: string; name?: string } | null>(null);
+  const [showOauthPhoneLink, setShowOauthPhoneLink] = useState(false);
 
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if ((window as any).google) {
-        (window as any).google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: handleGoogleCredentialResponse,
-        });
-        (window as any).google.accounts.id.renderButton(
-          document.getElementById("google-signin-button"),
-          { theme: "outline", size: "large", width: 320 }
-        );
-        setGoogleScriptLoaded(true);
-      }
-    };
-    document.body.appendChild(script);
+  const [now] = useState(() => Date.now());
 
-    return () => {
-      try {
-        document.body.removeChild(script);
-      } catch (e) {
-        // Silenciar erro se o script já tiver sido removido
-      }
-    };
-  }, []);
-
-  async function handleGoogleCredentialResponse(response: any) {
+  const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
     if (!response.credential) return;
     setLoading(true);
     setMsg({ type: "", text: "" });
@@ -105,7 +96,7 @@ export default function ClientPortal({
             router.refresh();
           } else {
             // Precisa vincular telefone
-            setOauthData(oauthRes.oauthData);
+            setOauthData(oauthRes.oauthData || null);
             setShowOauthPhoneLink(true);
             setStep(1);
             setMsg({ type: "info", text: "Para concluir seu login com o Google, precisamos vincular seu número de WhatsApp." });
@@ -116,26 +107,46 @@ export default function ClientPortal({
       } else {
         setMsg({ type: "err", text: verifyRes.error || "Token do Google inválido." });
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro no callback do Google:", err);
       setMsg({ type: "err", text: "Erro ao processar login com o Google." });
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
 
-  // Estados de Login OTP
-  const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [step, setStep] = useState(1); // 1 = input phone/name, 2 = input code
-  const [needsName, setNeedsName] = useState(false);
-  const [msg, setMsg] = useState({ type: "", text: "" });
-  const [loading, setLoading] = useState(false);
+  // Carregar script do Google Identity Services
+  useEffect(() => {
+    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!googleClientId) return;
 
-  // Estados para simular fluxo de OAuth (Google/Apple)
-  const [oauthData, setOauthData] = useState<any>(null);
-  const [showOauthPhoneLink, setShowOauthPhoneLink] = useState(false);
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      const customWindow = window as unknown as CustomWindow;
+      if (customWindow.google) {
+        customWindow.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleCredentialResponse,
+        });
+        customWindow.google.accounts.id.renderButton(
+          document.getElementById("google-signin-button"),
+          { theme: "outline", size: "large", width: 320 }
+        );
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      try {
+        document.body.removeChild(script);
+      } catch {
+        // Silenciar erro se o script já tiver sido removido
+      }
+    };
+  }, [handleGoogleCredentialResponse]);
 
   // Ações de cancelamento
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -237,7 +248,7 @@ export default function ClientPortal({
         setTimeout(() => router.refresh(), 1000);
       } else {
         // Precisa vincular com telefone
-        setOauthData(res.oauthData);
+        setOauthData(res.oauthData || null);
         setShowOauthPhoneLink(true);
         setStep(1);
         setMsg({ type: "info", text: "Para concluir seu login com rede social, precisamos vincular seu número de WhatsApp." });
@@ -298,6 +309,7 @@ export default function ClientPortal({
       </div>
 
       <div className="w-full max-w-2xl text-center mb-8">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-full mx-auto border-2 border-primary/40 shadow-lg object-cover mb-3" />
         <h1 className="text-2xl font-bold text-white">{tenantName}</h1>
         <p className="text-sm text-slate-400 mt-1">Portal do Cliente</p>
@@ -530,7 +542,14 @@ export default function ClientPortal({
                 {bookings.map((booking) => {
                   const isCancelled = booking.status === "CANCELLED";
                   const bDate = new Date(booking.date);
-                  const isFuture = bDate.getTime() > Date.now();
+                  const bookingLocalTime = new Date(
+                    bDate.getUTCFullYear(),
+                    bDate.getUTCMonth(),
+                    bDate.getUTCDate(),
+                    bDate.getUTCHours(),
+                    bDate.getUTCMinutes()
+                  );
+                  const isFuture = bookingLocalTime.getTime() > now;
 
                   return (
                     <div
@@ -588,14 +607,32 @@ export default function ClientPortal({
                           R$ {booking.service.price.toFixed(2).replace(".", ",")}
                         </span>
 
-                        {isFuture && !isCancelled && (
-                          <button
-                            onClick={() => handleCancelBooking(booking.id)}
-                            disabled={cancellingId === booking.id}
-                            className="text-[11px] text-red-400 hover:text-red-300 font-semibold px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-all border border-red-500/10 cursor-pointer"
-                          >
-                            {cancellingId === booking.id ? "Cancelando..." : "Cancelar"}
-                          </button>
+                        {!isCancelled && (
+                          <div className="flex gap-2">
+                            {booking.status === "CONFIRMED" && (
+                              <a
+                                href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${booking.service.name} - ${tenantName.toUpperCase()}`)}&dates=${bDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z/${new Date(bDate.getTime() + (booking.service.duration || 30) * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0]}Z&details=${encodeURIComponent(`Seu agendamento está confirmado!\n\nProfissional: ${booking.employee.name}\nServiço: ${booking.service.name}\nDuração: ${booking.service.duration} min\nValor: R$ ${booking.service.price.toFixed(2)}`)}&location=${encodeURIComponent(tenantName)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 transition-all border border-emerald-500/10 flex items-center gap-1 cursor-pointer"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
+                                </svg>
+                                Agenda
+                              </a>
+                            )}
+
+                            {isFuture && (
+                              <button
+                                onClick={() => handleCancelBooking(booking.id)}
+                                disabled={cancellingId === booking.id}
+                                className="text-[11px] text-red-400 hover:text-red-300 font-semibold px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-all border border-red-500/10 cursor-pointer"
+                              >
+                                {cancellingId === booking.id ? "Cancelando..." : "Desmarcar"}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

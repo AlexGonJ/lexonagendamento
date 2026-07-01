@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { createTenant } from "@/actions/superadmin";
 import { useRouter } from "next/navigation";
 
-type Feature = { slug: string; label: string; description: string };
-type Plan = { id: string; name: string; price: number; features: string[] };
+export type Feature = { slug: string; label: string; description: string };
+export type Plan = { id: string; name: string; price: number; features: string[] };
 
 export default function NewTenantForm({ plans, features }: { plans: Plan[]; features: Feature[] }) {
   const router = useRouter();

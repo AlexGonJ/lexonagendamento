@@ -22,7 +22,7 @@ export async function GET(
     })
 
     return NextResponse.json({ success: true, services })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao buscar serviços:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

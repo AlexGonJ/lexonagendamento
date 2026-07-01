@@ -149,6 +149,7 @@ export default async function AdminEmployees() {
                     employees.map((emp) => (
                       <tr key={emp.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="p-4 flex items-center gap-4">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={emp.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random`}
                             alt={emp.name}

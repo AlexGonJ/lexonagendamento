@@ -4,8 +4,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentSession } from "@/actions/auth";
 import { 
   sendWhatsappMessage, 
-  verifyWhatsappConnection, 
-  replaceMessagePlaceholders 
+  verifyWhatsappConnection 
 } from "@/lib/whatsapp";
 import { revalidatePath } from "next/cache";
 
@@ -64,7 +63,26 @@ export async function getWhatsappSettings() {
   return tenant;
 }
 
-export async function updateWhatsappSettings(data: any) {
+interface UpdateWhatsappSettingsData {
+  whatsappEnabled: boolean;
+  whatsappProvider: string;
+  whatsappApiUrl?: string | null;
+  whatsappToken?: string | null;
+  whatsappNumber?: string | null;
+  whatsappWabaId?: string | null;
+  whatsappConfirmEnabled: boolean;
+  whatsappConfirmTemplate?: string | null;
+  whatsappReminderEnabled: boolean;
+  whatsappReminderHours: string | number;
+  whatsappReminderTemplate?: string | null;
+  whatsappInactiveEnabled: boolean;
+  whatsappInactiveDays: string | number;
+  whatsappInactiveTemplate?: string | null;
+  whatsappCancelNotifyEnabled: boolean;
+  whatsappCancelNotifyTemplate?: string | null;
+}
+
+export async function updateWhatsappSettings(data: UpdateWhatsappSettingsData) {
   const session = await getCurrentSession();
   if (!session || !session.isAdmin) {
     throw new Error("Não autorizado.");
@@ -84,10 +102,10 @@ export async function updateWhatsappSettings(data: any) {
       whatsappConfirmEnabled: data.whatsappConfirmEnabled,
       whatsappConfirmTemplate: data.whatsappConfirmTemplate,
       whatsappReminderEnabled: data.whatsappReminderEnabled,
-      whatsappReminderHours: parseInt(data.whatsappReminderHours) || 2,
+      whatsappReminderHours: typeof data.whatsappReminderHours === "string" ? parseInt(data.whatsappReminderHours, 10) || 2 : data.whatsappReminderHours,
       whatsappReminderTemplate: data.whatsappReminderTemplate,
       whatsappInactiveEnabled: data.whatsappInactiveEnabled,
-      whatsappInactiveDays: parseInt(data.whatsappInactiveDays) || 30,
+      whatsappInactiveDays: typeof data.whatsappInactiveDays === "string" ? parseInt(data.whatsappInactiveDays, 10) || 30 : data.whatsappInactiveDays,
       whatsappInactiveTemplate: data.whatsappInactiveTemplate,
       whatsappCancelNotifyEnabled: data.whatsappCancelNotifyEnabled,
       whatsappCancelNotifyTemplate: data.whatsappCancelNotifyTemplate,

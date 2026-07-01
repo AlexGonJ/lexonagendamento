@@ -9,10 +9,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Telefone e código OTP são obrigatórios' }, { status: 400 })
     }
 
+    const cleanPhone = phone.replace(/\D/g, "")
+
     // 1. Verificar o código OTP
     const verification = await db.otpVerification.findFirst({
       where: {
-        phone,
+        phone: cleanPhone,
         code,
         expiresAt: { gt: new Date() }
       },
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
 
     // 2. Buscar cliente por telefone
     let client = await db.client.findUnique({
-      where: { phone }
+      where: { phone: cleanPhone }
     })
 
     if (client) {
@@ -50,7 +52,7 @@ export async function POST(request: Request) {
       // Se não existe, cria um novo cliente com todos os dados vinculados
       client = await db.client.create({
         data: {
-          phone,
+          phone: cleanPhone,
           name,
           email,
           googleId,
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
       message: 'Conta vinculada ao telefone com sucesso!',
       client
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao vincular conta:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

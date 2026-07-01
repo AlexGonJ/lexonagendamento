@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateTenantFeatures, toggleTenantStatus, assignPlanToTenant, createTenantEmployee } from "@/actions/superadmin";
 
-type Feature = { slug: string; label: string; description: string };
-type Plan = { id: string; name: string; price: number; features: string[] };
-type Employee = {
+export type Feature = { slug: string; label: string; description: string };
+export type Plan = { id: string; name: string; price: number; features: string[] };
+export type Employee = {
   id: string;
   name: string;
   role: string;
@@ -15,7 +15,7 @@ type Employee = {
   isAdmin: boolean;
   createdAt: Date;
 };
-type Tenant = {
+export type Tenant = {
   id: string; name: string; slug: string; description: string | null;
   isActive: boolean; features: string[]; createdAt: Date;
   tenantPlans: { id: string; status: string; startDate: Date; plan: Plan }[];

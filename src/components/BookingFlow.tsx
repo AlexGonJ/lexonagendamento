@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { getAvailableSlots } from '@/actions/availability';
 import { createBooking } from '@/actions/booking';
@@ -8,6 +8,63 @@ import { getActiveSubscription } from '@/actions/plans';
 import { addDays, format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { sendClientOtp, verifyClientOtp, loginClientOAuth, verifyGoogleIdToken } from '@/actions/auth';
+import TurnstileWidget from './TurnstileWidget';
+import { Service, Employee } from '@prisma/client';
+
+interface ServiceWithEmployees extends Service {
+  employees: Employee[];
+}
+
+interface ClientSession {
+  id?: string;
+  name: string;
+  phone: string;
+  email?: string | null;
+  googleId?: string | null;
+  appleId?: string | null;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  slots: number;
+  periodDays: number;
+}
+
+interface CustomerSubscription {
+  id: string;
+  clientId: string;
+  tenantId: string;
+  planId: string;
+  status: string;
+  startDate: Date;
+  endDate: Date;
+  remainingSlots: number;
+  plan: Plan;
+}
+
+interface GoogleCredentialResponse {
+  credential?: string;
+}
+
+interface CustomWindow extends Window {
+  google?: {
+    accounts: {
+      id: {
+        initialize: (config: { client_id: string; callback: (response: GoogleCredentialResponse) => void }) => void;
+        renderButton: (element: HTMLElement | null, options: { theme: string; size: string; width: number }) => void;
+      };
+    };
+  };
+}
+
+interface OAuthData {
+  email: string;
+  name: string;
+  googleId?: string | null;
+  appleId?: string | null;
+}
 
 export default function BookingFlow({ 
   tenantId,
@@ -18,19 +75,19 @@ export default function BookingFlow({
 }: { 
   tenantId: string,
   tenantSlug: string, 
-  services: any[], 
-  employees: any[],
-  initialClient?: { name: string, phone: string, email?: string | null } | null
+  services: ServiceWithEmployees[], 
+  employees: Employee[],
+  initialClient?: ClientSession | null
 }) {
   // Estados do Agendamento
   const [step, setStep] = useState(1);
-  const [selectedService, setSelectedService] = useState<any>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedService, setSelectedService] = useState<ServiceWithEmployees | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
 
   // Estado de Sessão Ativa do Cliente no fluxo
-  const [client, setClient] = useState<any>(initialClient || null);
+  const [client, setClient] = useState<ClientSession | null>(initialClient || null);
 
   // Estados do Cliente (Passo 4)
   const [clientName, setClientName] = useState(initialClient?.name || '');
@@ -38,67 +95,23 @@ export default function BookingFlow({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Estados de Assinatura do Cliente
-  const [activePlan, setActivePlan] = useState<any>(null);
+  const [activePlan, setActivePlan] = useState<CustomerSubscription | null>(null);
   const [usePlanCredit, setUsePlanCredit] = useState(false);
 
   // Estados de Verificação e OTP
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
-  const [otpVerified, setOtpVerified] = useState(false);
   const [msg, setMsg] = useState({ type: "", text: "" });
+  const [otpCaptchaToken, setOtpCaptchaToken] = useState<string | null>(null);
+  const [otpCaptchaReset, setOtpCaptchaReset] = useState(0);
+  const [bookingCaptchaToken, setBookingCaptchaToken] = useState<string | null>(null);
+  const [bookingCaptchaReset, setBookingCaptchaReset] = useState(0);
 
   // Estados para Google OAuth
   const [showGooglePhoneLink, setShowGooglePhoneLink] = useState(false);
-  const [oauthData, setOauthData] = useState<any>(null);
+  const [oauthData, setOauthData] = useState<OAuthData | null>(null);
 
-  // Carregar script do Google Identity Services
-  useEffect(() => {
-    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!googleClientId) return;
-
-    if (step !== 4) return;
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if ((window as any).google) {
-        (window as any).google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: handleGoogleCredentialResponse,
-        });
-        (window as any).google.accounts.id.renderButton(
-          document.getElementById("google-signin-button-booking"),
-          { theme: "outline", size: "large", width: 280 }
-        );
-      }
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      try {
-        document.body.removeChild(script);
-      } catch (e) {
-        // Silenciar erro
-      }
-    };
-  }, [step]);
-
-  // Resetar validação se o telefone digitado for modificado e não bater com a sessão ativa
-  useEffect(() => {
-    const cleanInput = clientPhone.replace(/\D/g, "");
-    const cleanSession = client?.phone?.replace(/\D/g, "") || "";
-    
-    if (client && cleanInput !== cleanSession) {
-      setClient(null);
-      setOtpVerified(false);
-      setOtpSent(false);
-      setMsg({ type: "", text: "" });
-    }
-  }, [clientPhone, client]);
-
-  async function handleGoogleCredentialResponse(response: any) {
+  const handleGoogleCredentialResponse = useCallback(async (response: GoogleCredentialResponse) => {
     if (!response.credential) return;
     setIsSubmitting(true);
     setMsg({ type: "", text: "" });
@@ -120,7 +133,12 @@ export default function BookingFlow({
             setMsg({ type: "ok", text: "Autenticado via Google com sucesso!" });
           } else {
             // Precisa vincular telefone
-            setOauthData(oauthRes.oauthData);
+            setOauthData(oauthRes.oauthData ? {
+              email: oauthRes.oauthData.email || "",
+              name: oauthRes.oauthData.name || "",
+              googleId: oauthRes.oauthData.googleId || undefined,
+              appleId: oauthRes.oauthData.appleId || undefined,
+            } : null);
             setShowGooglePhoneLink(true);
             setMsg({ type: "info", text: "Para concluir seu login com o Google, precisamos vincular seu número de WhatsApp." });
           }
@@ -130,13 +148,65 @@ export default function BookingFlow({
       } else {
         setMsg({ type: "err", text: verifyRes.error || "Token do Google inválido." });
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro no login social do agendamento:", err);
       setMsg({ type: "err", text: "Erro ao processar login com o Google." });
     } finally {
       setIsSubmitting(false);
     }
-  }
+  }, []);
+
+  // Carregar script do Google Identity Services
+  useEffect(() => {
+    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!googleClientId) return;
+
+    if (step !== 4) return;
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      const customWindow = window as unknown as CustomWindow;
+      if (customWindow.google) {
+        customWindow.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleCredentialResponse,
+        });
+        customWindow.google.accounts.id.renderButton(
+          document.getElementById("google-signin-button-booking"),
+          { theme: "outline", size: "large", width: 280 }
+        );
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      try {
+        document.body.removeChild(script);
+      } catch {
+        // Silenciar erro
+      }
+    };
+  }, [step, handleGoogleCredentialResponse]);
+
+  // Resetar validação se o telefone digitado for modificado e não bater com a sessão ativa
+  useEffect(() => {
+    const cleanInput = clientPhone.replace(/\D/g, "");
+    const cleanSession = client?.phone?.replace(/\D/g, "") || "";
+    
+    if (client && cleanInput !== cleanSession) {
+      const timer = setTimeout(() => {
+        setClient(null);
+        setOtpSent(false);
+        setMsg({ type: "", text: "" });
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [clientPhone, client]);
+
+  // handleGoogleCredentialResponse was moved above script loading useEffect
 
   async function handleSimulateGoogle() {
     setIsSubmitting(true);
@@ -157,14 +227,19 @@ export default function BookingFlow({
           setClientPhone(oauthRes.client.phone);
           setMsg({ type: "ok", text: "Simulação de Login Social realizada!" });
         } else {
-          setOauthData(oauthRes.oauthData);
+          setOauthData(oauthRes.oauthData ? {
+            email: oauthRes.oauthData.email || "",
+            name: oauthRes.oauthData.name || "",
+            googleId: oauthRes.oauthData.googleId || undefined,
+            appleId: oauthRes.oauthData.appleId || undefined,
+          } : null);
           setShowGooglePhoneLink(true);
           setMsg({ type: "info", text: "Vincule um WhatsApp para concluir o login simulado." });
         }
       } else {
         setMsg({ type: "err", text: oauthRes.error || "Erro ao simular login." });
       }
-    } catch (err) {
+    } catch {
       setMsg({ type: "err", text: "Erro ao processar simulação." });
     } finally {
       setIsSubmitting(false);
@@ -176,14 +251,20 @@ export default function BookingFlow({
       alert("Por favor, digite seu número de WhatsApp.");
       return;
     }
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !otpCaptchaToken) {
+      setMsg({ type: "err", text: "Confirme a verificação anti-bot antes de enviar o código." });
+      return;
+    }
     setIsSubmitting(true);
     setMsg({ type: "", text: "" });
 
-    const res = await sendClientOtp(clientPhone, tenantId);
+    const res = await sendClientOtp(clientPhone, tenantId, otpCaptchaToken || undefined);
     setIsSubmitting(false);
 
     if (res.success) {
       setOtpSent(true);
+      setOtpCaptchaToken(null);
+      setOtpCaptchaReset((v) => v + 1);
       if (res.code) {
         setMsg({ type: "ok", text: `[Modo de Teste] Código enviado via WhatsApp: ${res.code}` });
       } else {
@@ -203,7 +284,10 @@ export default function BookingFlow({
       const res = await verifyClientOtp(clientPhone, otpCode, oauthData.name || clientName);
       if (res.success) {
         const oauthRes = await loginClientOAuth({
-          ...oauthData,
+          email: oauthData.email,
+          name: oauthData.name,
+          googleId: oauthData.googleId || undefined,
+          appleId: oauthData.appleId || undefined,
           phone: clientPhone
         });
         setIsSubmitting(false);
@@ -233,7 +317,6 @@ export default function BookingFlow({
       setClient(res.client);
       setClientName(res.client.name);
       setClientPhone(res.client.phone);
-      setOtpVerified(true);
       setOtpSent(false);
       setOtpCode("");
       setMsg({ type: "ok", text: "Celular verificado com sucesso!" });
@@ -263,17 +346,31 @@ export default function BookingFlow({
   // Efeito para carregar horários reais quando a data for escolhida
   useEffect(() => {
     if (selectedDateStr && selectedEmployee && selectedService) {
-      setIsLoadingTimes(true);
-      setAvailableTimes([]);
+      let active = true;
+      
+      // Defer state update to avoid synchronous state updates in effect
+      const timer = setTimeout(() => {
+        if (!active) return;
+        setIsLoadingTimes(true);
+        setAvailableTimes([]);
+      }, 0);
+
       getAvailableSlots(selectedEmployee.id, selectedDateStr, selectedService.duration)
         .then(slots => {
+          if (!active) return;
           setAvailableTimes(slots);
           setIsLoadingTimes(false);
         })
         .catch(err => {
+          if (!active) return;
           console.error("Erro ao buscar horários", err);
           setIsLoadingTimes(false);
         });
+
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
     }
   }, [selectedDateStr, selectedEmployee, selectedService]);
 
@@ -283,27 +380,31 @@ export default function BookingFlow({
     if (clean.length >= 10) {
       getActiveSubscription(clean, tenantSlug)
         .then(sub => {
-          if (sub) {
-            setActivePlan(sub);
-            setUsePlanCredit(true); // padrão é usar se disponível
-          } else {
-            setActivePlan(null);
-            setUsePlanCredit(false);
-          }
+          setActivePlan(sub);
+          setUsePlanCredit(!!sub); // padrão é usar se disponível
         })
         .catch(() => {
           setActivePlan(null);
           setUsePlanCredit(false);
         });
     } else {
-      setActivePlan(null);
-      setUsePlanCredit(false);
+      // Defer synchronous state update in effect using setTimeout
+      const timer = setTimeout(() => {
+        setActivePlan(null);
+        setUsePlanCredit(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [clientPhone, tenantSlug]);
 
   const stepTitles = ["Serviço", "Profissional", "Data e horário", "Pagamento"];
 
   const handleConfirmBooking = async () => {
+    if (!selectedService || !selectedEmployee) {
+      alert("Por favor, selecione um serviço e um profissional.");
+      return;
+    }
+
     if (!clientName || !clientPhone) {
       alert("Por favor, preencha seu nome e WhatsApp.");
       return;
@@ -311,6 +412,11 @@ export default function BookingFlow({
 
     if (!client) {
       alert("Por favor, valide seu celular ou faça login antes de confirmar.");
+      return;
+    }
+
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !bookingCaptchaToken) {
+      setMsg({ type: "err", text: "Confirme a verificação anti-bot antes de finalizar o agendamento." });
       return;
     }
 
@@ -325,11 +431,14 @@ export default function BookingFlow({
       clientName,
       clientPhone,
       customerSubscriptionId: usePlanCredit && activePlan ? activePlan.id : undefined,
+      captchaToken: bookingCaptchaToken || undefined,
     });
 
     setIsSubmitting(false);
 
     if (result.success) {
+      setBookingCaptchaToken(null);
+      setBookingCaptchaReset((v) => v + 1);
       setStep(5); // Tela de Sucesso
     } else {
       alert(result.error);
@@ -388,6 +497,7 @@ export default function BookingFlow({
           <div className="mb-8 animate-fade-in">
             <h3 className="text-sm text-gray-400 mb-2">Item selecionado</h3>
             <div className="glass-panel p-4 flex items-center gap-4 rounded-2xl border border-glass-border relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src={selectedService.imageUrl || 'https://placehold.co/150x150/cccccc/ffffff?text=Sem+Foto'} 
                 alt={selectedService.name} 
@@ -426,6 +536,7 @@ export default function BookingFlow({
                     onClick={() => { setSelectedService(service); setStep(2); }}
                     className="w-full text-left p-4 rounded-2xl border border-glass-border hover:border-primary bg-white/5 transition-all flex items-center gap-4 group"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
                       src={service.imageUrl || 'https://placehold.co/150x150/cccccc/ffffff?text=Sem+Foto'} 
                       alt={service.name} 
@@ -447,9 +558,10 @@ export default function BookingFlow({
               <h2 className="text-xl font-bold mb-6">Escolha o Profissional</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(() => {
-                  const allowedEmployees = selectedService?.employees?.length > 0
-                    ? employees.filter(emp => selectedService.employees.some((se: any) => se.id === emp.id))
-                    : employees; // fallback para todos se não configurado
+                  if (!selectedService) return null;
+                  const allowedEmployees = employees.filter(emp =>
+                    selectedService.employees?.some((se: Employee) => se.id === emp.id)
+                  );
                     
                   if (allowedEmployees.length === 0) {
                     return <p className="text-gray-400 col-span-2">Nenhum profissional disponível para este serviço.</p>;
@@ -461,6 +573,7 @@ export default function BookingFlow({
                       onClick={() => { setSelectedEmployee(emp); setStep(3); }}
                       className="p-4 rounded-2xl border border-glass-border hover:border-primary bg-white/5 transition-all flex flex-col items-center text-center gap-3 group"
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={emp.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random`} 
                         alt={emp.name} 
@@ -601,7 +714,6 @@ export default function BookingFlow({
                       type="button"
                       onClick={() => {
                         setClient(null);
-                        setOtpVerified(false);
                       }}
                       className="text-xs text-red-400 hover:text-red-300 underline font-medium cursor-pointer"
                     >
@@ -686,6 +798,12 @@ export default function BookingFlow({
                     ) : (
                       <div className="space-y-4">
                         {/* Botão de Enviar OTP */}
+                        <TurnstileWidget
+                          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                          onTokenChange={setOtpCaptchaToken}
+                          resetSignal={otpCaptchaReset}
+                          label="Verificação anti-bot para envio do código"
+                        />
                         <button
                           type="button"
                           onClick={handleSendOtp}
@@ -752,13 +870,32 @@ export default function BookingFlow({
 
                 {/* Botão de Confirmação Final de Agendamento */}
                 {client && (
-                  <button 
-                    disabled={isSubmitting}
-                    className={`w-full bg-gradient-to-r from-primary to-accent text-background font-bold py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all mt-4 flex justify-center items-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
-                    onClick={handleConfirmBooking}
-                  >
-                    {isSubmitting ? 'Confirmando...' : 'Confirmar Agendamento'}
-                  </button>
+                  <div className="mt-4 space-y-4">
+                    {msg.text && (
+                      <div className={`text-xs p-3.5 rounded-xl ${
+                        msg.type === "ok" 
+                          ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono" 
+                          : msg.type === "info" 
+                            ? "bg-blue-500/10 border border-blue-500/20 text-blue-400" 
+                            : "bg-red-500/10 border border-red-500/20 text-red-400"
+                      }`}>
+                        {msg.text}
+                      </div>
+                    )}
+                    <TurnstileWidget
+                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                      onTokenChange={setBookingCaptchaToken}
+                      resetSignal={bookingCaptchaReset}
+                      label="Verificação anti-bot para confirmar o agendamento"
+                    />
+                    <button 
+                      disabled={isSubmitting}
+                      className={`w-full bg-gradient-to-r from-primary to-accent text-background font-bold py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all flex justify-center items-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      onClick={handleConfirmBooking}
+                    >
+                      {isSubmitting ? 'Confirmando...' : 'Confirmar Agendamento'}
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -782,9 +919,10 @@ export default function BookingFlow({
 
               {/* Botão de Exportar para o Google Calendar */}
               {(() => {
+                if (!selectedService) return null;
                 try {
                   const start = new Date(`${selectedDateStr}T${selectedTime}:00.000Z`);
-                  const end = new Date(start.getTime() + (selectedService?.duration || 30) * 60 * 1000);
+                  const end = new Date(start.getTime() + (selectedService.duration || 30) * 60 * 1000);
                   
                   const formatUTC = (date: Date) => {
                     return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
@@ -808,7 +946,7 @@ export default function BookingFlow({
                       Adicionar ao Google Agenda
                     </a>
                   );
-                } catch (e) {
+                } catch {
                   return null;
                 }
               })()}
