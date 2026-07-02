@@ -97,9 +97,7 @@ export async function createService(formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(fileName, {
-        transform: { width: 500, height: 500, resize: 'cover', quality: 80 }
-      });
+      .getPublicUrl(fileName);
 
     finalImageUrl = publicUrlData.publicUrl;
   }
@@ -167,9 +165,7 @@ export async function updateService(id: string, formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(fileName, {
-        transform: { width: 500, height: 500, resize: 'cover', quality: 80 }
-      });
+      .getPublicUrl(fileName);
 
     finalImageUrl = publicUrlData.publicUrl;
   }

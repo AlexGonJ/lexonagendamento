@@ -74,9 +74,7 @@ export async function updateTenantSettings(formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(logoPath, {
-        transform: { width: 300, height: 300, resize: 'cover', quality: 85 }
-      });
+      .getPublicUrl(logoPath);
 
     logoUrl = publicUrlData.publicUrl;
   }
@@ -103,9 +101,7 @@ export async function updateTenantSettings(formData: FormData) {
 
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('public-images')
-      .getPublicUrl(coverPath, {
-        transform: { width: 1200, height: 600, resize: 'cover', quality: 80 }
-      });
+      .getPublicUrl(coverPath);
 
     coverUrl = publicUrlData.publicUrl;
   }

@@ -451,7 +451,7 @@ export default function BookingFlow({
       {/* Header com Botão Voltar da Barbearia (Esconde na tela de sucesso) */}
       {step < 5 && (
         <div className="w-full max-w-3xl flex justify-between items-center mb-6">
-          <Link href={`/${tenantSlug}`} className="flex items-center gap-2 text-white bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors font-medium border border-glass-border">
+          <Link href={`/${tenantSlug}`} className="flex items-center gap-2 text-slate-800 bg-white/90 backdrop-blur-md hover:bg-white px-5 py-2.5 rounded-xl transition-all font-bold border border-white shadow-md hover:shadow-lg">
             &larr; Voltar
           </Link>
         </div>
@@ -460,9 +460,13 @@ export default function BookingFlow({
       {/* Stepper Customizado */}
       {step < 5 && (
         <div className="w-full max-w-3xl mb-10 px-2">
-          <h1 className="text-center text-xl font-bold mb-8">Passos para agendar</h1>
-          <div className="flex items-center justify-between relative">
-            <div className="absolute left-0 top-4 w-full h-[2px] bg-glass-border -z-10"></div>
+          <div className="flex justify-center">
+            <h1 className="text-center text-sm font-bold mb-6 text-slate-800 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-white">
+              Passos para agendar
+            </h1>
+          </div>
+          <div className="flex items-center justify-between relative bg-white/90 backdrop-blur-2xl p-4 sm:px-8 sm:py-6 rounded-3xl border border-white shadow-xl">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[3px] bg-slate-200 -z-10"></div>
             
             {stepTitles.map((title, index) => {
               const stepNum = index + 1;
@@ -470,17 +474,17 @@ export default function BookingFlow({
               const isActive = step === stepNum;
               
               return (
-                <div key={title} className="flex flex-col items-center gap-2 bg-background px-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${
+                <div key={title} className="flex flex-col items-center gap-2 z-10">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all shadow-sm ${
                     isCompleted 
-                      ? 'bg-primary border-primary text-background' 
+                      ? 'bg-primary border-primary text-white shadow-md' 
                       : isActive 
-                        ? 'bg-background border-primary text-primary' 
-                        : 'bg-background border-glass-border text-gray-500'
+                        ? 'bg-white border-primary text-primary scale-110 shadow-md' 
+                        : 'bg-white border-slate-300 text-slate-400'
                   }`}>
                     {isCompleted ? '✓' : stepNum}
                   </div>
-                  <span className={`text-xs md:text-sm ${isActive ? 'text-primary font-semibold' : 'text-gray-500'}`}>
+                  <span className={`text-[10px] md:text-xs uppercase tracking-wider ${isActive ? 'text-primary font-bold drop-shadow-sm' : 'text-slate-500 font-bold'}`}>
                     {title}
                   </span>
                 </div>
@@ -495,28 +499,28 @@ export default function BookingFlow({
         {/* Card Fixo de Resumo "Item selecionado" */}
         {step >= 3 && step < 5 && selectedService && selectedEmployee && (
           <div className="mb-8 animate-fade-in">
-            <h3 className="text-sm text-gray-400 mb-2">Item selecionado</h3>
-            <div className="glass-panel p-4 flex items-center gap-4 rounded-2xl border border-glass-border relative">
+            <h3 className="text-sm text-white drop-shadow-md font-bold mb-2 ml-2">Item selecionado</h3>
+            <div className="bg-white/90 backdrop-blur-2xl p-4 flex items-center gap-4 rounded-3xl border border-white shadow-xl relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
-                src={selectedService.imageUrl || 'https://placehold.co/150x150/cccccc/ffffff?text=Sem+Foto'} 
+                src={selectedService.imageUrl || 'https://placehold.co/150x150/e2e8f0/64748b?text=Sem+Foto'} 
                 alt={selectedService.name} 
-                className="w-20 h-20 rounded-xl object-cover" 
+                className="w-20 h-20 rounded-2xl object-cover shadow-sm" 
               />
               <div className="flex-1">
-                <h4 className="font-bold text-lg">{selectedService.name}</h4>
-                <div className="flex items-center text-gray-400 text-sm gap-1 mb-1">
+                <h4 className="font-bold text-lg text-slate-900">{selectedService.name}</h4>
+                <div className="flex items-center text-slate-600 font-bold text-sm gap-1 mb-1">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                   {selectedService.duration}min
                 </div>
-                <p className="text-sm text-gray-300">com <span className="text-white font-medium">{selectedEmployee.name}</span></p>
+                <p className="text-sm text-slate-600 font-medium">com <span className="text-slate-900 font-bold">{selectedEmployee.name}</span></p>
               </div>
-              <div className="text-primary font-bold text-lg">
+              <div className="text-primary font-extrabold text-lg mr-2 drop-shadow-sm">
                 R$ {selectedService.price.toFixed(2)}
               </div>
               <button 
                 onClick={() => setStep(1)}
-                className="absolute top-4 right-4 text-xs text-gray-400 hover:text-white underline"
+                className="absolute top-4 right-5 text-xs font-bold text-slate-500 hover:text-primary transition-colors underline"
               >
                 Alterar
               </button>
@@ -524,29 +528,29 @@ export default function BookingFlow({
           </div>
         )}
 
-        <div className="glass-panel p-6 md:p-8 relative overflow-hidden rounded-3xl">
+        <div className="bg-white/90 backdrop-blur-3xl border border-white p-6 sm:p-8 md:p-10 relative overflow-hidden rounded-[2.5rem] shadow-2xl">
           
           {step === 1 && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-bold mb-6">Escolha o Serviço</h2>
+              <h2 className="text-2xl font-bold mb-6 text-slate-900">Escolha o Serviço</h2>
               <div className="space-y-4">
                 {services.map(service => (
                   <button
                     key={service.id}
                     onClick={() => { setSelectedService(service); setStep(2); }}
-                    className="w-full text-left p-4 rounded-2xl border border-glass-border hover:border-primary bg-white/5 transition-all flex items-center gap-4 group"
+                    className="w-full text-left p-4 rounded-3xl border border-white hover:border-primary/50 bg-white/80 hover:bg-white shadow-sm hover:shadow-md transition-all flex items-center gap-4 group"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
-                      src={service.imageUrl || 'https://placehold.co/150x150/cccccc/ffffff?text=Sem+Foto'} 
+                      src={service.imageUrl || 'https://placehold.co/150x150/e2e8f0/64748b?text=Sem+Foto'} 
                       alt={service.name} 
-                      className="w-16 h-16 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform" 
+                      className="w-16 h-16 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" 
                     />
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{service.name}</h3>
-                      <span className="text-gray-400 text-sm">{service.duration} min</span>
+                      <h3 className="font-bold text-lg text-slate-900">{service.name}</h3>
+                      <span className="text-slate-500 font-medium text-sm">{service.duration} min</span>
                     </div>
-                    <span className="text-primary font-bold text-xl whitespace-nowrap">R$ {service.price.toFixed(2)}</span>
+                    <span className="text-primary font-extrabold text-xl whitespace-nowrap drop-shadow-sm pr-2">R$ {service.price.toFixed(2)}</span>
                   </button>
                 ))}
               </div>
@@ -555,7 +559,7 @@ export default function BookingFlow({
 
           {step === 2 && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-bold mb-6">Escolha o Profissional</h2>
+              <h2 className="text-2xl font-bold mb-6 text-slate-900">Escolha o Profissional</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(() => {
                   if (!selectedService) return null;
@@ -564,31 +568,31 @@ export default function BookingFlow({
                   );
                     
                   if (allowedEmployees.length === 0) {
-                    return <p className="text-gray-400 col-span-2">Nenhum profissional disponível para este serviço.</p>;
+                    return <p className="text-slate-500 col-span-2 font-medium">Nenhum profissional disponível para este serviço.</p>;
                   }
 
                   return allowedEmployees.map(emp => (
                     <button
                       key={emp.id}
                       onClick={() => { setSelectedEmployee(emp); setStep(3); }}
-                      className="p-4 rounded-2xl border border-glass-border hover:border-primary bg-white/5 transition-all flex flex-col items-center text-center gap-3 group"
+                      className="p-4 rounded-3xl border border-white hover:border-primary/50 bg-white/80 hover:bg-white shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={emp.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random`} 
                         alt={emp.name} 
-                        className="w-20 h-20 rounded-full object-cover group-hover:scale-105 transition-transform" 
+                        className="w-24 h-24 rounded-full object-cover group-hover:scale-105 transition-transform shadow-md border-4 border-white" 
                       />
                       <div>
-                        <h3 className="font-semibold text-lg">{emp.name}</h3>
-                        <p className="text-primary text-sm">{emp.role}</p>
+                        <h3 className="font-bold text-lg text-slate-900">{emp.name}</h3>
+                        <p className="text-primary font-semibold text-sm">{emp.role}</p>
                       </div>
                     </button>
                   ));
                 })()}
               </div>
               <div className="mt-8 flex justify-between">
-                <button onClick={() => setStep(1)} className="px-6 py-3 bg-white/10 text-white font-semibold rounded-xl hover:bg-white/20 transition-all border border-glass-border">
+                <button onClick={() => setStep(1)} className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-800 font-bold rounded-2xl shadow-sm border border-slate-200 transition-all">
                   Voltar
                 </button>
               </div>
@@ -599,14 +603,14 @@ export default function BookingFlow({
             <div className="animate-fade-in">
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-white capitalize">
+                  <h3 className="text-xl font-bold text-slate-900 capitalize drop-shadow-sm">
                     {selectedDateObj 
                       ? format(selectedDateObj, 'MMMM | yyyy', { locale: ptBR }) 
                       : format(new Date(), 'MMMM | yyyy', { locale: ptBR })}
                   </h3>
                   <div className="flex gap-2">
-                    <button className="w-8 h-8 rounded-full border border-glass-border flex items-center justify-center hover:bg-white/10">&lt;</button>
-                    <button className="w-8 h-8 rounded-full border border-glass-border flex items-center justify-center hover:bg-white/10">&gt;</button>
+                    <button className="w-10 h-10 rounded-full border border-slate-200 bg-white text-slate-800 shadow-sm flex items-center justify-center hover:bg-slate-50 hover:shadow-md transition-all font-bold">&lt;</button>
+                    <button className="w-10 h-10 rounded-full border border-slate-200 bg-white text-slate-800 shadow-sm flex items-center justify-center hover:bg-slate-50 hover:shadow-md transition-all font-bold">&gt;</button>
                   </div>
                 </div>
 
@@ -620,14 +624,15 @@ export default function BookingFlow({
                           setSelectedDateObj(dayObj);
                           setSelectedTime(''); // Reseta horário ao trocar dia
                         }}
-                        className={`flex flex-col items-center justify-center min-w-[70px] h-20 rounded-2xl border transition-all snap-start ${
+                        className={`flex flex-col items-center justify-center min-w-[75px] h-24 rounded-3xl border transition-all snap-start shadow-sm ${
                           isSelected 
-                            ? 'border-primary bg-primary/10 text-primary' 
-                            : 'border-glass-border bg-white/5 text-gray-400 hover:border-gray-500 hover:text-white'
+                            ? 'border-primary bg-primary text-white shadow-md scale-105' 
+                            : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 hover:shadow-md'
                         }`}
                       >
-                        <span className="text-xs uppercase font-medium mb-1">{format(dayObj, 'E', { locale: ptBR })}</span>
-                        <span className={`text-xl font-bold ${isSelected ? 'text-primary' : 'text-white'}`}>{format(dayObj, 'dd/MM')}</span>
+                        <span className="text-xs uppercase font-bold tracking-wider mb-1">{format(dayObj, 'E', { locale: ptBR })}</span>
+                        <span className={`text-2xl font-extrabold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{format(dayObj, 'dd')}</span>
+                        <span className={`text-[10px] font-medium ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>{format(dayObj, 'MMM', { locale: ptBR })}</span>
                       </button>
                     );
                   })}
@@ -636,11 +641,11 @@ export default function BookingFlow({
               
               {selectedDateObj ? (
                 <div className="animate-fade-in">
-                  <h3 className="text-sm font-medium text-gray-400 mb-4">Escolha um horário</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 ml-2">Escolha um horário</h3>
                   
                   {isLoadingTimes ? (
                     <div className="flex justify-center py-8">
-                      <p className="text-primary font-medium animate-pulse">Calculando horários livres...</p>
+                      <p className="text-primary font-bold animate-pulse">Calculando horários livres...</p>
                     </div>
                   ) : availableTimes.length > 0 ? (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
@@ -648,10 +653,10 @@ export default function BookingFlow({
                         <button
                           key={time}
                           onClick={() => setSelectedTime(time)}
-                          className={`py-3 rounded-xl border text-sm font-semibold transition-all ${
+                          className={`py-3.5 rounded-2xl border text-sm font-bold transition-all shadow-sm ${
                             selectedTime === time 
-                              ? 'border-primary bg-primary text-background' 
-                              : 'border-glass-border bg-white/5 hover:border-primary text-white hover:text-primary'
+                              ? 'border-primary bg-primary text-white shadow-md scale-105' 
+                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-800 hover:text-primary hover:border-primary/50 hover:shadow-md'
                           }`}
                         >
                           {time}
@@ -659,21 +664,21 @@ export default function BookingFlow({
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 bg-white/5 rounded-2xl border border-glass-border">
-                      <p className="text-gray-400">
+                    <div className="text-center py-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                      <p className="text-slate-600 font-bold">
                         O profissional não possui horários livres nesta data. Tente outro dia.
                       </p>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-slate-400 font-medium">
                   <p>Selecione uma data acima para ver os horários.</p>
                 </div>
               )}
 
               <div className="mt-10 flex gap-4">
-                <button onClick={() => setStep(2)} className="w-1/3 py-4 bg-white/5 text-white font-semibold rounded-2xl hover:bg-white/10 transition-all border border-glass-border">
+                <button onClick={() => setStep(2)} className="w-1/3 py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold rounded-2xl shadow-sm hover:shadow-md transition-all border border-slate-200">
                   Voltar
                 </button>
                 <button 
@@ -681,8 +686,8 @@ export default function BookingFlow({
                   onClick={() => setStep(4)} 
                   className={`w-2/3 py-4 font-bold rounded-2xl transition-all ${
                     selectedTime 
-                      ? 'bg-primary text-background hover:opacity-90 shadow-lg shadow-primary/20' 
-                      : 'bg-glass-border text-gray-500 cursor-not-allowed'
+                      ? 'bg-primary text-white hover:opacity-90 shadow-lg shadow-primary/30 scale-[1.02]' 
+                      : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
                 >
                   Continuar
@@ -693,29 +698,31 @@ export default function BookingFlow({
 
           {step === 4 && (
             <div className="animate-fade-in">
-              <h2 className="text-2xl font-bold mb-2">Finalizar Agendamento</h2>
-              <p className="text-gray-400 text-sm mb-6">Valide sua identidade antes de agendar para garantir a segurança da reserva.</p>
+              <h2 className="text-2xl font-bold mb-2 text-slate-900">Finalizar Agendamento</h2>
+              <p className="text-slate-600 text-sm mb-6 font-medium">Valide sua identidade antes de agendar para garantir a segurança da reserva.</p>
               
               <div className="space-y-4">
                 
                 {/* 1. SE ESTIVER LOGADO E VALIDADO */}
                 {client ? (
-                  <div className="bg-white/5 border border-primary/30 p-5 rounded-2xl space-y-4 animate-fade-in">
+                  <div className="bg-white border border-primary/30 p-5 rounded-3xl shadow-sm space-y-4 animate-fade-in">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-primary font-bold uppercase tracking-wider">Identidade Confirmada</p>
-                        <h4 className="text-lg font-bold text-white mt-1">{client.name}</h4>
-                        <p className="text-xs text-slate-400 font-mono mt-0.5">{client.phone}</p>
-                        {client.email && <p className="text-xs text-slate-500 mt-0.5">{client.email}</p>}
+                        <p className="text-[10px] text-primary font-extrabold uppercase tracking-widest mb-1">Identidade Confirmada</p>
+                        <h4 className="text-lg font-extrabold text-slate-900">{client.name}</h4>
+                        <p className="text-sm text-slate-500 font-mono mt-0.5">{client.phone}</p>
+                        {client.email && <p className="text-sm text-slate-500 mt-0.5">{client.email}</p>}
                       </div>
-                      <span className="text-2xl">✓</span>
+                      <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <span className="text-xl text-emerald-600">✓</span>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
                         setClient(null);
                       }}
-                      className="text-xs text-red-400 hover:text-red-300 underline font-medium cursor-pointer"
+                      className="text-xs text-red-500 hover:text-red-600 underline font-semibold cursor-pointer transition-colors"
                     >
                       Alterar Identificação / Sair
                     </button>
@@ -724,27 +731,27 @@ export default function BookingFlow({
                   /* 2. SE NÃO ESTIVER LOGADO (FORMULÁRIO DE LOGIN E VERIFICAÇÃO) */
                   <div className="space-y-4">
                     {/* Campos de Nome e Celular */}
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nome Completo</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-2">Nome Completo</label>
                         <input 
                           type="text" 
                           disabled={otpSent}
                           value={clientName}
                           onChange={(e) => setClientName(e.target.value)}
                           placeholder="Ex: João Silva" 
-                          className="w-full p-4 rounded-2xl bg-black/50 border border-glass-border text-white focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                          className="w-full p-4 rounded-2xl bg-white border border-slate-200 text-slate-900 font-bold placeholder:text-slate-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-inner transition-all disabled:opacity-50"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">WhatsApp para Verificação</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-2">WhatsApp para Verificação</label>
                         <input 
                           type="tel" 
                           disabled={otpSent}
                           value={clientPhone}
                           onChange={(e) => setClientPhone(e.target.value)}
                           placeholder="Ex: 11999999999" 
-                          className="w-full p-4 rounded-2xl bg-black/50 border border-glass-border text-white focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                          className="w-full p-4 rounded-2xl bg-white border border-slate-200 text-slate-900 font-bold placeholder:text-slate-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-inner transition-all disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -763,17 +770,17 @@ export default function BookingFlow({
 
                     {/* Exibir envio de código OTP */}
                     {otpSent ? (
-                      <div className="bg-white/5 border border-glass-border p-4 rounded-2xl space-y-3 animate-fade-in">
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Código de 6 dígitos recebido:</label>
+                      <div className="bg-slate-50 border border-slate-200 p-5 rounded-3xl shadow-sm space-y-4 animate-fade-in">
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Código de 6 dígitos recebido:</label>
                         <input
                           type="text"
                           maxLength={6}
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                           placeholder="000000"
-                          className="w-full text-center tracking-[10px] text-lg bg-black/70 border border-glass-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-all placeholder:text-slate-800"
+                          className="w-full text-center tracking-[10px] text-xl bg-white border border-slate-200 rounded-2xl px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-slate-300 shadow-inner"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button
                             type="button"
                             onClick={() => {
@@ -781,7 +788,7 @@ export default function BookingFlow({
                               setOtpCode("");
                               setMsg({ type: "", text: "" });
                             }}
-                            className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold border border-white/5 transition-all cursor-pointer"
+                            className="flex-1 py-3.5 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl text-xs font-bold border border-slate-200 transition-all cursor-pointer shadow-sm"
                           >
                             Voltar
                           </button>
@@ -789,7 +796,7 @@ export default function BookingFlow({
                             type="button"
                             onClick={handleVerifyOtp}
                             disabled={isSubmitting || otpCode.length < 6}
-                            className="flex-[2] py-3 bg-gradient-to-r from-primary to-accent text-background rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                            className="flex-[2] py-3.5 bg-gradient-to-r from-primary to-accent text-white rounded-2xl text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
                           >
                             {isSubmitting ? "Validando..." : "Verificar Código"}
                           </button>
@@ -808,7 +815,7 @@ export default function BookingFlow({
                           type="button"
                           onClick={handleSendOtp}
                           disabled={isSubmitting || !clientPhone || clientPhone.replace(/\D/g, "").length < 10}
-                          className="w-full bg-white/10 hover:bg-white/15 border border-glass-border text-white font-bold py-3.5 rounded-2xl transition-all cursor-pointer disabled:opacity-50 text-sm"
+                          className="w-full bg-slate-900 hover:bg-slate-800 text-white shadow-md font-bold py-4 rounded-2xl transition-all cursor-pointer disabled:opacity-50 text-sm"
                         >
                           {isSubmitting ? "Carregando..." : "Validar WhatsApp para Agendar"}
                         </button>
@@ -817,8 +824,8 @@ export default function BookingFlow({
                           <>
                             {/* Divisor */}
                             <div className="relative flex items-center justify-center my-6">
-                              <div className="w-full h-px bg-slate-800"></div>
-                              <span className="absolute px-3 bg-background text-slate-500 text-xs font-medium uppercase tracking-wider">
+                              <div className="w-full h-px bg-slate-200"></div>
+                              <span className="absolute px-3 bg-white text-slate-400 text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm border border-slate-100">
                                 ou autenticar com
                               </span>
                             </div>
@@ -832,7 +839,7 @@ export default function BookingFlow({
                               <button
                                 type="button"
                                 onClick={handleSimulateGoogle}
-                                className="w-full flex items-center justify-center gap-2 py-3 bg-black/60 hover:bg-slate-900 border border-slate-800 text-white text-xs font-semibold rounded-2xl transition-all cursor-pointer"
+                                className="w-full flex items-center justify-center gap-2 py-3.5 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm text-slate-700 text-xs font-bold rounded-2xl transition-all cursor-pointer"
                               >
                                 <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
                                   <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.176 4.113-3.415 0-6.19-2.775-6.19-6.19 0-3.415 2.775-6.19 6.19-6.19 1.488 0 2.85.535 3.903 1.488l3.123-3.123C18.91 2.215 15.8 1 12.24 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.48 0 11.24-4.514 11.24-11.24 0-.765-.078-1.503-.23-1.955H12.24z" />
@@ -874,10 +881,10 @@ export default function BookingFlow({
                     {msg.text && (
                       <div className={`text-xs p-3.5 rounded-xl ${
                         msg.type === "ok" 
-                          ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono" 
+                          ? "bg-emerald-50 border border-emerald-200 text-emerald-700 font-mono" 
                           : msg.type === "info" 
-                            ? "bg-blue-500/10 border border-blue-500/20 text-blue-400" 
-                            : "bg-red-500/10 border border-red-500/20 text-red-400"
+                            ? "bg-blue-50 border border-blue-200 text-blue-700" 
+                            : "bg-red-50 border border-red-200 text-red-700"
                       }`}>
                         {msg.text}
                       </div>
@@ -890,7 +897,7 @@ export default function BookingFlow({
                     />
                     <button 
                       disabled={isSubmitting}
-                      className={`w-full bg-gradient-to-r from-primary to-accent text-background font-bold py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all flex justify-center items-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      className={`w-full bg-gradient-to-r from-primary to-accent text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-primary/30 hover:opacity-90 hover:scale-[1.01] transition-all flex justify-center items-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                       onClick={handleConfirmBooking}
                     >
                       {isSubmitting ? 'Confirmando...' : 'Confirmar Agendamento'}
@@ -900,7 +907,7 @@ export default function BookingFlow({
               </div>
 
               <div className="mt-8">
-                <button onClick={() => setStep(3)} className="px-8 py-4 bg-white/5 text-white font-semibold rounded-2xl hover:bg-white/10 transition-all border border-glass-border">
+                <button onClick={() => setStep(3)} className="px-8 py-4 bg-white hover:bg-slate-50 text-slate-800 shadow-sm hover:shadow-md font-bold rounded-2xl transition-all border border-slate-200">
                   Voltar
                 </button>
               </div>
@@ -909,12 +916,12 @@ export default function BookingFlow({
 
           {step === 5 && (
             <div className="animate-fade-in flex flex-col items-center text-center py-12">
-              <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-6">
-                <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+              <div className="w-24 h-24 rounded-full bg-emerald-100 shadow-sm flex items-center justify-center mb-6 border-4 border-white">
+                <svg className="w-12 h-12 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">Agendamento Confirmado!</h2>
-              <p className="text-gray-400 mb-6 max-w-md">
-                Tudo certo, <strong>{clientName}</strong>! Seu horário com {selectedEmployee?.name} está marcado para {selectedDateStr.split('-').reverse().join('/')} às {selectedTime}.
+              <h2 className="text-3xl font-extrabold text-slate-900 mb-4 drop-shadow-sm">Agendamento Confirmado!</h2>
+              <p className="text-slate-600 mb-8 max-w-md font-medium text-lg">
+                Tudo certo, <strong className="text-slate-900">{clientName}</strong>! Seu horário com <strong className="text-slate-900">{selectedEmployee?.name}</strong> está marcado para <strong className="text-primary">{selectedDateStr.split('-').reverse().join('/')} às {selectedTime}</strong>.
               </p>
 
               {/* Botão de Exportar para o Google Calendar */}
@@ -953,7 +960,7 @@ export default function BookingFlow({
               
               <Link 
                 href={`/${tenantSlug}`}
-                className="px-8 py-4 bg-white/10 text-white font-bold rounded-2xl hover:bg-white/20 transition-all border border-glass-border w-full max-w-xs block text-center"
+                className="px-8 py-4 bg-white text-slate-700 shadow-sm hover:shadow-md font-bold rounded-2xl hover:bg-slate-50 transition-all border border-slate-200 w-full max-w-xs block text-center"
               >
                 Voltar para o Início
               </Link>

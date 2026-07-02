@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { updateTenantFeatures, toggleTenantStatus, assignPlanToTenant, createTenantEmployee } from "@/actions/superadmin";
+import { updateTenantFeatures, toggleTenantStatus, assignPlanToTenant, createTenantEmployee, updateTenantTheme } from "@/actions/superadmin";
 
 export type Feature = { slug: string; label: string; description: string };
 export type Plan = { id: string; name: string; price: number; features: string[] };
@@ -18,6 +18,7 @@ export type Employee = {
 export type Tenant = {
   id: string; name: string; slug: string; description: string | null;
   isActive: boolean; features: string[]; createdAt: Date;
+  themeBgColor: string | null; themeButtonColor: string | null;
   tenantPlans: { id: string; status: string; startDate: Date; plan: Plan }[];
   employees: Employee[];
   _count: { employees: number; services: number; bookings: number };
@@ -32,6 +33,12 @@ export default function TenantDetailClient({ tenant, plans, features }: { tenant
   const [toggling, setToggling] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [msg, setMsg] = useState({ type: "", text: "" });
+
+  // Theme states
+  const [themeBgColor, setThemeBgColor] = useState(tenant.themeBgColor || "#0f0f0f");
+  const [themeButtonColor, setThemeButtonColor] = useState(tenant.themeButtonColor || "#d4af37");
+  const [savingTheme, setSavingTheme] = useState(false);
+  const [themeMsg, setThemeMsg] = useState({ type: "", text: "" });
 
   // Employee creation states
   const [empName, setEmpName] = useState("");
@@ -91,6 +98,19 @@ export default function TenantDetailClient({ tenant, plans, features }: { tenant
       router.refresh();
     } else {
       setMsg({ type: "err", text: result.error || "Erro" });
+    }
+  }
+
+  async function handleSaveTheme() {
+    setSavingTheme(true);
+    const result = await updateTenantTheme(tenant.id, themeBgColor, themeButtonColor);
+    setSavingTheme(false);
+    if (result.success) {
+      setThemeMsg({ type: "ok", text: "Cores salvas com sucesso!" });
+      setTimeout(() => setThemeMsg({ type: "", text: "" }), 3000);
+      router.refresh();
+    } else {
+      setThemeMsg({ type: "err", text: result.error || "Erro ao salvar cores" });
     }
   }
 
@@ -168,6 +188,57 @@ export default function TenantDetailClient({ tenant, plans, features }: { tenant
             {assigning ? "Atribuindo..." : "Confirmar Plano"}
           </button>
         </div>
+      </div>
+
+      {/* Tema & Personalização */}
+      <div style={cardStyle} className="space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "#9ca3af" }}>Personalização de Cores</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2">Cor de Fundo (Background)</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={themeBgColor}
+                onChange={(e) => setThemeBgColor(e.target.value)}
+                className="w-10 h-10 rounded cursor-pointer border-0 p-0 bg-transparent"
+              />
+              <input
+                type="text"
+                value={themeBgColor}
+                onChange={(e) => setThemeBgColor(e.target.value)}
+                className="bg-white/5 border border-purple-500/20 text-white rounded-lg px-3 py-2 text-xs outline-none focus:border-purple-500/50 font-mono w-full"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2">Cor Primária (Botões e Destaques)</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={themeButtonColor}
+                onChange={(e) => setThemeButtonColor(e.target.value)}
+                className="w-10 h-10 rounded cursor-pointer border-0 p-0 bg-transparent"
+              />
+              <input
+                type="text"
+                value={themeButtonColor}
+                onChange={(e) => setThemeButtonColor(e.target.value)}
+                className="bg-white/5 border border-purple-500/20 text-white rounded-lg px-3 py-2 text-xs outline-none focus:border-purple-500/50 font-mono w-full"
+              />
+            </div>
+          </div>
+        </div>
+        {themeMsg.text && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm" style={{ background: themeMsg.type === "ok" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${themeMsg.type === "ok" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`, color: themeMsg.type === "ok" ? "#6ee7b7" : "#fca5a5" }}>
+            {themeMsg.text}
+          </div>
+        )}
+        <button onClick={handleSaveTheme} disabled={savingTheme} className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer disabled:opacity-60" style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", boxShadow: "0 4px 15px rgba(124,58,237,0.3)" }}>
+          {savingTheme ? "Salvando..." : "Salvar Cores"}
+        </button>
       </div>
 
       {/* Funcionários & Usuários */}

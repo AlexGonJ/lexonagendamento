@@ -208,6 +208,19 @@ export async function updateTenantFeatures(id: string, features: string[]) {
   }
 }
 
+export async function updateTenantTheme(id: string, themeBgColor: string | null, themeButtonColor: string | null) {
+  try {
+    await requireSuperAdminAuth();
+    await prisma.tenant.update({
+      where: { id },
+      data: { themeBgColor, themeButtonColor },
+    });
+    return { success: true };
+  } catch {
+    return { success: false, error: "Erro ao atualizar as cores do tema." };
+  }
+}
+
 export async function assignPlanToTenant(tenantId: string, planId: string) {
   try {
     await requireSuperAdminAuth();

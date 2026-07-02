@@ -54,62 +54,64 @@ export default async function TenantPage({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">
-        {/* Info do Estabelecimento */}
-        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img 
-            src={logoUrl} 
-            alt={tenant.name} 
-            className="w-32 h-32 rounded-full border-4 border-background shadow-lg object-cover"
-          />
-          <div className="mb-2">
-            <h1 className="text-3xl md:text-4xl font-bold">{tenant.name}</h1>
-            <p className="text-gray-400 mt-2 max-w-xl">{description}</p>
+        <div className="bg-white/60 backdrop-blur-2xl border border-white/50 p-6 sm:p-8 md:p-10 mb-10 shadow-2xl rounded-[2.5rem]">
+          {/* Info do Estabelecimento */}
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left mt-[-60px] md:mt-[-80px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={logoUrl} 
+              alt={tenant.name} 
+              className="w-32 h-32 rounded-full border-4 border-white shadow-xl object-cover bg-white"
+            />
+            <div className="mb-2">
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 drop-shadow-sm">{tenant.name}</h1>
+              <p className="text-slate-700 mt-2 max-w-xl font-medium">{description}</p>
+            </div>
           </div>
-        </div>
 
-        {/* Separador Dourado */}
-        <div className="w-full h-px bg-gradient-to-r from-primary to-transparent my-8 opacity-50" />
+          {/* Separador */}
+          <div className="w-full h-px bg-slate-300 my-8 opacity-70" />
 
-        {/* Seção de Serviços em Destaque */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-primary rounded-full block"></span>
-            Nossos Serviços
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {tenant.services.length === 0 ? (
-              <p className="text-gray-500 text-sm py-4">Nenhum serviço cadastrado ainda.</p>
-            ) : (
-              tenant.services.map((service) => (
-                <div 
-                  key={service.id} 
-                  className="glass-panel p-4 flex justify-between items-center hover:border-primary/50 transition-colors gap-4"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={service.imageUrl || 'https://placehold.co/150x150/cccccc/ffffff?text=Sem+Foto'} 
-                      alt={service.name} 
-                      className="w-16 h-16 rounded-xl object-cover shadow-sm" 
-                    />
-                    <div>
-                      <h3 className="font-semibold text-lg text-white">{service.name}</h3>
-                      <p className="text-gray-400 text-sm">{service.duration} min</p>
-                      {service.description && (
-                        <p className="text-gray-500 text-xs mt-1 line-clamp-1">{service.description}</p>
-                      )}
+          {/* Seção de Serviços em Destaque */}
+          <section className="mb-6">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-slate-900">
+              <span className="w-2 h-8 bg-primary rounded-full block shadow-sm"></span>
+              Nossos Serviços
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tenant.services.length === 0 ? (
+                <p className="text-slate-500 text-sm py-4">Nenhum serviço cadastrado ainda.</p>
+              ) : (
+                tenant.services.map((service) => (
+                  <div 
+                    key={service.id} 
+                    className="bg-white/80 hover:bg-white backdrop-blur-md border border-white rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md hover:border-primary/50 transition-all gap-4"
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={service.imageUrl || 'https://placehold.co/150x150/e2e8f0/64748b?text=Sem+Foto'} 
+                        alt={service.name} 
+                        className="w-16 h-16 rounded-xl object-cover shadow-sm" 
+                      />
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-900">{service.name}</h3>
+                        <p className="text-slate-500 text-sm font-medium">{service.duration} min</p>
+                        {service.description && (
+                          <p className="text-slate-600 text-xs mt-1 line-clamp-1">{service.description}</p>
+                        )}
+                      </div>
                     </div>
+                    <p className="text-primary font-extrabold text-xl whitespace-nowrap">
+                      R$ {service.price.toFixed(2).replace('.', ',')}
+                    </p>
                   </div>
-                  <p className="text-primary font-bold text-xl whitespace-nowrap">
-                    R$ {service.price.toFixed(2).replace('.', ',')}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
 
         {/* Botão Flutuante (Floating Action Button - FAB) */}
         <div className="fixed bottom-0 left-0 w-full p-4 bg-gradient-to-t from-background to-transparent flex justify-center z-50">

@@ -71,9 +71,7 @@ async function uploadAvatar(imageFile: File, tenantId: string): Promise<string> 
 
   const { data: publicUrlData } = supabaseAdmin.storage
     .from("public-images")
-    .getPublicUrl(fileName, {
-      transform: { width: 250, height: 250, resize: "cover", quality: 80 },
-    });
+    .getPublicUrl(fileName);
 
   return publicUrlData.publicUrl;
 }

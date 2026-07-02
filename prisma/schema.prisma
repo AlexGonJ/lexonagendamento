@@ -24,6 +24,10 @@ model Tenant {
   bookings    Booking[]
   tenantPlans TenantPlan[]
 
+  // Theme Settings
+  themeBgColor     String?
+  themeButtonColor String?
+
   // WhatsApp Integration Settings
   whatsappEnabled          Boolean   @default(false)
   whatsappProvider         String    @default("simulador") // "simulador", "evolution", "meta"
