@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* === Existing Dark Theme (Admin, Booking, Login) === */
   --color-background: #0f0f0f;
   --color-foreground: #ffffff;
   --color-primary: #d4af37;
@@ -9,6 +10,25 @@
   
   --color-glass: rgba(20, 20, 20, 0.7);
   --color-glass-border: rgba(255, 255, 255, 0.1);
+
+  /* === Landing Page — Premium Blue Identity === */
+  --color-landing-bg: #F8FAFC;
+  --color-landing-bg-alt: #F1F5F9;
+  --color-landing-text: #0F172A;
+  --color-landing-text-muted: #475569;
+  --color-landing-border: #E2E8F0;
+
+  /* Brand Colors — Blue + Slate */
+  --color-brand-blue: #006BFF;
+  --color-brand-blue-dark: #0052CC;
+  --color-brand-blue-light: #E5F0FF;
+  --color-brand-slate: #334155;
+  --color-brand-slate-dark: #1E293B;
+  --color-brand-slate-light: #F8FAFC;
+
+  /* Fonts */
+  --font-heading: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 :root {
@@ -19,10 +39,13 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
 }
 
-/* Utilitários Premium - Glassmorphism */
+/* =======================================
+   Existing Utilities (Admin/Booking)
+   ======================================= */
+
 .glass-panel {
   background: var(--color-glass);
   backdrop-filter: blur(12px);
@@ -36,4 +59,321 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* =======================================
+   Landing Page — Design System
+   ======================================= */
+
+.landing-wrapper {
+  background-color: var(--color-landing-bg);
+  color: var(--color-landing-text);
+  overflow-x: hidden;
+}
+
+/* Premium Gradient Text — Deep Blue */
+.text-gradient-brand {
+  background: linear-gradient(135deg, var(--color-brand-blue) 0%, #0045A8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Brand Solid Gradient */
+.bg-gradient-brand {
+  background: linear-gradient(135deg, var(--color-brand-blue) 0%, #0052CC 100%);
+}
+
+.bg-gradient-blue {
+  background: linear-gradient(135deg, var(--color-brand-blue) 0%, #0052CC 100%);
+}
+
+/* Subtle section separator */
+.section-alt {
+  background-color: var(--color-landing-bg-alt);
+}
+
+/* Premium Card */
+.landing-card {
+  background: #ffffff;
+  border: 1px solid var(--color-landing-border);
+  border-radius: 1.25rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.landing-card:hover {
+  border-color: var(--color-brand-blue-light);
+  box-shadow: 0 20px 40px -10px rgba(0, 107, 255, 0.08);
+  transform: translateY(-4px);
+}
+
+/* Pricing highlight card */
+.pricing-highlight {
+  background: #ffffff;
+  border: 2px solid var(--color-brand-blue);
+  border-radius: 1.5rem;
+  box-shadow: 0 25px 60px -12px rgba(0, 107, 255, 0.15);
+  transform: scale(1.03);
+  position: relative;
+}
+
+/* =======================================
+   Marquee Animation
+   ======================================= */
+
+.marquee-container {
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.marquee-content {
+  display: flex;
+  min-width: 200%;
+  animation: marquee 35s linear infinite;
+  gap: 1.5rem;
+  padding-left: 1.5rem;
+}
+
+.marquee-container:hover .marquee-content {
+  animation-play-state: paused;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* =======================================
+   Animations
+   ======================================= */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes fade-in-up {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 107, 255, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(0, 107, 255, 0.35); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* =======================================
+   Landing Navbar
+   ======================================= */
+
+.landing-nav {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(248, 250, 252, 0.85);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+  transition: all 0.3s ease;
+}
+
+.landing-nav.scrolled {
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+}
+
+/* =======================================
+   CTA Button Styles
+   ======================================= */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: 0.75rem;
+  color: #ffffff;
+  background: var(--color-brand-blue);
+  box-shadow: 0 4px 14px rgba(0, 107, 255, 0.25);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 107, 255, 0.35);
+  background: var(--color-brand-blue-dark);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: 0.75rem;
+  color: var(--color-brand-blue);
+  background: transparent;
+  border: 1.5px solid var(--color-landing-border);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.btn-secondary:hover {
+  background: var(--color-brand-blue-light);
+  border-color: var(--color-brand-blue-light);
+  color: var(--color-brand-blue-dark);
+}
+
+.btn-slate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: 0.75rem;
+  color: #ffffff;
+  background: var(--color-brand-slate-dark);
+  box-shadow: 0 4px 14px rgba(30, 41, 59, 0.25);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.btn-slate:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(30, 41, 59, 0.35);
+  background: #0F172A;
+}
+
+/* =======================================
+   Headings — Premium Typography
+   ======================================= */
+
+.landing-wrapper h1,
+.landing-wrapper h2,
+.landing-wrapper h3,
+.landing-wrapper h4 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+/* =======================================
+   FAQ Accordion
+   ======================================= */
+
+.faq-item {
+  border: 1px solid var(--color-landing-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  background: #ffffff;
+}
+
+.faq-item:hover {
+  border-color: rgba(0, 107, 255, 0.3);
+}
+
+.faq-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--color-landing-text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.2s ease;
+  font-family: var(--font-heading);
+  letter-spacing: -0.01em;
+}
+
+.faq-trigger:hover {
+  color: var(--color-brand-blue);
+}
+
+.faq-content {
+  padding: 0 1.5rem 1.25rem;
+  color: var(--color-landing-text-muted);
+  line-height: 1.6;
+  font-size: 0.9375rem;
+}
+
+/* =======================================
+   Responsive Overrides
+   ======================================= */
+
+@media (max-width: 768px) {
+  .pricing-highlight {
+    transform: scale(1);
+  }
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection color for landing */
+.landing-wrapper ::selection {
+  background: rgba(0, 107, 255, 0.15);
+  color: var(--color-brand-blue-dark);
+}
+
+/* Feature image styling */
+.feature-image {
+  border-radius: 1rem;
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.1);
+  transition: transform 0.4s ease;
+}
+
+.feature-image:hover {
+  transform: scale(1.02);
+}
+
+/* Number counter - for stats section */
+.stat-number {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
