@@ -2,7 +2,6 @@
 
 import { useRef, useEffect } from 'react';
 import { Renderer, Program, Mesh, Triangle, Vec2 } from 'ogl';
-import './DarkVeil.css';
 
 const vertex = `
 attribute vec2 position;
@@ -11,7 +10,7 @@ void main(){gl_Position=vec4(position,0.0,1.0);}
 
 const fragment = `
 #ifdef GL_ES
-precision lowp float;
+precision mediump float;
 #endif
 uniform vec2 uResolution;
 uniform float uTime;
@@ -105,11 +104,6 @@ export default function DarkVeil({
 
     let renderer;
     try {
-      const glTest = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!glTest) {
-        console.warn("WebGL not supported by browser, disabling background effect.");
-        return;
-      }
       renderer = new Renderer({
         dpr: Math.min(window.devicePixelRatio, 2),
         canvas
@@ -176,5 +170,5 @@ export default function DarkVeil({
       window.removeEventListener('resize', resize);
     };
   }, [hueShift, noiseIntensity, scanlineIntensity, speed, scanlineFrequency, warpAmount, resolutionScale]);
-  return <canvas ref={ref} className="darkveil-canvas" />;
+  return <canvas ref={ref} className="w-full h-full block" />;
 }
