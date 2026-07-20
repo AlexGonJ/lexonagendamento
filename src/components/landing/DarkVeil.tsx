@@ -141,9 +141,15 @@ export default function DarkVeil({
     const resize = () => {
       const w = parent.clientWidth,
         h = parent.clientHeight;
+      if (w === 0 || h === 0) return;
       renderer.setSize(w * resolutionScale, h * resolutionScale);
       program.uniforms.uResolution.value.set(w, h);
     };
+
+    const resizeObserver = new ResizeObserver(() => {
+      resize();
+    });
+    resizeObserver.observe(parent);
 
     window.addEventListener('resize', resize);
     resize();
@@ -166,6 +172,7 @@ export default function DarkVeil({
 
     return () => {
       cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
   }, [hueShift, noiseIntensity, scanlineIntensity, speed, scanlineFrequency, warpAmount, resolutionScale]);
