@@ -45,7 +45,7 @@ export default function TestimonialsSection() {
           transition={{ duration: 0.6 }}
           className="text-center max-w-2xl mx-auto mb-16"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-bold mb-5">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold mb-5">
             Depoimentos
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold tracking-tight text-landing-text mb-5 leading-[1.15]">
@@ -69,7 +69,7 @@ export default function TestimonialsSection() {
               className="landing-card p-7 flex flex-col"
             >
               {/* Quote icon */}
-              <Quote className="w-8 h-8 text-blue-100 mb-4" />
+              <Quote className="w-8 h-8 text-blue-500/10 mb-4" />
 
               {/* Stars */}
               <div className="flex items-center gap-1 mb-4">

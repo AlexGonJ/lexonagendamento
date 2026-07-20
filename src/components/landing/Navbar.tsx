@@ -23,7 +23,11 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`landing-nav fixed top-0 left-0 right-0 z-50 ${scrolled ? "scrolled" : ""}`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-slate-950/85 backdrop-blur-md border-b border-white/10 shadow-sm"
+          : "bg-transparent border-b border-transparent"
+      }`}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="flex items-center justify-between h-[72px]">
@@ -46,7 +50,12 @@ export default function Navbar() {
                 <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             </div>
-            <span className="text-xl font-extrabold text-landing-text tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+            <span 
+              className={`text-xl font-extrabold tracking-tight transition-colors duration-300 ${
+                scrolled ? "text-landing-text" : "text-white"
+              }`} 
+              style={{ fontFamily: 'var(--font-heading)' }}
+            >
               Lexon<span className="text-gradient-brand">Agenda</span>
             </span>
           </Link>
@@ -57,7 +66,11 @@ export default function Navbar() {
               <a
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-landing-text-muted hover:text-brand-blue transition-colors duration-200"
+                className={`text-sm font-medium transition-colors duration-200 ${
+                  scrolled
+                    ? "text-landing-text-muted hover:text-brand-blue"
+                    : "text-slate-300 hover:text-white"
+                }`}
               >
                 {link.label}
               </a>
@@ -68,13 +81,21 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             <Link
               href="/login"
-              className="text-sm font-semibold text-landing-text-muted hover:text-landing-text transition-colors px-4 py-2"
+              className={`text-sm font-semibold transition-colors px-4 py-2 ${
+                scrolled
+                  ? "text-landing-text-muted hover:text-landing-text"
+                  : "text-slate-300 hover:text-white"
+              }`}
             >
               Entrar
             </Link>
             <a
               href="#planos"
-              className="btn-primary !py-2.5 !px-5 !text-sm !rounded-lg"
+              className={`btn-primary !py-2.5 !px-5 !text-sm !rounded-lg transition-all duration-200 ${
+                scrolled
+                  ? ""
+                  : "shadow-[0_4px_12px_rgba(0,107,255,0.3)] hover:shadow-[0_4px_18px_rgba(0,107,255,0.5)] hover:-translate-y-0.5"
+              }`}
             >
               Começar Agora
             </a>
@@ -82,21 +103,27 @@ export default function Navbar() {
 
           {/* Mobile Toggle */}
           <button
-            className="md:hidden flex flex-col items-center justify-center w-10 h-10 gap-1.5 cursor-pointer"
+            className="md:hidden flex flex-col items-center justify-center w-10 h-10 gap-1.5 cursor-pointer animate-none"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Menu"
           >
             <motion.span
               animate={mobileOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
-              className="block w-5 h-0.5 bg-landing-text rounded-full origin-center"
+              className={`block w-5 h-0.5 rounded-full origin-center transition-colors duration-200 ${
+                scrolled || mobileOpen ? "bg-landing-text" : "bg-white"
+              }`}
             />
             <motion.span
               animate={mobileOpen ? { opacity: 0 } : { opacity: 1 }}
-              className="block w-5 h-0.5 bg-landing-text rounded-full"
+              className={`block w-5 h-0.5 rounded-full transition-colors duration-200 ${
+                scrolled || mobileOpen ? "bg-landing-text" : "bg-white"
+              }`}
             />
             <motion.span
               animate={mobileOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }}
-              className="block w-5 h-0.5 bg-landing-text rounded-full origin-center"
+              className={`block w-5 h-0.5 rounded-full origin-center transition-colors duration-200 ${
+                scrolled || mobileOpen ? "bg-landing-text" : "bg-white"
+              }`}
             />
           </button>
         </div>
@@ -110,7 +137,7 @@ export default function Navbar() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="md:hidden overflow-hidden border-t border-landing-border bg-white/95 backdrop-blur-xl"
+            className="md:hidden overflow-hidden border-t border-white/10 bg-slate-950/95 backdrop-blur-xl"
           >
             <div className="px-6 py-5 flex flex-col gap-4">
               {navLinks.map((link) => (

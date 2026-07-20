@@ -11,10 +11,10 @@ const advantages = [
       "Chega de anotar em caderno ou responder WhatsApp o dia inteiro. O sistema agenda, confirma e lembra seus clientes — sozinho.",
     stat: "5h",
     statLabel: "economizadas por semana",
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-600",
-    accentColor: "from-blue-500 to-blue-600",
-    borderHover: "hover:border-blue-300",
+    iconBg: "bg-blue-500/10 border border-blue-500/20",
+    iconColor: "text-blue-400",
+    accentColor: "from-blue-400 to-blue-500",
+    borderHover: "hover:border-blue-500/35",
   },
   {
     icon: TrendingUp,
@@ -23,10 +23,10 @@ const advantages = [
       "Lembretes automáticos reduzem faltas em até 40%. Menos buracos na agenda = mais atendimentos = mais faturamento. Simples assim.",
     stat: "40%",
     statLabel: "menos faltas",
-    iconBg: "bg-slate-50",
-    iconColor: "text-slate-500",
-    accentColor: "from-slate-400 to-slate-500",
-    borderHover: "hover:border-slate-300",
+    iconBg: "bg-white/5 border border-white/10",
+    iconColor: "text-slate-400",
+    accentColor: "from-slate-300 to-slate-400",
+    borderHover: "hover:border-white/20",
   },
   {
     icon: BarChart3,
@@ -35,10 +35,10 @@ const advantages = [
       "Saiba quanto faturou, quem vem, quais serviços dão mais retorno. Tome decisões com dados reais, não achismo.",
     stat: "2x",
     statLabel: "mais eficiência",
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-500",
+    iconBg: "bg-blue-500/10 border border-blue-500/20",
+    iconColor: "text-blue-400",
     accentColor: "from-blue-400 to-blue-500",
-    borderHover: "hover:border-blue-300",
+    borderHover: "hover:border-blue-500/35",
   },
 ];
 
@@ -47,7 +47,7 @@ export default function AdvantagesSection() {
     <section id="vantagens" className="py-24 lg:py-32 relative">
       {/* Background accent */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-50/40 rounded-full blur-[120px]" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-500/5 rounded-full blur-[120px]" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
@@ -59,7 +59,7 @@ export default function AdvantagesSection() {
           transition={{ duration: 0.6 }}
           className="text-center max-w-2xl mx-auto mb-16"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-bold mb-5">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold mb-5">
             <ArrowUpRight className="w-4 h-4" />
             Por que escolher a Lexon
           </span>

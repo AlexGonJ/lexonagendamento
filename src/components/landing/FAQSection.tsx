@@ -51,7 +51,7 @@ export default function FAQSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-14"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-bold mb-5">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold mb-5">
             Dúvidas Frequentes
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-landing-text mb-4 leading-[1.15]">

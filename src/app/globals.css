@@ -12,19 +12,19 @@
   --color-glass-border: rgba(255, 255, 255, 0.1);
 
   /* === Landing Page — Premium Blue Identity === */
-  --color-landing-bg: #F8FAFC;
-  --color-landing-bg-alt: #F1F5F9;
-  --color-landing-text: #0F172A;
-  --color-landing-text-muted: #475569;
-  --color-landing-border: #E2E8F0;
+  --color-landing-bg: #090B11;
+  --color-landing-bg-alt: #0D111A;
+  --color-landing-text: #F8FAFC;
+  --color-landing-text-muted: #94A3B8;
+  --color-landing-border: rgba(255, 255, 255, 0.08);
 
   /* Brand Colors — Blue + Slate */
   --color-brand-blue: #006BFF;
   --color-brand-blue-dark: #0052CC;
-  --color-brand-blue-light: #E5F0FF;
-  --color-brand-slate: #334155;
-  --color-brand-slate-dark: #1E293B;
-  --color-brand-slate-light: #F8FAFC;
+  --color-brand-blue-light: rgba(0, 107, 255, 0.12);
+  --color-brand-slate: #94A3B8;
+  --color-brand-slate-dark: #F8FAFC;
+  --color-brand-slate-light: #0D111A;
 
   /* Fonts */
   --font-heading: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
@@ -95,25 +95,29 @@ body {
 
 /* Premium Card */
 .landing-card {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--color-landing-border);
   border-radius: 1.25rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 }
 
 .landing-card:hover {
-  border-color: var(--color-brand-blue-light);
-  box-shadow: 0 20px 40px -10px rgba(0, 107, 255, 0.08);
+  border-color: rgba(0, 107, 255, 0.3);
+  box-shadow: 0 20px 40px -10px rgba(0, 107, 255, 0.15);
   transform: translateY(-4px);
 }
 
 /* Pricing highlight card */
 .pricing-highlight {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 2px solid var(--color-brand-blue);
   border-radius: 1.5rem;
-  box-shadow: 0 25px 60px -12px rgba(0, 107, 255, 0.15);
+  box-shadow: 0 25px 60px -12px rgba(0, 107, 255, 0.25);
   transform: scale(1.03);
   position: relative;
 }
@@ -303,11 +307,13 @@ body {
   border-radius: 0.75rem;
   overflow: hidden;
   transition: all 0.2s ease;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .faq-item:hover {
-  border-color: rgba(0, 107, 255, 0.3);
+  border-color: rgba(0, 107, 255, 0.4);
 }
 
 .faq-trigger {

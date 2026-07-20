@@ -85,7 +85,7 @@ export default function PricingSection() {
           transition={{ duration: 0.6 }}
           className="text-center max-w-2xl mx-auto mb-14"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-bold mb-5">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-bold mb-5">
             Planos & Preços
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold tracking-tight text-landing-text mb-5 leading-[1.15]">
@@ -98,8 +98,8 @@ export default function PricingSection() {
           </p>
 
           {/* Annual savings */}
-          <div className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <span className="text-sm text-slate-700 font-bold">
+          <div className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-sm text-slate-300 font-bold">
               🔥 Economize até 20% no plano anual
             </span>
           </div>
@@ -135,8 +135,8 @@ export default function PricingSection() {
                       className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.popular
                         ? "bg-gradient-blue text-white"
                         : plan.ctaStyle === "slate"
-                          ? "bg-slate-50 text-slate-500"
-                          : "bg-slate-50 text-slate-500"
+                          ? "bg-white/5 border border-white/10 text-slate-300"
+                          : "bg-white/5 border border-white/10 text-slate-300"
                         }`}
                     >
                       <plan.icon className="w-5 h-5" />
@@ -168,7 +168,7 @@ export default function PricingSection() {
                   </p>
                 </div>
 
-                {/* CTA */}
+                {/* Lógica original de checkout (preservada para uso futuro):
                 <Link
                   href={`/checkout?plan=${plan.id}`}
                   className={`${plan.ctaStyle === "primary"
@@ -183,25 +183,44 @@ export default function PricingSection() {
                     <ArrowRight className="w-4 h-4 inline-block ml-1" />
                   )}
                 </Link>
+                */}
+                <a
+                  href={`https://wa.me/5538991846767?text=${encodeURIComponent(
+                    `Olá! Gostaria de assinar o plano ${plan.name} do LexonAgenda.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${plan.ctaStyle === "primary"
+                    ? "btn-primary animate-pulse-glow"
+                    : plan.ctaStyle === "slate"
+                      ? "btn-slate"
+                      : "btn-secondary"
+                    } text-center mb-6 block`}
+                >
+                  {plan.cta}
+                  {plan.ctaStyle === "primary" && (
+                    <ArrowRight className="w-4 h-4 inline-block ml-1" />
+                  )}
+                </a>
               </div>
 
               {/* Features */}
-              <div className="space-y-3 pt-6 border-t border-landing-border mt-auto">
+              <div className="space-y-3 pt-6 border-t border-white/10 mt-auto">
                 {plan.features.map((f) => (
                   <div key={f.label} className="flex items-center gap-3">
                     {f.included ? (
-                      <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-3 h-3 text-blue-600" />
+                      <div className="w-5 h-5 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3 h-3 text-blue-400" />
                       </div>
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0">
-                        <X className="w-3 h-3 text-slate-300" />
+                      <div className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                        <X className="w-3 h-3 text-slate-500" />
                       </div>
                     )}
                     <span
                       className={`text-sm ${f.included
                         ? "text-landing-text font-medium"
-                        : "text-slate-300 line-through"
+                        : "text-slate-500 line-through"
                         }`}
                     >
                       {f.label}
@@ -219,7 +238,7 @@ export default function PricingSection() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ delay: 0.4 }}
-          className="max-w-4xl mx-auto mt-10 p-5 bg-slate-50/50 rounded-2xl border border-slate-100"
+          className="max-w-4xl mx-auto mt-10 p-5 bg-white/5 rounded-2xl border border-white/10"
         >
           <p className="text-xs text-landing-text-muted leading-relaxed text-center">
             <span className="font-semibold text-slate-500">*Limites de Mensagens (WhatsApp):</span> O plano <strong>Starter</strong> inclui suporte a integração com nossa API via pacotes de mensagens de até 500 mensagens/mês vendido a parte. O plano <strong>Profissional</strong> inclui um pacote of 500 mensagens por mês em nossa API própria, planos de mensagens extras devem ser contratados. O plano <strong>Escala</strong> inclui suporte a integração com nossa API com pacote de mensagem de até 1200 mensagens/mês ou suporte para integração com a API da Meta (neste caso, os custos das mensagens deverão ser pagos diretamente à Meta). Consulte-nos para planos extras de mensagens.
