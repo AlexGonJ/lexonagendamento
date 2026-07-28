@@ -199,7 +199,7 @@ export default function PricingSection() {
                 </div>
 
                 <a
-                  href={`https://wa.me/5538999023012?text=${encodeURIComponent(
+                  href={`/whatsapp?text=${encodeURIComponent(
                     `Olá! Gostaria de assinar o plano ${plan.name} (${isAnnual ? "Faturamento Anual" : "Faturamento Mensal"}) do LexonAgenda.`
                   )}`}
                   target="_blank"
