@@ -22,7 +22,7 @@ const planDetailsMap: Record<string, PlanDetails> = {
     features: [
       "Até 1 profissional",
       "200 agendamentos/mês",
-      "WhatsApp automático (30 dias grátis)",
+      "WhatsApp automático",
       "Página de agendamento básica",
       "Suporte por email",
     ],

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check, X, ArrowRight, Crown, Zap, Building2 } from "lucide-react";
 import Link from "next/link";
@@ -12,12 +13,12 @@ const plans = [
     description: "Para quem está começando e quer profissionalizar a agenda.",
     monthlyPrice: 99,
     annualPrice: 73,
-    cta: "Começar Grátis",
+    cta: "Entre em contato",
     ctaStyle: "secondary",
     features: [
       { label: "Até 1 profissional", included: true },
       { label: "200 agendamentos/mês", included: true },
-      { label: "WhatsApp automático* (30 dias grátis)", included: true },
+      { label: "WhatsApp automático*", included: true },
       { label: "Página de agendamento básica", included: true },
       { label: "Suporte por email", included: true },
       { label: "Google Calendar", included: false },
@@ -32,7 +33,7 @@ const plans = [
     description: "O plano mais escolhido. Tudo que você precisa para crescer.",
     monthlyPrice: 179,
     annualPrice: 149,
-    cta: "Teste Grátis 14 Dias",
+    cta: "Entre em contato",
     ctaStyle: "primary",
     popular: true,
     features: [
@@ -53,7 +54,7 @@ const plans = [
     description: "Para negócios que estão consolidados e querem escalar.",
     monthlyPrice: 359,
     annualPrice: 299,
-    cta: "Falar com Consultor",
+    cta: "Entre em contato",
     ctaStyle: "slate",
     features: [
       { label: "Profissionais ilimitados", included: true },
@@ -69,6 +70,8 @@ const plans = [
 ];
 
 export default function PricingSection() {
+  const [isAnnual, setIsAnnual] = useState(true);
+
   return (
     <section id="planos" className="py-24 lg:py-32 relative">
       {/* Background */}
@@ -93,15 +96,34 @@ export default function PricingSection() {
             <span className="text-gradient-brand">do seu negócio</span>
           </h2>
           <p className="text-lg text-landing-text-muted leading-relaxed">
-            Todos os planos incluem 7 dias grátis.
-            Cancele quando quiser.
+            Experimente nossa plataforma.
           </p>
 
-          {/* Annual savings */}
-          <div className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10">
-            <span className="text-sm text-slate-300 font-bold">
-              🔥 Economize até 20% no plano anual
-            </span>
+          {/* Interactive Billing Toggle */}
+          <div className="mt-8 inline-flex items-center justify-center p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+            <button
+              onClick={() => setIsAnnual(false)}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                !isAnnual
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Faturamento Mensal
+            </button>
+            <button
+              onClick={() => setIsAnnual(true)}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                isAnnual
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Faturamento Anual
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-extrabold">
+                20% OFF
+              </span>
+            </button>
           </div>
         </motion.div>
 
@@ -153,40 +175,32 @@ export default function PricingSection() {
                 {/* Price */}
                 <div className="mb-6">
                   <div className="flex items-baseline gap-1">
-                    <span className="stat-number text-4xl text-landing-text">
-                      R$ {plan.annualPrice}
+                    <span className="stat-number text-4xl text-landing-text transition-all duration-300">
+                      R$ {isAnnual ? plan.annualPrice : plan.monthlyPrice}
                     </span>
                     <span className="text-landing-text-muted text-sm font-medium">/mês</span>
                   </div>
-                  <p className="text-sm text-landing-text-muted mt-1">
-                    <span className="line-through text-slate-300 decoration-slate-300">
-                      R$ {plan.monthlyPrice}/mês
-                    </span>{" "}
-                    <span className="text-blue-600 font-semibold">
-                      no plano anual
-                    </span>
+                  <p className="text-sm text-landing-text-muted mt-1 h-6">
+                    {isAnnual ? (
+                      <>
+                        <span className="line-through text-slate-400">
+                          R$ {plan.monthlyPrice}/mês
+                        </span>{" "}
+                        <span className="text-blue-400 font-semibold">
+                          no plano anual
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-slate-400">
+                        Cobrado mensalmente
+                      </span>
+                    )}
                   </p>
                 </div>
 
-                {/* Lógica original de checkout (preservada para uso futuro):
-                <Link
-                  href={`/checkout?plan=${plan.id}`}
-                  className={`${plan.ctaStyle === "primary"
-                    ? "btn-primary animate-pulse-glow"
-                    : plan.ctaStyle === "slate"
-                      ? "btn-slate"
-                      : "btn-secondary"
-                    } text-center mb-6 block`}
-                >
-                  {plan.cta}
-                  {plan.ctaStyle === "primary" && (
-                    <ArrowRight className="w-4 h-4 inline-block ml-1" />
-                  )}
-                </Link>
-                */}
                 <a
-                  href={`https://wa.me/5538991846767?text=${encodeURIComponent(
-                    `Olá! Gostaria de assinar o plano ${plan.name} do LexonAgenda.`
+                  href={`https://wa.me/5538999023012?text=${encodeURIComponent(
+                    `Olá! Gostaria de assinar o plano ${plan.name} (${isAnnual ? "Faturamento Anual" : "Faturamento Mensal"}) do LexonAgenda.`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

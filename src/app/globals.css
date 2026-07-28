@@ -232,9 +232,13 @@ body {
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 107, 255, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 107, 255, 0.45);
   background: var(--color-brand-blue-dark);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-secondary {
@@ -257,8 +261,13 @@ body {
 
 .btn-secondary:hover {
   background: var(--color-brand-blue-light);
-  border-color: var(--color-brand-blue-light);
-  color: var(--color-brand-blue-dark);
+  border-color: rgba(0, 107, 255, 0.3);
+  color: #60a5fa;
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
 }
 
 .btn-slate {
@@ -270,7 +279,7 @@ body {
   font-weight: 600;
   font-size: 0.9375rem;
   border-radius: 0.75rem;
-  color: #ffffff;
+  color: #0f172a;
   background: var(--color-brand-slate-dark);
   box-shadow: 0 4px 14px rgba(30, 41, 59, 0.25);
   transition: all 0.2s ease;
@@ -284,6 +293,7 @@ body {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(30, 41, 59, 0.35);
   background: #0F172A;
+  color: #ffffff;
 }
 
 /* =======================================

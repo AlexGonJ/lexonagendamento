@@ -33,17 +33,17 @@ export default function CTASection() {
             </h2>
 
             <p className="text-lg text-slate-300 max-w-xl mx-auto leading-relaxed">
-              Junte-se a mais de 500 empreendedores que já automatizaram seus
+              Junte-se aos empreendedores que já automatizaram seus
               agendamentos e aumentaram seu faturamento.
             </p>
 
             {/* CTA */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-              <a 
-                href="#planos" 
+              <a
+                href="#planos"
                 className="btn-primary text-lg !px-10 !py-4 !rounded-2xl shadow-[0_4px_25px_rgba(0,107,255,0.45)] hover:shadow-[0_4px_35px_rgba(0,107,255,0.65)] hover:-translate-y-0.5 transition-all duration-200"
               >
-                Comece Grátis Agora
+                Quero conhecer
                 <ArrowRight className="w-5 h-5" />
               </a>
             </div>
@@ -51,7 +51,7 @@ export default function CTASection() {
             {/* Trust signals */}
             <div className="flex flex-wrap items-center justify-center gap-6 pt-4">
               {[
-                { icon: Shield, text: "14 dias grátis" },
+                { icon: Shield, text: "Garantia de satisfação" },
                 { icon: Zap, text: "Setup em 5 minutos" },
               ].map((item) => (
                 <div

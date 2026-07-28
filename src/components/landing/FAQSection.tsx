@@ -28,7 +28,7 @@ const faqs = [
   {
     question: "Existe um período de teste?",
     answer:
-      "Sim! Todos os planos incluem 14 dias grátis. Você testa tudo antes de decidir.",
+      "Você pode entrar em contato conosco para agendar uma demonstração da plataforma e testar tudo antes de decidir.",
   },
   {
     question: "Como funciona a página personalizada do meu negócio?",

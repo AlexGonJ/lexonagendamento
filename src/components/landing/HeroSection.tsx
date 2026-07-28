@@ -7,7 +7,7 @@ import DarkVeil from "./DarkVeil";
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-[100vh] flex items-center pt-[72px] overflow-hidden bg-slate-950 text-white">
+    <section className="relative min-h-[100vh] flex items-center pt-[72px] overflow-x-clip bg-slate-950 text-white">
       {/* Background shader & overlay */}
       <div className="absolute inset-0 z-0 bg-slate-950 pointer-events-none">
         <DarkVeil
@@ -61,15 +61,15 @@ export default function HeroSection() {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 pt-1">
-              <a 
-                href="#planos" 
+              <a
+                href="#planos"
                 className="btn-primary text-center shadow-[0_4px_20px_rgba(0,107,255,0.45)] hover:shadow-[0_4px_30px_rgba(0,107,255,0.65)] hover:-translate-y-0.5 transition-all duration-200"
               >
-                Teste Grátis 14 Dias
+                Quero conhecer
                 <ArrowRight className="w-4 h-4" />
               </a>
-              <a 
-                href="#funcionalidades" 
+              <a
+                href="#funcionalidades"
                 className="inline-flex items-center justify-center gap-2 px-8 py-3.5 font-semibold text-sm rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10 hover:border-white/20 hover:-translate-y-0.5 transition-all duration-200 backdrop-blur-sm"
               >
                 <Play className="w-4 h-4 fill-current text-blue-400" />
@@ -133,7 +133,7 @@ export default function HeroSection() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1, duration: 0.5 }}
-                className="absolute -bottom-10 -left-6 md:-left-14 w-[180px] md:w-[260px] z-10"
+                className="absolute -bottom-6 left-0 sm:-bottom-10 sm:-left-6 md:-left-14 w-[160px] sm:w-[200px] md:w-[260px] z-10"
               >
                 <div className="relative rounded-xl border border-white/10 bg-slate-900/80 backdrop-blur-md shadow-2xl shadow-black/80 overflow-hidden">
                   {/* Browser Bar */}
