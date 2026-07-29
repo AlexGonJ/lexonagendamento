@@ -2,7 +2,7 @@
 
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 
 export const PIXEL_ID = "2060957824559650";
 
@@ -18,7 +18,7 @@ export const trackCustomEvent = (eventName: string, options?: any) => {
   }
 };
 
-export default function MetaPixel() {
+function MetaPixelTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -29,8 +29,15 @@ export default function MetaPixel() {
     }
   }, [pathname, searchParams]);
 
+  return null;
+}
+
+export default function MetaPixel() {
   return (
     <>
+      <Suspense fallback={null}>
+        <MetaPixelTracker />
+      </Suspense>
       <Script
         id="fb-pixel"
         strategy="afterInteractive"
