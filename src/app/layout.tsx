@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import DevToolsProtection from "@/components/security/DevToolsProtection";
+import MetaPixel from "@/components/MetaPixel";
 
 export const metadata: Metadata = {
   title: "Lexon Agenda — Agendamento Inteligente para seu Negócio",
@@ -45,6 +46,7 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-[#0a0a0c] text-[#f3f4f6]"
         suppressHydrationWarning
       >
+        <MetaPixel />
         <DevToolsProtection />
         {children}
       </body>

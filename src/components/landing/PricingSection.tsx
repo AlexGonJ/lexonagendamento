@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check, X, ArrowRight, Crown, Zap, Building2 } from "lucide-react";
 import Link from "next/link";
+import { trackCustomEvent } from "@/components/MetaPixel";
 
 const plans = [
   {
@@ -204,6 +205,7 @@ export default function PricingSection() {
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => trackCustomEvent('CliqueAssinatura', { plano: plan.name, isAnnual })}
                   className={`${plan.ctaStyle === "primary"
                     ? "btn-primary animate-pulse-glow"
                     : plan.ctaStyle === "slate"

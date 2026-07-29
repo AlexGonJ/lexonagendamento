@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { trackCustomEvent } from "@/components/MetaPixel";
 
 const footerLinks = {
   Produto: [
@@ -80,6 +81,7 @@ export default function Footer() {
                 href="/whatsapp"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackCustomEvent('CliqueWhatsApp')}
                 className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-white/10 transition-all"
                 aria-label="WhatsApp"
               >
@@ -103,6 +105,7 @@ export default function Footer() {
                       href={link.href}
                       target={link.href.startsWith("http") ? "_blank" : undefined}
                       rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                      onClick={link.href === "/whatsapp" ? () => trackCustomEvent('CliqueWhatsApp') : undefined}
                       className="text-sm text-landing-text-muted hover:text-brand-blue transition-colors"
                     >
                       {link.label}
