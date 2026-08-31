@@ -18,22 +18,22 @@ const faqs = [
   {
     question: "Como funciona a integração com WhatsApp?",
     answer:
-      "Você tem opção de usar nossa API própria ou integrar com a API oficial do WhatsApp (Meta Cloud API). As mensagens de confirmação, lembrete e cancelamento são enviadas automaticamente — você não precisa fazer nada. É tudo configurado durante o onboarding.",
+      "O plano Agenda não inclui automação. No Profissional, você pode ativá-la mediante uma taxa extra, informada durante a negociação, que passa a ser cobrada na ativação. No plano Automação, ela já está inclusa e você também pode escolher a conexão com a API oficial da Meta. Nesse caso, os custos de conversas e templates são pagos diretamente à Meta.",
   },
   {
     question: "Posso cancelar a qualquer momento?",
     answer:
-      "Sim! Sem fidelidade, sem multa. Você pode cancelar seu plano a qualquer momento diretamente pelo painel. Se cancelar, seu acesso continua até o fim do período já pago.",
+      "Sim. Os planos são mensais e não têm fidelidade. Para cancelar, fale com nosso suporte antes da próxima renovação; seu acesso permanece disponível até o fim do período já pago.",
   },
   {
     question: "Existe um período de teste?",
     answer:
-      "Você pode entrar em contato conosco para agendar uma demonstração da plataforma e testar tudo antes de decidir.",
+      "Durante o lançamento, o primeiro mês da plataforma é grátis nos planos Agenda e Profissional. A automação por WhatsApp é contratada à parte e, caso você opte por ativá-la, começa a ser cobrada desde a ativação.",
   },
   {
     question: "Como funciona a página personalizada do meu negócio?",
     answer:
-      "Ao se cadastrar geramos uma página personalizada para o seu négocio, a partir do plano Pro você consegue configurar e personalizar como quiser.",
+      "Todos os planos incluem uma página para seus clientes agendarem online. A personalização de identidade visual está disponível a partir do plano Profissional.",
   },
 ];
 

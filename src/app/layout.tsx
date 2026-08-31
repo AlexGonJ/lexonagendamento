@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import DevToolsProtection from "@/components/security/DevToolsProtection";
 import MetaPixel from "@/components/MetaPixel";
 
 export const metadata: Metadata = {
   title: "Lexon Agenda — Agendamento Inteligente para seu Negócio",
   description:
-    "Automatize agendamentos via WhatsApp, reduza faltas e aumente seu faturamento. Plataforma completa para barbearias, clínicas, salões e estúdios.",
+    "Uma plataforma de agendamento para organizar serviços, profissionais e atendimentos do seu negócio.",
   keywords: [
     "agendamento online",
     "sistema de agendamento",
-    "automação whatsapp",
+    "automação por whatsapp",
     "agenda para barbearia",
     "SaaS agendamento",
     "gestão de agenda",
@@ -18,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Lexon Agenda — Agendamento Inteligente",
     description:
-      "Automatize agendamentos, reduza faltas e aumente seu faturamento com a plataforma mais completa do Brasil.",
+      "Organize serviços, profissionais e agendamentos em uma só plataforma.",
     type: "website",
   },
 };
@@ -47,7 +46,6 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <MetaPixel />
-        <DevToolsProtection />
         {children}
       </body>
     </html>

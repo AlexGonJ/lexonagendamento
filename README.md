@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lexon Agenda
 
-## Getting Started
+SaaS multiempresa para gestão de agenda, clientes, profissionais e automações de WhatsApp. Inclui landing pages por nicho, checkout de assinatura e página pública de agendamento por estabelecimento.
 
-First, run the development server:
+## Principais recursos
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Agenda pública por empresa em `/{tenant}/book`.
+- Painel administrativo para serviços, profissionais, agenda, CRM e financeiro.
+- Autenticação por senha, Google e OTP para clientes.
+- Integração de WhatsApp com modos simulador, Evolution e Meta Cloud API.
+- Checkout com Mercado Pago e ativação do estabelecimento por webhook.
+- Landing pages gerais, para barbearias e para salões.
+- Rastreamento Meta Pixel de visitas, início de checkout e contatos pelo WhatsApp.
+
+## Tecnologias
+
+- Next.js 16, React 19 e TypeScript
+- Prisma + PostgreSQL/Supabase
+- Tailwind CSS e componentes React
+- Mercado Pago, Google OAuth, Cloudflare Turnstile e APIs de WhatsApp
+
+## Executar localmente
+
+1. Instale as dependências:
+
+   ```bash
+   npm install
+   ```
+
+2. Crie um arquivo `.env.local` com as variáveis necessárias. Nunca versione chaves ou tokens.
+
+   | Variável | Uso |
+   | --- | --- |
+   | `DATABASE_URL` e `DIRECT_URL` | Banco PostgreSQL/Supabase |
+   | `AUTH_SESSION_SECRET` | Assinatura das sessões |
+   | `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` | Supabase |
+   | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Login Google (opcional) |
+   | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` | Proteção Turnstile (opcional no desenvolvimento) |
+   | `MERCADOPAGO_ACCESS_TOKEN` | Processamento do webhook de pagamento |
+   | `SUPER_ADMIN_SECRET` e `CRON_SECRET` | Acesso administrativo e endpoints de cron |
+
+3. Gere o cliente Prisma e aplique as migrações do ambiente:
+
+   ```bash
+   npx prisma generate
+   npx prisma migrate deploy
+   ```
+
+4. Inicie o projeto:
+
+   ```bash
+   npm run dev
+   ```
+
+   Acesse `http://localhost:3000`.
+
+## Scripts
+
+| Comando | Descrição |
+| --- | --- |
+| `npm run dev` | Inicia o servidor de desenvolvimento |
+| `npm run lint` | Executa o ESLint |
+| `npm run build` | Gera o cliente Prisma e a build de produção |
+| `npm run start` | Inicia a build de produção |
+
+## Rotas principais
+
+| Rota | Finalidade |
+| --- | --- |
+| `/` | Landing principal |
+| `/barbearias` e `/saloes` | Landing pages por nicho |
+| `/checkout` | Cadastro e redirecionamento de pagamento |
+| `/whatsapp` | Registra o evento de contato e redireciona ao WhatsApp |
+| `/{tenant}` | Página pública de um estabelecimento |
+| `/{tenant}/book` | Fluxo público de agendamento |
+| `/admin` | Painel do estabelecimento |
+| `/super-admin` | Administração da plataforma |
+
+## Rastreamento e pagamentos
+
+O Pixel Meta é único para a plataforma. As landing pages são diferenciadas pela URL e pelos parâmetros dos eventos; não crie um Pixel novo para cada landing page. A configuração dos eventos e conversões está em [docs/META_PIXEL.md](docs/META_PIXEL.md).
+
+O pagamento é confirmado pelo webhook em `/api/webhooks/mercadopago`. Para atribuir uma venda confirmada às campanhas da Meta, implemente também a Conversions API nesse webhook.
+
+## Estrutura do projeto
+
+```text
+src/app/          Rotas, páginas e endpoints
+src/actions/      Server Actions
+src/components/   Componentes reutilizáveis e fluxos de interface
+src/lib/          Integrações e utilitários
+prisma/           Schema e migrações do banco
+public/           Imagens e demais ativos estáticos
+docs/             Documentação operacional
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+O documento [documentacao_arquitetura.md](documentacao_arquitetura.md) registra decisões e escopo do MVP.

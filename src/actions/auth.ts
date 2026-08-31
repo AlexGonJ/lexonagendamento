@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { sendWhatsappMessage } from "@/lib/whatsapp";
@@ -29,6 +29,16 @@ export async function login(formData: FormData) {
     return { success: false, error: "Por favor, preencha todos os campos." };
   }
 
+  const rateLimit = await assertRateLimit(`login:employee:${email}`, {
+    limit: 5,
+    windowMs: 5 * 60 * 1000,
+    blockMs: 30 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return { success: false, error: "Muitas tentativas. Aguarde 30 minutos e tente novamente." };
+  }
+
   try {
     const employee = await prisma.employee.findUnique({
       where: { email },
@@ -53,9 +63,10 @@ export async function login(formData: FormData) {
     };
 
     const cookieStore = await cookies();
+    const token = await createSignedToken("employee-session", sessionData, 60 * 60 * 24);
     cookieStore.set(
       "session_token",
-      createSignedToken("employee-session", sessionData, 60 * 60 * 24),
+      token,
       {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -85,7 +96,7 @@ export async function getCurrentSession(): Promise<SessionData | null> {
     if (!sessionCookie || !sessionCookie.value) {
       return null;
     }
-    return verifySignedToken<SessionData>(sessionCookie.value, "employee-session");
+    return await verifySignedToken<SessionData>(sessionCookie.value, "employee-session");
   } catch {
     return null;
   }
@@ -98,6 +109,8 @@ export interface ClientSessionData {
   name: string;
   phone: string;
   email?: string | null;
+  googleId?: string | null;
+  appleId?: string | null;
 }
 
 export async function getCurrentClientSession(): Promise<ClientSessionData | null> {
@@ -107,7 +120,7 @@ export async function getCurrentClientSession(): Promise<ClientSessionData | nul
     if (!sessionCookie || !sessionCookie.value) {
       return null;
     }
-    return verifySignedToken<ClientSessionData>(sessionCookie.value, "client-session");
+    return await verifySignedToken<ClientSessionData>(sessionCookie.value, "client-session");
   } catch {
     return null;
   }
@@ -264,12 +277,15 @@ export async function verifyClientOtp(
       name: client.name,
       phone: client.phone,
       email: client.email,
+      googleId: client.googleId,
+      appleId: client.appleId,
     };
 
     const cookieStore = await cookies();
+    const token = await createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30);
     cookieStore.set(
       "client_token",
-      createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30),
+      token,
       {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -288,6 +304,18 @@ export async function verifyClientOtp(
 
 export async function verifyGoogleIdToken(token: string) {
   try {
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for") || "unknown";
+    const rateLimit = await assertRateLimit(`oauth:verify:${ip}`, {
+      limit: 10,
+      windowMs: 5 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    });
+    
+    if (!rateLimit.allowed) {
+      return { success: false, error: "Muitas tentativas. Aguarde 30 minutos e tente novamente." };
+    }
+
     const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
     if (!res.ok) {
       const errText = await res.text();
@@ -319,6 +347,17 @@ export async function loginClientOAuth(data: {
       return { success: false, error: "Identificadores OAuth ausentes." };
     }
 
+    const key = googleId || appleId || email || "unknown";
+    const rateLimit = await assertRateLimit(`oauth:login:${key}`, {
+      limit: 10,
+      windowMs: 5 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    });
+    
+    if (!rateLimit.allowed) {
+      return { success: false, error: "Muitas tentativas. Aguarde 30 minutos e tente novamente." };
+    }
+
     let client = null;
     if (googleId) {
       client = await prisma.client.findUnique({ where: { googleId } });
@@ -346,12 +385,15 @@ export async function loginClientOAuth(data: {
         name: client.name,
         phone: client.phone,
         email: client.email,
+        googleId: client.googleId,
+        appleId: client.appleId,
       };
 
       const cookieStore = await cookies();
+      const token = await createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30);
       cookieStore.set(
         "client_token",
-        createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30),
+        token,
         {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
@@ -403,12 +445,15 @@ export async function loginClientOAuth(data: {
         name: client.name,
         phone: client.phone,
         email: client.email,
+        googleId: client.googleId,
+        appleId: client.appleId,
       };
 
       const cookieStore = await cookies();
+      const token = await createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30);
       cookieStore.set(
         "client_token",
-        createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30),
+        token,
         {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",

@@ -42,17 +42,17 @@ export default function SocialProofStrip() {
                   sizes="(max-width: 768px) 100vw, 300px"
                   className="object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
                 />
-                
+
                 {/* Overlay Gradient for readability */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent transition-opacity duration-300 group-hover/card:opacity-90" />
-                
+
                 {/* Glassmorphism Bottom Panel */}
                 <div className="absolute bottom-0 left-0 right-0 p-6 backdrop-blur-md bg-white/10 border-t border-white/20">
                   <h3 className="text-xl font-bold text-white tracking-wide flex items-center justify-between">
                     {seg.label}
                     <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center opacity-0 -translate-x-4 transition-all duration-300 group-hover/card:opacity-100 group-hover/card:translate-x-0">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                        <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>
                     </span>
                   </h3>

@@ -20,6 +20,8 @@ type Client = {
   name: string;
   phone: string;
   email?: string | null;
+  googleId?: string | null;
+  appleId?: string | null;
 };
 
 type Subscription = {
@@ -88,6 +90,7 @@ export default function ClientPortal({
           email: verifyRes.email,
           googleId: verifyRes.googleId,
           name: verifyRes.name || "Cliente Google",
+          phone: initialClient?.phone,
         });
 
         if (oauthRes.success) {
@@ -113,7 +116,7 @@ export default function ClientPortal({
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, initialClient]);
 
   // Carregar script do Google Identity Services
   useEffect(() => {
@@ -131,10 +134,13 @@ export default function ClientPortal({
           client_id: googleClientId,
           callback: handleGoogleCredentialResponse,
         });
-        customWindow.google.accounts.id.renderButton(
-          document.getElementById("google-signin-button"),
-          { theme: "outline", size: "large", width: 320 }
-        );
+        const btnContainer = document.getElementById("google-signin-button");
+        if (btnContainer) {
+          customWindow.google.accounts.id.renderButton(
+            btnContainer,
+            { theme: "outline", size: "large", width: 320 }
+          );
+        }
       }
     };
     document.body.appendChild(script);
@@ -236,6 +242,7 @@ export default function ClientPortal({
       googleId: provider === "google" ? `g_${Math.random().toString(36).substr(2, 9)}` : undefined,
       appleId: provider === "apple" ? `a_${Math.random().toString(36).substr(2, 9)}` : undefined,
       name: `Cliente Simulado ${provider === "google" ? "Google" : "Apple"}`,
+      phone: initialClient?.phone,
     };
 
     const res = await loginClientOAuth(mockData);
@@ -525,6 +532,44 @@ export default function ClientPortal({
               <div className="bg-emerald-500/25 border border-emerald-500/35 rounded-xl px-4 py-3 text-center min-w-[100px]">
                 <span className="block text-2xl font-black text-white">{activeSubscription.remainingSlots}</span>
                 <span className="block text-[8px] font-bold text-emerald-300 uppercase tracking-widest mt-0.5">Créditos</span>
+              </div>
+            </div>
+          )}
+
+          {/* Segurança da Conta */}
+          {!initialClient.googleId && (
+            <div style={cardStyle} className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Segurança da Conta</h3>
+              <p className="text-xs text-slate-500">Vincule sua conta Google para facilitar seus próximos acessos e aumentar a segurança.</p>
+              
+              {msg.text && (
+                <div
+                  className={`text-xs p-3 rounded-lg ${
+                    msg.type === "ok"
+                      ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                      : "bg-red-500/10 border border-red-500/20 text-red-400"
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              )}
+
+              <div className="flex flex-col items-start gap-4">
+                {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+                  <div id="google-signin-button"></div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateOAuth("google")}
+                    disabled={loading}
+                    className="flex items-center justify-center gap-2 py-2.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer w-full max-w-xs"
+                  >
+                    <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.176 4.113-3.415 0-6.19-2.775-6.19-6.19 0-3.415 2.775-6.19 6.19-6.19 1.488 0 2.85.535 3.903 1.488l3.123-3.123C18.91 2.215 15.8 1 12.24 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.48 0 11.24-4.514 11.24-11.24 0-.765-.078-1.503-.23-1.955H12.24z" />
+                    </svg>
+                    Vincular com Google
+                  </button>
+                )}
               </div>
             </div>
           )}

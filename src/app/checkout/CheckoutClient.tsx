@@ -4,8 +4,8 @@ import { useState, useTransition, useEffect } from "react";
 import { registerTenant } from "@/actions/checkout";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { Check, ArrowRight, ShieldCheck, CreditCard, Building2, User, Mail, Lock } from "lucide-react";
+import { Check, ArrowRight, ShieldCheck, CreditCard, Building2, Mail, Lock } from "lucide-react";
+import { trackEvent } from "@/components/MetaPixel";
 
 interface PlanDetails {
   name: string;
@@ -93,6 +93,15 @@ export default function CheckoutClient() {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    trackEvent("InitiateCheckout", {
+      content_name: plan.name,
+      content_category: "Assinatura",
+      content_ids: [selectedPlanId],
+      currency: "BRL",
+      value: currentPrice,
+      num_items: 1,
+    });
 
     startTransition(async () => {
       const res = await registerTenant({
@@ -280,6 +289,13 @@ export default function CheckoutClient() {
                 </>
               )}
             </button>
+
+            <a
+              href={`/whatsapp?source=checkout&intent=checkout_help&plan=${selectedPlanId}&text=${encodeURIComponent(`Olá! Preciso de ajuda para concluir a assinatura do plano ${plan.name}.`)}`}
+              className="block text-center text-xs font-semibold text-slate-400 hover:text-blue-400 transition-colors"
+            >
+              Precisa de ajuda antes de concluir? Fale conosco no WhatsApp.
+            </a>
           </form>
 
           {paymentRedirectUrl && (

@@ -1,5 +1,3 @@
-import crypto from "crypto";
-
 function getAuthSecret() {
   return (
     process.env.AUTH_SESSION_SECRET ||
@@ -8,19 +6,58 @@ function getAuthSecret() {
   );
 }
 
-function base64UrlEncode(value: string) {
-  return Buffer.from(value, "utf8").toString("base64url");
+function base64UrlEncode(buffer: ArrayBuffer | Uint8Array) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
-function base64UrlDecode(value: string) {
-  return Buffer.from(value, "base64url").toString("utf8");
+function base64UrlDecode(base64Url: string) {
+  let base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
-function sign(value: string, secret: string) {
-  return crypto.createHmac("sha256", secret).update(value).digest("base64url");
+function stringToUint8Array(str: string) {
+  return new TextEncoder().encode(str);
 }
 
-export function createSignedToken(
+function uint8ArrayToString(buffer: Uint8Array) {
+  return new TextDecoder().decode(buffer);
+}
+
+async function getCryptoKey(secret: string) {
+  const enc = new TextEncoder();
+  return await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"]
+  );
+}
+
+async function sign(value: string, secret: string) {
+  const key = await getCryptoKey(secret);
+  const data = stringToUint8Array(value);
+  const signatureBuffer = await crypto.subtle.sign("HMAC", key, data);
+  return base64UrlEncode(signatureBuffer);
+}
+
+export async function createSignedToken(
   purpose: string,
   payload: unknown,
   maxAgeSeconds: number
@@ -31,31 +68,38 @@ export function createSignedToken(
     exp: Date.now() + maxAgeSeconds * 1000,
     data: payload,
   };
-  const encodedBody = base64UrlEncode(JSON.stringify(body));
-  const signature = sign(encodedBody, secret);
+  const bodyString = JSON.stringify(body);
+  const encodedBody = base64UrlEncode(stringToUint8Array(bodyString));
+  const signature = await sign(encodedBody, secret);
   return `v1.${encodedBody}.${signature}`;
 }
 
-export function verifySignedToken<T>(
+export async function verifySignedToken<T>(
   token: string,
   purpose: string
-): T | null {
+): Promise<T | null> {
   try {
     const secret = getAuthSecret();
     const [version, encodedBody, signature] = token.split(".");
     if (version !== "v1" || !encodedBody || !signature) return null;
 
-    const expectedSignature = sign(encodedBody, secret);
-    const expected = Buffer.from(expectedSignature, "utf8");
-    const actual = Buffer.from(signature, "utf8");
-    if (
-      expected.length !== actual.length ||
-      !crypto.timingSafeEqual(expected, actual)
-    ) {
+    const key = await getCryptoKey(secret);
+    const data = stringToUint8Array(encodedBody);
+    const signatureBytes = base64UrlDecode(signature);
+
+    const isValid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes,
+      data
+    );
+
+    if (!isValid) {
       return null;
     }
 
-    const body = JSON.parse(base64UrlDecode(encodedBody)) as {
+    const bodyString = uint8ArrayToString(base64UrlDecode(encodedBody));
+    const body = JSON.parse(bodyString) as {
       p?: string;
       exp?: number;
       data?: T;

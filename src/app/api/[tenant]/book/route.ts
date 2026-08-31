@@ -30,7 +30,7 @@ export async function POST(
     const cookieStore = await cookies();
     const clientSessionCookie = cookieStore.get("client_token");
     const clientSession = clientSessionCookie?.value
-      ? verifySignedToken<{ clientId: string; phone: string }>(clientSessionCookie.value, "client-session")
+      ? await verifySignedToken<{ clientId: string; phone: string }>(clientSessionCookie.value, "client-session")
       : null;
 
     if (!clientSession) {

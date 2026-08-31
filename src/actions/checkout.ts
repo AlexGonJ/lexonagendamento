@@ -119,9 +119,10 @@ export async function registerTenant(data: {
     };
 
     const cookieStore = await cookies();
+    const token = await createSignedToken("employee-session", sessionData, 60 * 60 * 24);
     cookieStore.set(
       "session_token",
-      createSignedToken("employee-session", sessionData, 60 * 60 * 24),
+      token,
       {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

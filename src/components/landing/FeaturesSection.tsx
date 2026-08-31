@@ -57,29 +57,29 @@ const features = [
     id: "whatsapp",
     badge: "Automação",
     badgeColor: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400",
-    title: "WhatsApp no automático",
+    title: "Automação por WhatsApp",
     subtitle:
-      "Confirmações, lembretes e cancelamentos enviados automaticamente. Reduza faltas sem mover um dedo.",
+      "Configure mensagens de confirmação, lembrete e cancelamento conforme o plano escolhido.",
     points: [
-      "Confirmação imediata após agendamento",
-      "Lembrete 24h e 2h antes do horário",
-      "Aviso automático de cancelamento com link para remarcar",
+      "Mensagens de confirmação após o agendamento",
+      "Lembretes com antecedência definida no painel",
+      "Avisos de cancelamento e opções de remarcação",
     ],
     icon: MessageCircle,
     checkColor: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20",
     image: "/landing/whatsapp.jpg",
     imageAlt: "Automação de WhatsApp para agendamentos",
     glowColor: "from-emerald-500/10 to-teal-500/5",
-    floatingText: "✓ 100% Entregue",
+    floatingText: "Mensagens configuradas",
     floatingBg: "bg-emerald-500 text-white",
   },
   {
     id: "agenda",
     badge: "Organização",
     badgeColor: "bg-blue-500/10 border border-blue-500/20 text-blue-400",
-    title: "Agenda inteligente e visual",
+    title: "Agenda visual para a rotina",
     subtitle:
-      "Calendário interativo com visão diária e semanal. Sincronize com Google Calendar e nunca perca um compromisso.",
+      "Calendário interativo com visões diária e semanal para acompanhar os horários do negócio.",
     points: [
       "Visão diária e semanal interativa",
       "Sincronização com Google Calendar",
@@ -90,14 +90,14 @@ const features = [
     image: "/landing/semana.png",
     imageAlt: "Agenda inteligente com calendário visual",
     glowColor: "from-blue-500/10 to-indigo-500/5",
-    floatingText: "📅 Sincronizado",
+    floatingText: "📅 Agenda organizada",
     floatingBg: "bg-blue-600 text-white",
   },
   {
     id: "loja",
     badge: "Personalização",
     badgeColor: "bg-white/5 border border-white/10 text-slate-300",
-    title: "Sua loja, sua identidade",
+    title: "Sua página, sua identidade",
     subtitle:
       "Página exclusiva de agendamento com sua marca, cores e serviços. Link próprio para compartilhar nas redes.",
     points: [
@@ -117,12 +117,12 @@ const features = [
     id: "crm",
     badge: "Inteligência",
     badgeColor: "bg-indigo-500/10 border border-indigo-500/20 text-indigo-400",
-    title: "CRM integrado e completo",
+    title: "Clientes em um só lugar",
     subtitle:
-      "Conheça seus clientes como nunca. Histórico, frequência, valor gasto e preferências — tudo em um só lugar.",
+      "Mantenha o histórico de atendimentos e as informações cadastradas de cada cliente em um único painel.",
     points: [
-      "Histórico completo de cada cliente",
-      "Frequência e valor gasto rastreados",
+      "Histórico de atendimentos por cliente",
+      "Informações cadastradas sempre acessíveis",
       "Base de clientes organizada e acessível",
     ],
     icon: Users,
@@ -130,7 +130,7 @@ const features = [
     image: "/landing/feature-crm.png",
     imageAlt: "CRM integrado com gestão de clientes",
     glowColor: "from-indigo-500/10 to-blue-500/5",
-    floatingText: "👥 +40% Retenção",
+    floatingText: "👥 Clientes organizados",
     floatingBg: "bg-indigo-600 text-white",
   },
 ];
@@ -151,7 +151,7 @@ export default function FeaturesSection() {
             Funcionalidades
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold tracking-tight text-landing-text mb-5 leading-[1.15]">
-            Tudo que você precisa,{" "}
+            Recursos para a sua rotina,{" "}
             <span className="text-gradient-brand">em um só lugar</span>
           </h2>
           <p className="text-lg text-landing-text-muted leading-relaxed">

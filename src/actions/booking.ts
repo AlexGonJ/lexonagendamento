@@ -600,6 +600,19 @@ export async function cancelBooking(bookingId: string) {
       return { success: false, error: "Agendamento não encontrado." };
     }
 
+    const employeeSession = await getCurrentSession();
+    const clientSession = await getCurrentClientSession();
+
+    if (!employeeSession && !clientSession) {
+      return { success: false, error: "Não autorizado. Faça login para cancelar." };
+    }
+
+    if (clientSession && !employeeSession) {
+      if (booking.clientId !== clientSession.clientId) {
+        return { success: false, error: "Você não tem permissão para cancelar este agendamento." };
+      }
+    }
+
     // Devolver crédito se estiver ativo
     if (booking.customerSubscriptionId && booking.status !== "CANCELLED") {
       await prisma.customerSubscription.update({

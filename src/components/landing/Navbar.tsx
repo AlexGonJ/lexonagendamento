@@ -46,6 +46,7 @@ export default function Navbar() {
     <PillNav
       logo="/logo.png"
       logoAlt="Lexon Agenda"
+      homeHref="/"
       items={items}
       activeHref={activeSection}
       ease="power2.easeOut"

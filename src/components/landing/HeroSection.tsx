@@ -40,23 +40,24 @@ export default function HeroSection() {
             >
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-semibold text-blue-400 backdrop-blur-md shadow-inner shadow-white/5">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_#3b82f6]" />
-                Vários negócios já automatizaram com Lexon
+                Lançamento Lexon Agenda · primeiro mês da plataforma grátis
               </span>
             </motion.div>
 
             {/* Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] xl:text-[3.75rem] font-extrabold leading-[1.08] text-white tracking-tight">
-              Pare de perder clientes.
+              Uma agenda profissional
               <br />
               <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-blue-400 bg-clip-text text-transparent bg-[length:200%_auto]">
-                Automatize sua agenda.
+                do seu jeito.
               </span>
             </h1>
 
             {/* Subtitle */}
             <p className="text-lg lg:text-[1.2rem] text-slate-300 leading-relaxed max-w-lg">
-              Confirmações por WhatsApp, lembretes automáticos e uma página de agendamento profissional.{" "}
-              <span className="font-semibold text-white">Reduza faltas em 40%</span> e fature mais todo mês.
+              Organize serviços, profissionais e agendamentos em uma página feita
+              para a sua marca. Quando fizer sentido, ative as automações por
+              WhatsApp.
             </p>
 
             {/* CTAs */}
@@ -65,7 +66,7 @@ export default function HeroSection() {
                 href="#planos"
                 className="btn-primary text-center shadow-[0_4px_20px_rgba(0,107,255,0.45)] hover:shadow-[0_4px_30px_rgba(0,107,255,0.65)] hover:-translate-y-0.5 transition-all duration-200"
               >
-                Quero conhecer
+                Começar plataforma grátis
                 <ArrowRight className="w-4 h-4" />
               </a>
               <a
@@ -80,8 +81,9 @@ export default function HeroSection() {
             {/* Stats strip */}
             <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 max-w-md">
               {[
-                { value: "40%", label: "Menos faltas" },
-                { value: "5min", label: "Para configurar" },
+                { value: "Agenda", label: "online" },
+                { value: "Página", label: "personalizada" },
+                { value: "WhatsApp", label: "quando você quiser" },
               ].map((stat) => (
                 <div key={stat.label}>
                   <p className="stat-number text-2xl font-bold text-blue-400">{stat.value}</p>
@@ -171,7 +173,7 @@ export default function HeroSection() {
                   <span className="text-[11px] font-bold text-emerald-400">Confirmado ✓</span>
                 </div>
                 <p className="text-[10px] text-slate-300 leading-snug font-medium">
-                  Maria confirmou o horário de amanhã às 14h
+                  Novo agendamento confirmado no painel
                 </p>
               </motion.div>
             </div>

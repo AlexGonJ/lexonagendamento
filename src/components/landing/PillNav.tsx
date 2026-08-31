@@ -13,6 +13,7 @@ export type PillNavItem = {
 export interface PillNavProps {
   logo: string;
   logoAlt?: string;
+  homeHref?: string;
   items: PillNavItem[];
   activeHref?: string;
   className?: string;
@@ -28,6 +29,7 @@ export interface PillNavProps {
 const PillNav: React.FC<PillNavProps> = ({
   logo,
   logoAlt = 'Logo',
+  homeHref = '/',
   items,
   activeHref,
   className = '',
@@ -255,9 +257,9 @@ const PillNav: React.FC<PillNavProps> = ({
         aria-label="Primary"
         style={cssVars}
       >
-        {isRouterLink(items?.[0]?.href) ? (
+        {isRouterLink(homeHref) ? (
           <Link
-            href={items[0].href}
+            href={homeHref}
             aria-label="Home"
             onMouseEnter={handleLogoEnter}
             role="menuitem"
@@ -275,7 +277,7 @@ const PillNav: React.FC<PillNavProps> = ({
           </Link>
         ) : (
           <a
-            href={items?.[0]?.href || '#'}
+            href={homeHref}
             aria-label="Home"
             onMouseEnter={handleLogoEnter}
             ref={el => {

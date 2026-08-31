@@ -14,14 +14,15 @@ export async function superAdminLogin(formData: FormData) {
   if (!validSecret) return { success: false, error: "Super admin nao configurado no servidor." };
   if (secret !== validSecret) return { success: false, error: "Senha incorreta." };
   const cookieStore = await cookies();
+  const token = await createSignedToken("super-admin", "allowed", 60 * 60 * 8);
   cookieStore.set(
     "super_admin_token",
-    createSignedToken("super-admin", "allowed", 60 * 60 * 8),
+    token,
     {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 8,
+      maxAge: 60 * 60 * 8, // 8 horas
       path: "/",
     }
   );
@@ -39,7 +40,8 @@ export async function checkSuperAdminAuth(): Promise<boolean> {
     const cookieStore = await cookies();
     const token = cookieStore.get("super_admin_token");
     if (!token?.value) return false;
-    return verifySignedToken<string>(token.value, "super-admin") === "allowed";
+    const verified = await verifySignedToken<string>(token.value, "super-admin");
+    return verified === "allowed";
   } catch {
     return false;
   }

@@ -2,7 +2,7 @@
 
 import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { trackCustomEvent } from "@/components/MetaPixel";
+import { trackCustomEvent, trackEvent } from "@/components/MetaPixel";
 
 function RedirectLogic() {
   const searchParams = useSearchParams();
@@ -10,10 +10,28 @@ function RedirectLogic() {
   useEffect(() => {
     // Pega o texto da URL caso exista (ex: /whatsapp?text=Olá)
     const text = searchParams.get('text');
+    const source = searchParams.get('source');
+    const intent = searchParams.get('intent');
+    const plan = searchParams.get('plan');
     const baseUrl = "https://wa.me/5538999023012";
     const finalUrl = text ? `${baseUrl}?text=${encodeURIComponent(text)}` : baseUrl;
+    const referrerPath = document.referrer
+      ? new URL(document.referrer).pathname
+      : undefined;
+    const originPath = source || referrerPath || "unknown";
 
-    trackCustomEvent('CliqueWhatsApp');
+    const eventData = {
+      content_name: plan || "Contato via WhatsApp",
+      content_category: "WhatsApp",
+      landing_page: originPath,
+      intent: intent || "contact",
+      ...(plan ? { plan } : {}),
+    };
+
+    // Contact é o evento padrão para otimização de campanhas; o evento
+    // personalizado mantém os detalhes do funil para análise no Events Manager.
+    trackEvent("Contact", eventData);
+    trackCustomEvent("CliqueWhatsApp", eventData);
 
     // Aguarda 1.5 segundos para dar tempo do Pixel registrar a visita e o evento, depois redireciona
     const timer = setTimeout(() => {

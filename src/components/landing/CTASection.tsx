@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { ArrowRight, Shield, Zap } from "lucide-react";
 
 export default function CTASection() {
@@ -27,14 +26,15 @@ export default function CTASection() {
 
           <div className="relative space-y-7">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-[1.1]">
-              Pronto para transformar
+              Sua agenda pode começar
               <br />
-              <span className="bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">seu negócio?</span>
+              <span className="bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">por aqui.</span>
             </h2>
 
             <p className="text-lg text-slate-300 max-w-xl mx-auto leading-relaxed">
-              Junte-se aos empreendedores que já automatizaram seus
-              agendamentos e aumentaram seu faturamento.
+              Conheça a Lexon Agenda no lançamento e teste a plataforma por um
+              mês antes de decidir o próximo passo. Caso opte pela automação,
+              ela é contratada a partir da ativação.
             </p>
 
             {/* CTA */}
@@ -43,7 +43,7 @@ export default function CTASection() {
                 href="#planos"
                 className="btn-primary text-lg !px-10 !py-4 !rounded-2xl shadow-[0_4px_25px_rgba(0,107,255,0.45)] hover:shadow-[0_4px_35px_rgba(0,107,255,0.65)] hover:-translate-y-0.5 transition-all duration-200"
               >
-                Quero conhecer
+                Começar plataforma grátis
                 <ArrowRight className="w-5 h-5" />
               </a>
             </div>
@@ -51,8 +51,8 @@ export default function CTASection() {
             {/* Trust signals */}
             <div className="flex flex-wrap items-center justify-center gap-6 pt-4">
               {[
-                { icon: Shield, text: "Garantia de satisfação" },
-                { icon: Zap, text: "Setup em 5 minutos" },
+                { icon: Shield, text: "Sem fidelidade" },
+                { icon: Zap, text: "Automação cobrada na ativação" },
               ].map((item) => (
                 <div
                   key={item.text}

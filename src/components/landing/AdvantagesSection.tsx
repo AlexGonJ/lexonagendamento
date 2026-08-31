@@ -1,28 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, TrendingUp, BarChart3, ArrowUpRight } from "lucide-react";
+import { CalendarDays, MessageCircleMore, BarChart3, ArrowUpRight } from "lucide-react";
 
 const advantages = [
   {
-    icon: Clock,
-    title: "Mais Tempo para Você",
+    icon: CalendarDays,
+    title: "Agenda em ordem",
     description:
-      "Chega de anotar em caderno ou responder WhatsApp o dia inteiro. O sistema agenda, confirma e lembra seus clientes — sozinho.",
-    stat: "5h",
-    statLabel: "economizadas por semana",
+      "Centralize horários, serviços e profissionais em um painel simples de acompanhar no dia a dia.",
+    stat: "Agenda",
+    statLabel: "online para o seu negócio",
     iconBg: "bg-blue-500/10 border border-blue-500/20",
     iconColor: "text-blue-400",
     accentColor: "from-blue-400 to-blue-500",
     borderHover: "hover:border-blue-500/35",
   },
   {
-    icon: TrendingUp,
-    title: "Mais Dinheiro no Caixa",
+    icon: MessageCircleMore,
+    title: "Automação quando fizer sentido",
     description:
-      "Lembretes automáticos reduzem faltas em até 40%. Menos buracos na agenda = mais atendimentos = mais faturamento. Simples assim.",
-    stat: "40%",
-    statLabel: "menos faltas",
+      "Comece com a agenda essencial e ative confirmações e lembretes por WhatsApp no plano que combinar com a sua operação.",
+    stat: "WhatsApp",
+    statLabel: "como opção, não como obrigação",
     iconBg: "bg-white/5 border border-white/10",
     iconColor: "text-slate-400",
     accentColor: "from-slate-300 to-slate-400",
@@ -30,11 +30,11 @@ const advantages = [
   },
   {
     icon: BarChart3,
-    title: "Mais Controle do Negócio",
+    title: "Informações para a rotina",
     description:
-      "Saiba quanto faturou, quem vem, quais serviços dão mais retorno. Tome decisões com dados reais, não achismo.",
-    stat: "2x",
-    statLabel: "mais eficiência",
+      "Acompanhe clientes, serviços, agenda e informações financeiras em um único lugar.",
+    stat: "Painel",
+    statLabel: "para acompanhar a operação",
     iconBg: "bg-blue-500/10 border border-blue-500/20",
     iconColor: "text-blue-400",
     accentColor: "from-blue-400 to-blue-500",

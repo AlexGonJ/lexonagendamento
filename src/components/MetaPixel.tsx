@@ -5,16 +5,29 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 
 export const PIXEL_ID = "2060957824559650";
+type MetaPixelOptions = Record<string, unknown>;
 
-export const trackEvent = (eventName: string, options?: any) => {
-  if (typeof window !== "undefined" && (window as any).fbq) {
-    (window as any).fbq("track", eventName, options);
+type MetaPixelFunction = (
+  command: "track" | "trackCustom",
+  eventName: string,
+  options?: MetaPixelOptions,
+) => void;
+
+declare global {
+  interface Window {
+    fbq?: MetaPixelFunction;
+  }
+}
+
+export const trackEvent = (eventName: string, options?: MetaPixelOptions) => {
+  if (typeof window !== "undefined" && window.fbq) {
+    window.fbq("track", eventName, options);
   }
 };
 
-export const trackCustomEvent = (eventName: string, options?: any) => {
-  if (typeof window !== "undefined" && (window as any).fbq) {
-    (window as any).fbq("trackCustom", eventName, options);
+export const trackCustomEvent = (eventName: string, options?: MetaPixelOptions) => {
+  if (typeof window !== "undefined" && window.fbq) {
+    window.fbq("trackCustom", eventName, options);
   }
 };
 
@@ -24,8 +37,8 @@ function MetaPixelTracker() {
 
   useEffect(() => {
     // Fire pageview on route change
-    if (typeof window !== "undefined" && (window as any).fbq) {
-      (window as any).fbq("track", "PageView");
+    if (typeof window !== "undefined" && window.fbq) {
+      window.fbq("track", "PageView");
     }
   }, [pathname, searchParams]);
 
