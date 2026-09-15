@@ -73,6 +73,7 @@ model Plan {
   price        Float        // monthly price in BRL
   features     String[]     @default([]) // feature slugs included in this plan
   maxEmployees Int          @default(1)
+  maxBookingsPerMonth Int?
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt

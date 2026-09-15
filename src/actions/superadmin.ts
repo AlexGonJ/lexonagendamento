@@ -327,18 +327,20 @@ export async function createPlan(formData: FormData) {
   const name = formData.get("name") as string;
   const price = parseFloat(formData.get("price") as string);
   const maxEmployees = parseInt(formData.get("maxEmployees") as string, 10);
+  const maxBookingsRaw = String(formData.get("maxBookingsPerMonth") || "");
+  const maxBookingsPerMonth = maxBookingsRaw ? parseInt(maxBookingsRaw, 10) : null;
   const featuresRaw = formData.get("features") as string;
-  if (!name || isNaN(price) || isNaN(maxEmployees)) return { success: false, error: "Preencha todos os campos." };
+  if (!name || isNaN(price) || isNaN(maxEmployees) || (maxBookingsRaw && (maxBookingsPerMonth === null || !Number.isInteger(maxBookingsPerMonth) || maxBookingsPerMonth < 1))) return { success: false, error: "Preencha todos os campos." };
   try {
     const features = featuresRaw ? featuresRaw.split(",").filter(Boolean) : [];
-    await prisma.plan.create({ data: { name, price, maxEmployees, features } });
+    await prisma.plan.create({ data: { name, price, maxEmployees, maxBookingsPerMonth, features } });
     return { success: true };
   } catch {
     return { success: false, error: "Erro ao criar plano." };
   }
 }
 
-export async function updatePlan(id: string, data: { name?: string; price?: number; maxEmployees?: number; features?: string[]; isActive?: boolean }) {
+export async function updatePlan(id: string, data: { name?: string; price?: number; maxEmployees?: number; maxBookingsPerMonth?: number | null; features?: string[]; isActive?: boolean }) {
   try {
     await requireSuperAdminAuth();
     await prisma.plan.update({ where: { id }, data });

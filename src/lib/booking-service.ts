@@ -4,6 +4,7 @@ import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 import { debitSubscriptionCredit } from "@/lib/credit-ledger";
 import { enqueueWhatsappMessage } from "@/lib/whatsapp-outbox";
 import { scheduleDateTime, type BookingTimeMode } from "@/lib/schedule-time";
+import { assertMonthlyBookingCapacity } from "@/lib/plan-limits";
 
 export type BookingRequest = { tenantSlug: string; serviceId: string; employeeId: string; dateStr: string; timeStr: string; clientId: string; customerSubscriptionId?: string; notes?: string };
 
@@ -16,6 +17,7 @@ export async function createBookingForClient(input: BookingRequest) {
 
   return prisma.$transaction(async (tx) => {
     await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${input.employeeId}:${input.dateStr}`);
+    await assertMonthlyBookingCapacity(tx, tenant.id, bookingDate);
     const [service, employee, client] = await Promise.all([
       tx.service.findFirst({ where: { id: input.serviceId, tenantId: tenant.id, isActive: true } }),
       tx.employee.findFirst({ where: { id: input.employeeId, tenantId: tenant.id, isActive: true }, include: { services: { select: { id: true } } } }),

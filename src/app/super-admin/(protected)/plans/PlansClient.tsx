@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { createPlan, updatePlan } from "@/actions/superadmin";
 
 export type Feature = { slug: string; label: string; description: string };
-export type Plan = { id: string; name: string; price: number; maxEmployees: number; features: string[]; isActive: boolean; _count: { tenantPlans: number } };
+export type Plan = { id: string; name: string; price: number; maxEmployees: number; maxBookingsPerMonth: number | null; features: string[]; isActive: boolean; _count: { tenantPlans: number } };
 
 export default function PlansClient({ plans: initialPlans, features }: { plans: Plan[]; features: Feature[] }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: "", price: "", maxEmployees: "1", features: [] as string[] });
+  const [formData, setFormData] = useState({ name: "", price: "", maxEmployees: "1", maxBookingsPerMonth: "", features: [] as string[] });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState({ type: "", text: "" });
 
@@ -24,13 +24,13 @@ export default function PlansClient({ plans: initialPlans, features }: { plans: 
 
   function startEdit(plan: Plan) {
     setEditingId(plan.id);
-    setFormData({ name: plan.name, price: plan.price.toString(), maxEmployees: plan.maxEmployees.toString(), features: plan.features });
+    setFormData({ name: plan.name, price: plan.price.toString(), maxEmployees: plan.maxEmployees.toString(), maxBookingsPerMonth: plan.maxBookingsPerMonth?.toString() || "", features: plan.features });
     setShowForm(true);
   }
 
   function resetForm() {
     setEditingId(null);
-    setFormData({ name: "", price: "", maxEmployees: "1", features: [] });
+    setFormData({ name: "", price: "", maxEmployees: "1", maxBookingsPerMonth: "", features: [] });
     setShowForm(false);
   }
 
@@ -41,6 +41,7 @@ export default function PlansClient({ plans: initialPlans, features }: { plans: 
       name: formData.name,
       price: parseFloat(formData.price),
       maxEmployees: parseInt(formData.maxEmployees, 10),
+      maxBookingsPerMonth: formData.maxBookingsPerMonth ? parseInt(formData.maxBookingsPerMonth, 10) : null,
       features: formData.features,
     };
     let result: { success: boolean; error?: string };
@@ -48,7 +49,7 @@ export default function PlansClient({ plans: initialPlans, features }: { plans: 
       result = await updatePlan(editingId, payload);
     } else {
       const fd = new FormData();
-      Object.entries(payload).forEach(([k, v]) => fd.set(k, Array.isArray(v) ? v.join(",") : String(v)));
+      Object.entries(payload).forEach(([k, v]) => { if (v !== null) fd.set(k, Array.isArray(v) ? v.join(",") : String(v)); });
       result = await createPlan(fd);
     }
     setSaving(false);
@@ -107,6 +108,10 @@ export default function PlansClient({ plans: initialPlans, features }: { plans: 
               <div>
                 <label className="block text-xs font-medium mb-2" style={{ color: "#9ca3af" }}>Nome do Plano *</label>
                 <input value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} required placeholder="Ex: Pro" style={inputStyle} onFocus={(e) => { e.target.style.borderColor = "rgba(168,85,247,0.6)"; }} onBlur={(e) => { e.target.style.borderColor = "rgba(139,92,246,0.2)"; }} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: "#9ca3af" }}>Limite mensal de reservas</label>
+                <input type="number" min="1" value={formData.maxBookingsPerMonth} onChange={(e) => setFormData((p) => ({ ...p, maxBookingsPerMonth: e.target.value }))} placeholder="Vazio = ilimitado" style={inputStyle} />
               </div>
               <div>
                 <label className="block text-xs font-medium mb-2" style={{ color: "#9ca3af" }}>Preco Mensal (R$) *</label>

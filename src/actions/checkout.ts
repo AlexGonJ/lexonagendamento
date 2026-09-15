@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { createSignedToken } from "@/lib/session";
 import { SessionData } from "@/actions/auth";
 import { hashPassword } from "@/lib/password";
-import { getMercadoPagoCheckoutUrl } from "@/lib/checkout-url";
+import { createMercadoPagoSubscription } from "@/lib/mercadopago-subscriptions";
 
 export async function registerTenant(data: {
   name: string;
@@ -120,14 +120,22 @@ export async function registerTenant(data: {
       }
     );
 
-    const paymentUrl = getMercadoPagoCheckoutUrl(plan.id, billingPeriod, result.order.id);
+    let paymentUrl: string;
+    try {
+      const checkout = await createMercadoPagoSubscription({ ...result.order, plan: { name: plan.name } }, email);
+      await prisma.checkoutOrder.update({ where: { id: result.order.id }, data: { providerResourceId: checkout.providerResourceId } });
+      paymentUrl = checkout.paymentUrl;
+    } catch (checkoutError) {
+      await prisma.checkoutOrder.update({ where: { id: result.order.id }, data: { status: "CHECKOUT_FAILED" } });
+      throw checkoutError;
+    }
 
     return {
       success: true,
       tenantId: result.tenant.id,
       orderId: result.order.id,
-      paymentUrl: paymentUrl || null,
-      message: paymentUrl ? "Conta criada. Você será direcionado ao pagamento para ativar sua loja." : "Conta criada e pagamento pendente. Configure o checkout do plano ou entre em contato com o suporte.",
+      paymentUrl,
+      message: "Conta criada. Você será direcionado ao pagamento para ativar sua loja.",
     };
   } catch (error) {
     console.error("Erro ao registrar loja:", error);
