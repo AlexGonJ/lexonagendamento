@@ -42,6 +42,16 @@ body {
   font-family: var(--font-body);
 }
 
+/* Keyboard focus is always visible, including components that only define hover styles. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
 /* =======================================
    Existing Utilities (Admin/Booking)
    ======================================= */

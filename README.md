@@ -39,7 +39,8 @@ SaaS multiempresa para gestão de agenda, clientes, profissionais e automações
    | `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` | Supabase |
    | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Login Google (opcional) |
    | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` | Proteção Turnstile (opcional no desenvolvimento) |
-   | `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` | Consulta e validação de assinatura do webhook Mercado Pago; obrigatórias em produção |
+| `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` | Consulta e validação de assinatura do webhook Mercado Pago; obrigatórias em produção |
+   | `META_WEBHOOK_VERIFY_TOKEN` e `META_WEBHOOK_APP_SECRET` | Validação do webhook de entrega do WhatsApp Meta |
    | `MERCADOPAGO_USE_SANDBOX` | Use `true` somente com credenciais de teste; o checkout de assinaturas é criado pela API oficial do Mercado Pago. |
    | `SUPER_ADMIN_SECRET`, `SUPER_ADMIN_TOTP_SECRET` e `CRON_SECRET` | Acesso administrativo com MFA TOTP e endpoints de cron |
 
@@ -103,3 +104,5 @@ docs/             Documentação operacional
 ```
 
 O documento [documentacao_arquitetura.md](documentacao_arquitetura.md) registra decisões e escopo do MVP.
+
+Consulte também [Operação de produção](docs/OPERACAO_PRODUCAO.md) para cron, backup, restauração, monitoramento e rollback.

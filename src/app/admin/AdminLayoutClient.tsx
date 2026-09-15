@@ -47,6 +47,7 @@ export default function AdminLayoutClient({
           <button 
             className="lg:hidden text-gray-500 hover:text-gray-700"
             onClick={() => setIsSidebarOpen(false)}
+            aria-label="Fechar menu"
           >
             <X size={24} />
           </button>
@@ -83,6 +84,9 @@ export default function AdminLayoutClient({
                 className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
               >
                 Configurações
+              </Link>
+              <Link href="/admin/onboarding" onClick={() => setIsSidebarOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors">
+                Preparar estabelecimento
               </Link>
               <Link 
                 href="/admin/whatsapp" 
@@ -174,6 +178,7 @@ export default function AdminLayoutClient({
           <button 
             className="lg:hidden text-gray-600 hover:text-gray-900"
             onClick={() => setIsSidebarOpen(true)}
+            aria-label="Abrir menu"
           >
             <Menu size={24} />
           </button>
