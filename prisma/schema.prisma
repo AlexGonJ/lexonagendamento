@@ -9,111 +9,112 @@ generator client {
 }
 
 model Tenant {
-  id          String       @id @default(uuid())
-  slug        String       @unique
-  name        String
-  logoUrl     String?
-  coverUrl    String?
-  description String?
-  isActive    Boolean      @default(true)
-  features    String[]     @default([])
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  timezone    String       @default("America/Sao_Paulo")
-  minimumLeadMinutes Int   @default(0)
-  cancellationLeadMinutes Int @default(0)
+  id                        String          @id @default(uuid())
+  slug                      String          @unique
+  name                      String
+  logoUrl                   String?
+  coverUrl                  String?
+  description               String?
+  isActive                  Boolean         @default(true)
+  features                  String[]        @default([])
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+  timezone                  String          @default("America/Sao_Paulo")
+  minimumLeadMinutes        Int             @default(0)
+  cancellationLeadMinutes   Int             @default(0)
   /// Legacy appointments stored wall-clock values in UTC fields until explicitly migrated.
-  bookingTimeMode String @default("LEGACY_UTC_WALL")
+  bookingTimeMode           String          @default("LEGACY_UTC_WALL")
   bookingTimezoneMigratedAt DateTime?
-  services    Service[]
-  employees   Employee[]
-  bookings    Booking[]
-  tenantPlans TenantPlan[]
-  checkoutOrders CheckoutOrder[]
+  services                  Service[]
+  employees                 Employee[]
+  bookings                  Booking[]
+  tenantPlans               TenantPlan[]
+  checkoutOrders            CheckoutOrder[]
 
   // Theme Settings
   themeBgColor     String?
   themeButtonColor String?
 
   // WhatsApp Integration Settings
-  whatsappEnabled          Boolean   @default(false)
-  whatsappProvider         String    @default("simulador") // "simulador", "evolution", "meta"
-  whatsappApiUrl           String?
-  whatsappToken            String?
-  whatsappNumber           String?   // Nome da Instância (Evolution) ou Phone Number ID (Meta)
-  whatsappWabaId           String?   // Meta WABA ID
+  whatsappEnabled  Boolean @default(false)
+  whatsappProvider String  @default("simulador") // "simulador", "evolution", "meta"
+  whatsappApiUrl   String?
+  whatsappToken    String?
+  whatsappNumber   String? // Nome da Instância (Evolution) ou Phone Number ID (Meta)
+  whatsappWabaId   String? // Meta WABA ID
 
   // WhatsApp Automations
-  whatsappConfirmEnabled   Boolean   @default(false)
-  whatsappConfirmTemplate  String?   @default("Olá {nome}, seu agendamento para {servico} com {profissional} no dia {data} às {hora} foi confirmado!")
+  whatsappConfirmEnabled  Boolean @default(false)
+  whatsappConfirmTemplate String? @default("Olá {nome}, seu agendamento para {servico} com {profissional} no dia {data} às {hora} foi confirmado!")
 
-  whatsappReminderEnabled  Boolean   @default(false)
-  whatsappReminderHours    Int       @default(2)
-  whatsappReminderTemplate String?   @default("Olá {nome}, passando para lembrar do seu horário de {servico} hoje às {hora} com {profissional}!")
+  whatsappReminderEnabled  Boolean @default(false)
+  whatsappReminderHours    Int     @default(2)
+  whatsappReminderTemplate String? @default("Olá {nome}, passando para lembrar do seu horário de {servico} hoje às {hora} com {profissional}!")
 
-  whatsappInactiveEnabled  Boolean   @default(false)
-  whatsappInactiveDays     Int       @default(30)
-  whatsappInactiveTemplate String?   @default("Olá {nome}, faz {dias} dias que você não nos visita! Que tal agendar um novo horário?")
+  whatsappInactiveEnabled  Boolean @default(false)
+  whatsappInactiveDays     Int     @default(30)
+  whatsappInactiveTemplate String? @default("Olá {nome}, faz {dias} dias que você não nos visita! Que tal agendar um novo horário?")
 
   // WhatsApp cancellation notification to professional
   whatsappCancelNotifyEnabled  Boolean @default(true)
   whatsappCancelNotifyTemplate String? @default("Olá {profissional}, o cliente {nome} desmarcou o agendamento de {servico} do dia {data} às {hora}.")
 
-  customerPlans         CustomerPlan[]
-  customerSubscriptions CustomerSubscription[]
-  expenses              Expense[]
-  receipts              Receipt[]
-  whatsappOutbox        WhatsappOutbox[]
-  holidays              TenantHoliday[]
+  customerPlans            CustomerPlan[]
+  customerSubscriptions    CustomerSubscription[]
+  expenses                 Expense[]
+  receipts                 Receipt[]
+  whatsappOutbox           WhatsappOutbox[]
+  communicationPreferences ClientCommunicationPreference[]
+  holidays                 TenantHoliday[]
 }
 
 model Plan {
-  id           String       @id @default(uuid())
-  name         String       // e.g. "Básico", "Pro", "Enterprise"
-  price        Float        // monthly price in BRL
-  features     String[]     @default([]) // feature slugs included in this plan
-  maxEmployees Int          @default(1)
+  id                  String          @id @default(uuid())
+  name                String // e.g. "Básico", "Pro", "Enterprise"
+  price               Float // monthly price in BRL
+  features            String[]        @default([]) // feature slugs included in this plan
+  maxEmployees        Int             @default(1)
   maxBookingsPerMonth Int?
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  tenantPlans  TenantPlan[]
-  checkoutOrders CheckoutOrder[]
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  tenantPlans         TenantPlan[]
+  checkoutOrders      CheckoutOrder[]
 }
 
 model TenantPlan {
-  id        String    @id @default(uuid())
-  tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  planId    String
-  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
-  startDate DateTime  @default(now())
-  endDate   DateTime?
-  status    String    @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
-  billingPeriod String @default("monthly")
+  id                 String    @id @default(uuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  startDate          DateTime  @default(now())
+  endDate            DateTime?
+  status             String    @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
+  billingPeriod      String    @default("monthly")
   providerResourceId String?
-  cancelAtPeriodEnd Boolean @default(false)
-  cancelledAt DateTime?
-  createdAt DateTime  @default(now())
+  cancelAtPeriodEnd  Boolean   @default(false)
+  cancelledAt        DateTime?
+  createdAt          DateTime  @default(now())
 
   @@index([tenantId, status, endDate])
 }
 
 model CheckoutOrder {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   tenantId           String
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   planId             String
-  plan               Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  plan               Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
   billingPeriod      String
   amount             Float
-  currency           String   @default("BRL")
-  provider           String   @default("mercadopago")
-  providerResourceId String?  @unique
-  status             String   @default("PENDING")
+  currency           String    @default("BRL")
+  provider           String    @default("mercadopago")
+  providerResourceId String?   @unique
+  status             String    @default("PENDING")
   paidAt             DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([tenantId, status])
   @@index([planId])
@@ -124,9 +125,9 @@ model Service {
   name        String
   description String?
   price       Float
-  duration    Int        // duration in minutes
-  category    String     // e.g. "Cabelo", "Barba", "Combos"
-  imageUrl    String?    // URL for the service photo
+  duration    Int // duration in minutes
+  category    String // e.g. "Cabelo", "Barba", "Combos"
+  imageUrl    String? // URL for the service photo
   tenantId    String
   isActive    Boolean    @default(true)
   tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -137,28 +138,28 @@ model Service {
 }
 
 model Employee {
-  id                 String     @id @default(uuid())
-  name               String
-  role               String     // e.g. "Barbeiro", "Maquiador"
-  email              String?    @unique
-  passwordHash       String?
-  isAdmin            Boolean    @default(false)
-  sessionVersion     Int        @default(1)
-  avatarUrl          String?
-  googleCalendarSync Boolean    @default(false)
-  calendarToken      String?    // Refresh token for OAuth Google Calendar Sync
-  phone              String?
-  commissionRate     Float      @default(50.0) // Percentage of commission (e.g. 50.0 = 50%)
-  tenantId           String
-  isActive           Boolean    @default(true)
-  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  bookings           Booking[]
-  schedules          EmployeeSchedule[]
-  timeOffDays        EmployeeTimeOff[]
-  availabilityBlocks EmployeeAvailabilityBlock[]
-  services           Service[]
+  id                  String                      @id @default(uuid())
+  name                String
+  role                String // e.g. "Barbeiro", "Maquiador"
+  email               String?                     @unique
+  passwordHash        String?
+  isAdmin             Boolean                     @default(false)
+  sessionVersion      Int                         @default(1)
+  avatarUrl           String?
+  googleCalendarSync  Boolean                     @default(false)
+  calendarToken       String? // Refresh token for OAuth Google Calendar Sync
+  phone               String?
+  commissionRate      Float                       @default(50.0) // Percentage of commission (e.g. 50.0 = 50%)
+  tenantId            String
+  isActive            Boolean                     @default(true)
+  tenant              Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  bookings            Booking[]
+  schedules           EmployeeSchedule[]
+  timeOffDays         EmployeeTimeOff[]
+  availabilityBlocks  EmployeeAvailabilityBlock[]
+  services            Service[]
   passwordResetTokens PasswordResetToken[]
 }
 
@@ -166,9 +167,9 @@ model EmployeeSchedule {
   id         String   @id @default(uuid())
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  dayOfWeek  Int      // 0 = Domingo, 1 = Segunda, 2 = Terça...
-  startTime  String   // e.g. "09:00"
-  endTime    String   // e.g. "12:00"
+  dayOfWeek  Int // 0 = Domingo, 1 = Segunda, 2 = Terça...
+  startTime  String // e.g. "09:00"
+  endTime    String // e.g. "12:00"
 }
 
 model EmployeeTimeOff {
@@ -202,22 +203,22 @@ model TenantHoliday {
   date      DateTime
   name      String?
   createdAt DateTime @default(now())
+
   @@unique([tenantId, date])
 }
 
 model Client {
-  id        String    @id @default(uuid())
-  name      String
-  phone     String    @unique // unique phone number verified by OTP
-  email     String?   @unique // optional, used when logging in with Google/Apple
-  googleId  String?   @unique // unique identifier for Google OAuth login
-  appleId   String?   @unique // unique identifier for Apple OAuth login
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  bookings  Booking[]
-
-  whatsappInactiveSentAt DateTime?
-  customerSubscriptions  CustomerSubscription[]
+  id                       String                          @id @default(uuid())
+  name                     String
+  phone                    String                          @unique // unique phone number verified by OTP
+  email                    String?                         @unique // optional, used when logging in with Google/Apple
+  googleId                 String?                         @unique // unique identifier for Google OAuth login
+  appleId                  String?                         @unique // unique identifier for Apple OAuth login
+  createdAt                DateTime                        @default(now())
+  updatedAt                DateTime                        @updatedAt
+  bookings                 Booking[]
+  communicationPreferences ClientCommunicationPreference[]
+  customerSubscriptions    CustomerSubscription[]
 }
 
 model Booking {
@@ -238,7 +239,7 @@ model Booking {
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 
-  whatsappReminderSent Boolean @default(false)
+  whatsappReminderSent Boolean          @default(false)
   whatsappOutbox       WhatsappOutbox[]
 
   // Snapshots preserve the commercial terms that applied when the booking was made.
@@ -260,89 +261,108 @@ model OtpVerification {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  tokenHash  String   @unique
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
   expiresAt  DateTime
   usedAt     DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([employeeId, expiresAt])
 }
 
 model RateLimitState {
-  key          String   @id
-  count        Int      @default(0)
+  key          String    @id
+  count        Int       @default(0)
   windowStart  DateTime
   blockedUntil DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model WhatsappLog {
-  id         String   @id @default(uuid())
-  tenantId   String
-  recipient  String
-  message    String
-  type       String   // CONFIRMATION, REMINDER, INACTIVE, TEST
-  status     String   // SENT, FAILED, SIMULATED
-  createdAt  DateTime @default(now())
+  id                String    @id @default(uuid())
+  tenantId          String
+  recipient         String
+  message           String
+  type              String // CONFIRMATION, REMINDER, INACTIVE, TEST
+  status            String // SENT, FAILED, SIMULATED
+  providerMessageId String?   @unique
+  deliveredAt       DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime  @default(now())
 }
 
 model WhatsappOutbox {
-  id            String   @id @default(uuid())
-  tenantId      String
-  eventKey      String   @unique
-  type          String
-  recipient     String
-  bookingId     String?
-  booking       Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  payload       Json
-  status        String   @default("PENDING")
-  attempts      Int      @default(0)
-  nextAttemptAt DateTime @default(now())
-  lockedAt      DateTime?
-  lastError     String?
-  sentAt        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String    @id @default(uuid())
+  tenantId          String
+  eventKey          String    @unique
+  type              String
+  recipient         String
+  bookingId         String?
+  booking           Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  payload           Json
+  status            String    @default("PENDING")
+  attempts          Int       @default(0)
+  nextAttemptAt     DateTime  @default(now())
+  lockedAt          DateTime?
+  lastError         String?
+  sentAt            DateTime?
+  providerMessageId String?
+  deliveredAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([status, nextAttemptAt])
   @@index([tenantId, createdAt])
   @@index([bookingId])
 }
 
+model ClientCommunicationPreference {
+  id                String   @id @default(uuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId          String
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  promotionalOptOut Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, clientId])
+  @@index([tenantId, promotionalOptOut])
+}
+
 model CustomerPlan {
-  id           String                 @id @default(uuid())
-  name         String                 // ex: "Clube da Barba Mensal"
-  price        Float                  // Preço cobrado do cliente
-  slots        Int                    // Qtd de agendamentos inclusos
-  periodDays   Int                    @default(30)
-  tenantId     String
-  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  isActive     Boolean                @default(true)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
+  id            String                 @id @default(uuid())
+  name          String // ex: "Clube da Barba Mensal"
+  price         Float // Preço cobrado do cliente
+  slots         Int // Qtd de agendamentos inclusos
+  periodDays    Int                    @default(30)
+  tenantId      String
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  isActive      Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
   subscriptions CustomerSubscription[]
 }
 
 model CustomerSubscription {
-  id             String        @id @default(uuid())
-  clientId       String
-  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  planId         String
-  plan           CustomerPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
-  tenantId       String
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  startDate      DateTime      @default(now())
-  endDate        DateTime
-  status         String        @default("ACTIVE") // ACTIVE, EXPIRED, CANCELLED
-  remainingSlots Int           // Slots restantes no ciclo atual
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  bookings       Booking[]
+  id                  String              @id @default(uuid())
+  clientId            String
+  client              Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  planId              String
+  plan                CustomerPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tenantId            String
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  startDate           DateTime            @default(now())
+  endDate             DateTime
+  status              String              @default("ACTIVE") // ACTIVE, EXPIRED, CANCELLED
+  remainingSlots      Int // Slots restantes no ciclo atual
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  bookings            Booking[]
   creditLedgerEntries CreditLedgerEntry[]
 }
 
@@ -365,23 +385,23 @@ model Expense {
   description String
   amount      Float
   date        DateTime
-  category    String   // ex: "Aluguel", "Energia", "Produtos", "Marketing", "Outros"
+  category    String // ex: "Aluguel", "Energia", "Produtos", "Marketing", "Outros"
   tenantId    String
-  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
 model Receipt {
-  id        String   @id @default(uuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bookingId String?
-  amount    Float
-  method    String
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookingId  String?
+  amount     Float
+  method     String
   receivedAt DateTime
-  note      String?
-  createdAt DateTime @default(now())
+  note       String?
+  createdAt  DateTime @default(now())
 
   @@index([tenantId, receivedAt])
   @@index([bookingId])

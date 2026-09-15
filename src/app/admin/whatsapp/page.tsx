@@ -246,7 +246,7 @@ export default function WhatsappIntegrationPage() {
       if (res.success) {
         setMessage({
           type: "success",
-          text: `Varredura concluída! Enviados: ${res.sentCount} | Simulados: ${res.simulatedCount} | Falhas: ${res.failedCount}`
+          text: `Varredura concluída! ${res.queuedCount || 0} mensagens foram colocadas na fila de envio.`
         });
         // Reload logs
         const updatedLogs = await getWhatsappLogs();
@@ -866,6 +866,11 @@ export default function WhatsappIntegrationPage() {
                         {log.status === "SENT" && (
                           <span className="px-2 py-0.5 rounded-full text-xxs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             Enviado
+                          </span>
+                        )}
+                        {(log.status === "DELIVERED" || log.status === "READ") && (
+                          <span className="px-2 py-0.5 rounded-full text-xxs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {log.status === "READ" ? "Lida" : "Entregue"}
                           </span>
                         )}
                         {log.status === "FAILED" && (

@@ -221,6 +221,7 @@ export async function sendClientOtp(
             recipient: cleanPhone,
             type: "TEST",
             overrideMessage: `Seu código de verificação para acesso é: ${code}`,
+            sensitive: true,
             data: {
               clientName: "Cliente",
               serviceName: "",

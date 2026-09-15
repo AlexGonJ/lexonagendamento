@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { getCurrentSession } from "@/actions/auth";
+import { getCurrentClientSession, getCurrentSession } from "@/actions/auth";
 import { 
   sendWhatsappMessage, 
   verifyWhatsappConnection,
@@ -101,12 +101,22 @@ export async function updateWhatsappSettings(data: UpdateWhatsappSettingsData) {
   }
 
   const tenantId = session.tenantId;
+  const existingToken = (await prisma.tenant.findUnique({ where: { id: tenantId }, select: { whatsappToken: true } }))?.whatsappToken;
+
+  if (!["simulador", "evolution", "meta"].includes(data.whatsappProvider)) {
+    throw new Error("Provedor de WhatsApp inválido.");
+  }
 
   if (data.whatsappProvider === "evolution") {
     if (!data.whatsappApiUrl) {
       throw new Error("Informe a URL da Evolution API.");
     }
     await getSafeEvolutionApiUrl(data.whatsappApiUrl);
+  }
+  if (data.whatsappProvider === "meta") {
+    if (!(data.whatsappToken || existingToken) || !data.whatsappNumber) throw new Error("Informe o token e o Phone Number ID da Meta.");
+    const activeTemplates = [data.whatsappConfirmEnabled && data.whatsappConfirmTemplate, data.whatsappReminderEnabled && data.whatsappReminderTemplate, data.whatsappInactiveEnabled && data.whatsappInactiveTemplate, data.whatsappCancelNotifyEnabled && data.whatsappCancelNotifyTemplate].filter(Boolean) as string[];
+    if (activeTemplates.some((name) => !/^[a-z0-9_]{1,512}$/i.test(name))) throw new Error("Os nomes de templates Meta devem usar apenas letras, números e sublinhado.");
   }
 
   await prisma.tenant.update({
@@ -219,6 +229,33 @@ export async function getWhatsappLogs() {
   });
 
   return logs;
+}
+
+export async function retryWhatsappOutboxMessage(id: string) {
+  const session = await getCurrentSession();
+  if (!session?.isAdmin) throw new Error("Não autorizado.");
+  const message = await prisma.whatsappOutbox.findFirst({ where: { id, tenantId: session.tenantId } });
+  if (!message || message.status !== "FAILED") throw new Error("Mensagem não disponível para reenvio.");
+  await prisma.whatsappOutbox.update({ where: { id }, data: { status: "PENDING", attempts: 0, nextAttemptAt: new Date(), lockedAt: null, lastError: null } });
+  await recordAuditEvent({ tenantId: session.tenantId, actorId: session.userId, actorRole: "ADMIN", action: "WHATSAPP_OUTBOX_RETRIED", entityType: "WhatsappOutbox", entityId: id });
+  revalidatePath("/admin/whatsapp");
+  return { success: true };
+}
+
+export async function getFailedWhatsappOutboxMessages() {
+  const session = await getCurrentSession();
+  if (!session?.isAdmin) throw new Error("Não autorizado.");
+  return prisma.whatsappOutbox.findMany({ where: { tenantId: session.tenantId, status: "FAILED" }, orderBy: { updatedAt: "desc" }, take: 25 });
+}
+
+export async function setPromotionalWhatsappOptOut(tenantId: string, optedOut: boolean) {
+  const session = await getCurrentClientSession();
+  if (!session) throw new Error("Faça login para alterar a preferência.");
+  const hasRelationship = await prisma.booking.findFirst({ where: { tenantId, clientId: session.clientId }, select: { id: true } });
+  if (!hasRelationship) throw new Error("Cliente não pertence a este estabelecimento.");
+  await prisma.clientCommunicationPreference.upsert({ where: { tenantId_clientId: { tenantId, clientId: session.clientId } }, create: { tenantId, clientId: session.clientId, promotionalOptOut: optedOut }, update: { promotionalOptOut: optedOut } });
+  revalidatePath("/[tenant]/perfil", "page");
+  return { success: true };
 }
 
 // Job/Automation: Check bookings and send reminders (Hours before)
@@ -337,6 +374,7 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
       }
     },
     include: {
+      communicationPreferences: { where: { tenantId: tenant.id } },
       bookings: {
         where: {
           tenantId: tenant.id,
@@ -350,9 +388,7 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
     }
   });
 
-  let sentCount = 0;
-  let simulatedCount = 0;
-  let failedCount = 0;
+  let queuedCount = 0;
 
   for (const client of clients) {
     const lastBooking = client.bookings[0];
@@ -363,7 +399,7 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
     // Se o último agendamento foi antes do limiar (há mais de 30 dias)
     // E o cliente não recebeu um lembrete de inatividade desde o seu último agendamento
     const isInactive = lastBookingDate.getTime() <= thresholdDate.getTime();
-    const alreadySentForThisBooking = client.whatsappInactiveSentAt && new Date(client.whatsappInactiveSentAt).getTime() >= lastBookingDate.getTime();
+    const optedOut = client.communicationPreferences[0]?.promotionalOptOut === true;
 
     // Adicionalmente, verificamos se o cliente tem algum agendamento futuro agendado
     const futureBooking = await prisma.booking.findFirst({
@@ -377,36 +413,24 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
       }
     });
 
-    if (isInactive && !alreadySentForThisBooking && !futureBooking) {
-      const res = await sendWhatsappMessage({
+    if (isInactive && !optedOut && !futureBooking) {
+      const service = lastBooking.serviceId ? await prisma.service.findUnique({ where: { id: lastBooking.serviceId }, select: { name: true } }) : null;
+      const employee = lastBooking.employeeId ? await prisma.employee.findUnique({ where: { id: lastBooking.employeeId }, select: { name: true } }) : null;
+      await prisma.$transaction((tx) => enqueueWhatsappMessage(tx, {
         tenantId: tenant.id,
+        eventKey: `client:${client.id}:inactive:${lastBooking.id}`,
         recipient: client.phone,
         type: "INACTIVE",
         data: {
           clientName: client.name,
-          serviceName: lastBooking.serviceId ? (await prisma.service.findUnique({ where: { id: lastBooking.serviceId } }))?.name || "Serviço" : "Serviço",
-          employeeName: lastBooking.employeeId ? (await prisma.employee.findUnique({ where: { id: lastBooking.employeeId } }))?.name || "Profissional" : "Profissional",
+          serviceName: service?.name || "Serviço",
+          employeeName: employee?.name || "Profissional",
           dateStr: formatDateBR(lastBookingDate),
           timeStr: formatTimeBR(lastBookingDate),
           inactiveDays: inactiveDays,
         },
-      });
-
-      if (res.success) {
-        if (res.status === "SIMULATED") {
-          simulatedCount++;
-        } else {
-          sentCount++;
-        }
-
-        // Atualiza a data de envio no cliente
-        await prisma.client.update({
-          where: { id: client.id },
-          data: { whatsappInactiveSentAt: new Date() },
-        });
-      } else {
-        failedCount++;
-      }
+      }));
+      queuedCount++;
     }
   }
 
@@ -414,8 +438,6 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
 
   return {
     success: true,
-    sentCount,
-    simulatedCount,
-    failedCount,
+    queuedCount,
   };
 }

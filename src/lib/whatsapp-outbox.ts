@@ -60,7 +60,7 @@ export async function processWhatsappOutbox(limit = 50) {
     const result = await sendWhatsappMessage({ tenantId: claimed.tenantId, recipient: claimed.recipient, type: claimed.type as SendWhatsappParams["type"], ...payload });
     if (result.success) {
       await prisma.$transaction([
-        prisma.whatsappOutbox.update({ where: { id: claimed.id }, data: { status: "SENT", sentAt: new Date(), lockedAt: null, lastError: null } }),
+        prisma.whatsappOutbox.update({ where: { id: claimed.id }, data: { status: "SENT", sentAt: new Date(), lockedAt: null, lastError: null, providerMessageId: result.providerMessageId } }),
         ...(claimed.bookingId ? [prisma.booking.updateMany({ where: { id: claimed.bookingId }, data: { whatsappReminderSent: true } })] : []),
       ]);
       sent++;
@@ -77,3 +77,5 @@ export async function processWhatsappOutbox(limit = 50) {
   }
   return { processed: candidates.length, sent, retried, failed };
 }
+
+/** At-least-once worker: eventKey deduplicates enqueueing; provider timeouts can still yield duplicate external delivery. */
