@@ -97,6 +97,8 @@ export async function createEmployee(formData: FormData) {
   const email = formData.get("email") as string | null;
   const password = formData.get("password") as string | null;
   const isAdmin = formData.get("isAdmin") === "on";
+  const requestedAccessRole = formData.get("accessRole") as string | null;
+  const accessRole = isAdmin ? "ADMIN" : requestedAccessRole === "RECEPTION" ? "RECEPTION" : "PROFESSIONAL";
   const imageFile = formData.get("imageFile") as File;
   const phone = formData.get("phone") as string | null;
   const commissionRateStr = formData.get("commissionRate") as string | null;
@@ -133,6 +135,7 @@ export async function createEmployee(formData: FormData) {
         email: email || null,
         passwordHash,
         isAdmin,
+        accessRole,
         avatarUrl: finalAvatarUrl,
         phone: phone || null,
         commissionRate,
@@ -154,6 +157,8 @@ export async function updateEmployee(id: string, formData: FormData) {
   const email = formData.get("email") as string | null;
   const newPassword = formData.get("password") as string | null;
   const isAdmin = formData.get("isAdmin") === "on";
+  const requestedAccessRole = formData.get("accessRole") as string | null;
+  const accessRole = isAdmin ? "ADMIN" : requestedAccessRole === "RECEPTION" ? "RECEPTION" : "PROFESSIONAL";
   const imageFile = formData.get("imageFile") as File;
   const phone = formData.get("phone") as string | null;
   const commissionRateStr = formData.get("commissionRate") as string | null;
@@ -189,6 +194,7 @@ export async function updateEmployee(id: string, formData: FormData) {
       email: email || null,
       passwordHash: newPassword ? await hashPassword(newPassword) : current.passwordHash,
       isAdmin,
+      accessRole,
       avatarUrl: finalAvatarUrl,
       phone: phone || null,
       commissionRate,

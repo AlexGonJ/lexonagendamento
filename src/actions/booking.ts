@@ -31,6 +31,10 @@ const bookingTransitions: Record<string, string[]> = {
   CONFIRMED: ["COMPLETED", "NO_SHOW", "CANCELLED"],
 };
 
+function hasReceptionDeskAccess(session: { isAdmin: boolean; accessRole?: string }) {
+  return session.isAdmin || session.accessRole === "RECEPTION";
+}
+
 function formatDateBR(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
@@ -171,7 +175,7 @@ export async function getDashboardStats(view: string = "daily") {
       gte: rangeStart,
       lte: rangeEnd
     },
-    ...( !session.isAdmin ? { employeeId: session.userId } : {} )
+    ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} )
   };
 
   const rangeBookings = await prisma.booking.findMany({
@@ -195,7 +199,7 @@ export async function getDashboardStats(view: string = "daily") {
     bookings: {
       some: {
         tenantId,
-        ...( !session.isAdmin ? { employeeId: session.userId } : {} )
+        ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} )
       }
     }
   };
@@ -211,7 +215,7 @@ export async function getDashboardStats(view: string = "daily") {
       gte: startOfToday,
       lte: endOfToday
     },
-    ...( !session.isAdmin ? { employeeId: session.userId } : {} )
+    ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} )
   };
   const todayBookings = await prisma.booking.findMany({
     where: todayWhereClause,
@@ -228,7 +232,7 @@ export async function getDashboardStats(view: string = "daily") {
       gte: startOfToday,
       lte: endOfToday
     },
-    ...( !session.isAdmin ? { employeeId: session.userId } : {} )
+    ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} )
   };
   const todayAllBookings = await prisma.booking.findMany({
     where: upcomingWhereClause,
@@ -264,7 +268,7 @@ export async function getDashboardStats(view: string = "daily") {
     const monthBookings = await prisma.booking.findMany({
       where: {
         tenantId,
-        employeeId: !session.isAdmin ? session.userId : undefined,
+        employeeId: !hasReceptionDeskAccess(session) ? session.userId : undefined,
         status: { in: ["CONFIRMED", "COMPLETED"] },
         date: {
           gte: startM,
@@ -310,7 +314,7 @@ export async function getBookings(filters?: { status?: string; date?: string; se
 
   const whereClause: Prisma.BookingWhereInput = {
     tenantId,
-    ...( !session.isAdmin ? { employeeId: session.userId } : {} ),
+    ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} ),
     ...( (filters?.status && filters.status !== 'ALL') ? { status: filters.status } : {} ),
     ...( filters?.date ? {
       date: {
@@ -369,7 +373,7 @@ export async function updateBookingStatus(bookingId: string, status: string) {
     }
 
     // Se não for admin, só pode alterar se for o próprio profissional
-    if (!session.isAdmin && booking.employeeId !== session.userId) {
+    if (!hasReceptionDeskAccess(session) && booking.employeeId !== session.userId) {
       return { success: false, error: "Você só pode alterar seus próprios agendamentos." };
     }
 
@@ -450,7 +454,7 @@ export async function rescheduleBooking(bookingId: string, dateStr: string, time
     if (!tenantSchedule) return { success: false, error: "Estabelecimento não encontrado." };
     const newDate = scheduleDateTime(dateStr, timeStr, tenantSchedule.timezone, tenantSchedule.bookingTimeMode as BookingTimeMode);
     if (Number.isNaN(newDate.getTime()) || newDate.getTime() <= Date.now()) return { success: false, error: "Informe um horário futuro válido." };
-    if (!session.isAdmin && booking.employeeId !== session.userId) {
+    if (!hasReceptionDeskAccess(session) && booking.employeeId !== session.userId) {
       return { success: false, error: "Você só pode reagendar seus próprios atendimentos." };
     }
     if (!["PENDING", "CONFIRMED"].includes(booking.status)) {
@@ -519,7 +523,7 @@ export async function deleteBooking(bookingId: string) {
     }
 
     // Se não for admin, só pode excluir se for o próprio profissional
-    if (!session.isAdmin && booking.employeeId !== session.userId) {
+    if (!hasReceptionDeskAccess(session) && booking.employeeId !== session.userId) {
       return { success: false, error: "Você só pode excluir seus próprios agendamentos." };
     }
 
@@ -574,7 +578,7 @@ export async function cancelBooking(bookingId: string) {
     if (employeeSession && booking.tenantId !== employeeSession.tenantId) {
       return { success: false, error: "Você não tem permissão para cancelar este agendamento." };
     }
-    if (employeeSession && !employeeSession.isAdmin && booking.employeeId !== employeeSession.userId) {
+    if (employeeSession && !hasReceptionDeskAccess(employeeSession) && booking.employeeId !== employeeSession.userId) {
       return { success: false, error: "Você só pode cancelar seus próprios agendamentos." };
     }
 
@@ -636,3 +640,4 @@ export async function cancelBooking(bookingId: string) {
     return { success: false, error: "Erro ao cancelar agendamento." };
   }
 }
+

@@ -103,6 +103,13 @@ export default async function AdminEmployees() {
                   Administrador do painel
                 </label>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Perfil de acesso</label>
+                <select name="accessRole" defaultValue="PROFESSIONAL" className="w-full p-2 border border-gray-300 rounded-lg">
+                  <option value="PROFESSIONAL">Profissional — agenda própria</option>
+                  <option value="RECEPTION">Recepção — agenda e clientes, sem financeiro/configurações</option>
+                </select>
+              </div>
 
               <hr className="border-gray-200" />
 
@@ -165,6 +172,7 @@ export default async function AdminEmployees() {
                                 Admin
                               </span>
                             )}
+                            {!emp.isAdmin && emp.accessRole === "RECEPTION" && <span className="inline-block mt-0.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">Recepção</span>}
                           </div>
                         </td>
                          <td className="p-4 text-sm text-gray-700">{emp.role}</td>

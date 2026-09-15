@@ -102,6 +102,7 @@ export async function registerTenant(data: {
       name: result.employee.name,
       email: result.employee.email || "",
       isAdmin: result.employee.isAdmin,
+      accessRole: result.employee.isAdmin ? "ADMIN" : (result.employee.accessRole as SessionData["accessRole"]),
       tenantId: result.employee.tenantId,
       sessionVersion: result.employee.sessionVersion,
     };

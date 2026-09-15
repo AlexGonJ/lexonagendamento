@@ -38,6 +38,7 @@ export interface SessionData {
   name: string;
   email: string;
   isAdmin: boolean;
+  accessRole: "ADMIN" | "RECEPTION" | "PROFESSIONAL";
   tenantId: string;
   sessionVersion: number;
 }
@@ -84,6 +85,7 @@ export async function login(formData: FormData) {
       name: employee.name,
       email: employee.email || "",
       isAdmin: employee.isAdmin,
+      accessRole: employee.isAdmin ? "ADMIN" : (employee.accessRole as SessionData["accessRole"]),
       tenantId: employee.tenantId,
       sessionVersion: employee.sessionVersion,
     };
@@ -126,7 +128,7 @@ export async function getCurrentSession(): Promise<SessionData | null> {
     if (!session) return null;
     const employee = await prisma.employee.findFirst({
       where: { id: session.userId, tenantId: session.tenantId, isActive: true },
-      select: { id: true, name: true, email: true, isAdmin: true, tenantId: true, sessionVersion: true },
+      select: { id: true, name: true, email: true, isAdmin: true, accessRole: true, tenantId: true, sessionVersion: true },
     });
     if (!employee || employee.sessionVersion !== session.sessionVersion) return null;
     return {
@@ -134,6 +136,7 @@ export async function getCurrentSession(): Promise<SessionData | null> {
       name: employee.name,
       email: employee.email || "",
       isAdmin: employee.isAdmin,
+      accessRole: employee.isAdmin ? "ADMIN" : (employee.accessRole as SessionData["accessRole"]),
       tenantId: employee.tenantId,
       sessionVersion: employee.sessionVersion,
     };
