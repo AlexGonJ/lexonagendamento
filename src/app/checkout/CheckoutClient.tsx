@@ -1,68 +1,25 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { registerTenant } from "@/actions/checkout";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, ArrowRight, ShieldCheck, CreditCard, Building2, Mail, Lock } from "lucide-react";
 import { trackEvent } from "@/components/MetaPixel";
 
 interface PlanDetails {
+  id: string;
   name: string;
-  monthlyPrice: number;
-  annualPrice: number;
+  price: number;
   features: string[];
 }
 
-const planDetailsMap: Record<string, PlanDetails> = {
-  starter: {
-    name: "Starter",
-    monthlyPrice: 99,
-    annualPrice: 73,
-    features: [
-      "Até 1 profissional",
-      "200 agendamentos/mês",
-      "WhatsApp automático",
-      "Página de agendamento básica",
-      "Suporte por email",
-    ],
-  },
-  profissional: {
-    name: "Profissional",
-    monthlyPrice: 179,
-    annualPrice: 149,
-    features: [
-      "Até 3 profissionais",
-      "Agendamentos ilimitados",
-      "WhatsApp automático",
-      "Página personalizada completa",
-      "Suporte prioritário",
-      "CRM completo",
-    ],
-  },
-  escala: {
-    name: "Escala",
-    monthlyPrice: 359,
-    annualPrice: 299,
-    features: [
-      "Profissionais ilimitados",
-      "Agendamentos ilimitados",
-      "WhatsApp automático",
-      "Página completa + domínio próprio",
-      "Suporte dedicado",
-      "Integração com Google Calendar",
-      "CRM completo + relatórios avançados",
-    ],
-  },
-};
-
-export default function CheckoutClient() {
-  const router = useRouter();
+export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
   const searchParams = useSearchParams();
-  const initialPlan = searchParams.get("plan")?.toLowerCase() || "profissional";
+  const initialPlan = searchParams.get("plan") || plans[0]?.id || "";
 
   const [selectedPlanId, setSelectedPlanId] = useState(
-    planDetailsMap[initialPlan] ? initialPlan : "profissional"
+    plans.some((plan) => plan.id === initialPlan) ? initialPlan : plans[0]?.id || ""
   );
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("annual");
   const [isPending, startTransition] = useTransition();
@@ -75,19 +32,19 @@ export default function CheckoutClient() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [paymentRedirectUrl, setPaymentRedirectUrl] = useState<string | null>(null);
 
-  const plan = planDetailsMap[selectedPlanId] || planDetailsMap.profissional;
-  const currentPrice = billingPeriod === "annual" ? plan.annualPrice : plan.monthlyPrice;
+  const plan = plans.find((item) => item.id === selectedPlanId) || plans[0]!;
+  const currentPrice = plan.price;
 
-  // Auto-generate slug from store name
-  useEffect(() => {
-    const auto = name
+  const handleNameChange = (value: string) => {
+    setName(value);
+    const auto = value
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
     setSlug(auto);
-  }, [name]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,11 +78,6 @@ export default function CheckoutClient() {
           setTimeout(() => {
             window.location.href = res.paymentUrl!;
           }, 2500);
-        } else {
-          // If no payment URL is configured, let them go to the dashboard
-          setTimeout(() => {
-            router.push("/admin");
-          }, 3500);
         }
       } else {
         setError(res.error || "Ocorreu um erro no cadastro.");
@@ -205,7 +157,7 @@ export default function CheckoutClient() {
                     required
                     disabled={isPending || !!successMsg}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => handleNameChange(e.target.value)}
                     placeholder="Ex: Barbearia Brutus"
                     className="w-full pl-10 pr-4 py-3 text-sm text-white bg-slate-950/80 border border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
                   />
@@ -316,7 +268,8 @@ export default function CheckoutClient() {
 
           {/* Plan Selector inside Summary */}
           <div className="grid grid-cols-3 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-white/5">
-            {Object.keys(planDetailsMap).map((planId) => {
+            {plans.map((planOption) => {
+              const planId = planOption.id;
               const active = selectedPlanId === planId;
               return (
                 <button
@@ -328,7 +281,7 @@ export default function CheckoutClient() {
                     active ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  {planDetailsMap[planId].name}
+                  {planOption.name}
                 </button>
               );
             })}

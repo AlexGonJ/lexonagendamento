@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import CheckoutClient from "./CheckoutClient";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default function CheckoutPage() {
+export default async function CheckoutPage() {
+  const plans = await prisma.plan.findMany({ where: { isActive: true }, select: { id: true, name: true, price: true, features: true }, orderBy: { price: "asc" } });
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center font-sans">
@@ -16,7 +18,7 @@ export default function CheckoutPage() {
         </div>
       </div>
     }>
-      <CheckoutClient />
+      {plans.length > 0 ? <CheckoutClient plans={plans} /> : <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center"><p>Nenhum plano está disponível no momento.</p></div>}
     </Suspense>
   );
 }

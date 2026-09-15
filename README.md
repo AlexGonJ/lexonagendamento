@@ -40,6 +40,7 @@ SaaS multiempresa para gestão de agenda, clientes, profissionais e automações
    | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Login Google (opcional) |
    | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` | Proteção Turnstile (opcional no desenvolvimento) |
    | `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` | Consulta e validação de assinatura do webhook Mercado Pago; obrigatórias em produção |
+   | `MERCADOPAGO_PLAN_<UUID_DO_PLANO>_MONTHLY_URL` e `MERCADOPAGO_PLAN_<UUID_DO_PLANO>_ANNUAL_URL` | URLs de checkout por plano e ciclo. O sistema adiciona o identificador seguro do pedido como `external_reference`. |
    | `SUPER_ADMIN_SECRET`, `SUPER_ADMIN_TOTP_SECRET` e `CRON_SECRET` | Acesso administrativo com MFA TOTP e endpoints de cron |
 
 3. Gere o cliente Prisma e aplique as migrações do ambiente:

@@ -1,0 +1,30 @@
+"use server";
+
+import prisma from "@/lib/prisma";
+import { getCurrentSession } from "@/actions/auth";
+import { getMercadoPagoCheckoutUrl } from "@/lib/checkout-url";
+
+async function requireBillingAdmin() {
+  const session = await getCurrentSession();
+  if (!session?.isAdmin) throw new Error("Apenas administradores podem acessar a assinatura.");
+  return session;
+}
+
+export async function getTenantBilling() {
+  const session = await requireBillingAdmin();
+  const [activePlan, orders] = await Promise.all([
+    prisma.tenantPlan.findFirst({ where: { tenantId: session.tenantId, status: "ACTIVE" }, include: { plan: { select: { name: true, features: true, maxEmployees: true } }, }, orderBy: { startDate: "desc" } }),
+    prisma.checkoutOrder.findMany({ where: { tenantId: session.tenantId }, include: { plan: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 20 }),
+  ]);
+  return { activePlan, orders };
+}
+
+export async function retryCheckout(orderId: string) {
+  const session = await requireBillingAdmin();
+  const order = await prisma.checkoutOrder.findFirst({ where: { id: orderId, tenantId: session.tenantId, status: { in: ["PENDING", "REJECTED", "CANCELLED"] } } });
+  if (!order) throw new Error("Pedido pendente não encontrado.");
+  const paymentUrl = getMercadoPagoCheckoutUrl(order.planId, order.billingPeriod as "monthly" | "annual", order.id);
+  if (!paymentUrl) throw new Error("O checkout deste plano ainda não está configurado.");
+  await prisma.checkoutOrder.update({ where: { id: order.id }, data: { status: "PENDING" } });
+  return { paymentUrl };
+}

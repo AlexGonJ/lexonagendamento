@@ -1,0 +1,11 @@
+"use client";
+
+import { useTransition } from "react";
+import { retryCheckout } from "@/actions/billing";
+
+type Billing = Awaited<ReturnType<typeof import("@/actions/billing").getTenantBilling>>;
+
+export default function SubscriptionClient({ billing }: { billing: Billing }) {
+  const [pending, startTransition] = useTransition();
+  return <div className="max-w-4xl mx-auto space-y-6"><div><h1 className="text-2xl font-bold text-gray-900">Assinatura da plataforma</h1><p className="text-sm text-gray-500 mt-1">Acompanhe o plano contratado e os pagamentos da sua empresa.</p></div><section className="bg-white border rounded-xl p-6"><h2 className="font-semibold text-gray-900">Plano atual</h2>{billing.activePlan ? <div className="mt-3"><p className="text-lg font-bold">{billing.activePlan.plan.name}</p><p className="text-sm text-gray-600">Ativo desde {billing.activePlan.startDate.toLocaleDateString("pt-BR")}{billing.activePlan.endDate ? ` até ${billing.activePlan.endDate.toLocaleDateString("pt-BR")}` : ""}.</p></div> : <p className="mt-3 text-sm text-amber-700">Nenhum plano ativo. Conclua o pagamento pendente para liberar o estabelecimento.</p>}</section><section className="bg-white border rounded-xl overflow-hidden"><div className="p-6 border-b"><h2 className="font-semibold text-gray-900">Histórico de pedidos</h2></div>{billing.orders.length === 0 ? <p className="p-6 text-sm text-gray-500">Nenhum pedido encontrado.</p> : <div className="divide-y">{billing.orders.map((order) => <div key={order.id} className="p-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium text-gray-900">{order.plan.name} · {order.billingPeriod === "annual" ? "Anual" : "Mensal"}</p><p className="text-sm text-gray-500">R$ {order.amount.toFixed(2)} · {order.status} · {order.createdAt.toLocaleDateString("pt-BR")}</p></div>{["PENDING", "REJECTED", "CANCELLED"].includes(order.status) && <button disabled={pending} onClick={() => startTransition(async () => { const result = await retryCheckout(order.id); window.location.assign(result.paymentUrl); })} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Tentar pagamento</button>}</div>)}</div>}</section></div>;
+}

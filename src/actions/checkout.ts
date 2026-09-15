@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { createSignedToken } from "@/lib/session";
 import { SessionData } from "@/actions/auth";
 import { hashPassword } from "@/lib/password";
+import { getMercadoPagoCheckoutUrl } from "@/lib/checkout-url";
 
 export async function registerTenant(data: {
   name: string;
@@ -44,12 +45,7 @@ export async function registerTenant(data: {
 
     // The checkout must reference an existing, active plan. Falling back to a
     // different plan would allow a payment to activate the wrong entitlement.
-    const plan = await prisma.plan.findFirst({
-      where: {
-        isActive: true,
-        OR: [{ id: planId }, { name: { equals: planId, mode: "insensitive" } }],
-      },
-    });
+    const plan = await prisma.plan.findFirst({ where: { id: planId, isActive: true } });
     if (!plan) return { success: false, error: "O plano selecionado não está disponível." };
 
     const passwordHash = await hashPassword(password);
@@ -120,43 +116,14 @@ export async function registerTenant(data: {
       }
     );
 
-    // 6. Determine Mercado Pago redirect URL
-    const planUrls: Record<string, { monthly: string; annual: string }> = {
-      starter: {
-        monthly: process.env.NEXT_PUBLIC_MERCADOPAGO_STARTER_MONTHLY_URL || "",
-        annual: process.env.NEXT_PUBLIC_MERCADOPAGO_STARTER_ANNUAL_URL || "",
-      },
-      profissional: {
-        monthly: process.env.NEXT_PUBLIC_MERCADOPAGO_PROFISSIONAL_MONTHLY_URL || "",
-        annual: process.env.NEXT_PUBLIC_MERCADOPAGO_PROFISSIONAL_ANNUAL_URL || "",
-      },
-      escala: {
-        monthly: process.env.NEXT_PUBLIC_MERCADOPAGO_ESCALA_MONTHLY_URL || "",
-        annual: process.env.NEXT_PUBLIC_MERCADOPAGO_ESCALA_ANNUAL_URL || "",
-      },
-    };
-
-    let paymentUrl = planUrls[planId.toLowerCase()]?.[billingPeriod] || "";
-    
-    // Add external_reference to static Mercado Pago links if they allow URL params (usually standard links do)
-    // or let it redirect back.
-    if (paymentUrl && paymentUrl !== "#") {
-      try {
-        const urlObj = new URL(paymentUrl);
-        urlObj.searchParams.set("external_reference", result.order.id);
-        paymentUrl = urlObj.toString();
-      } catch {
-        // Fallback: simple string append if URL parsing fails
-        paymentUrl = paymentUrl + (paymentUrl.includes("?") ? "&" : "?") + "external_reference=" + result.order.id;
-      }
-    }
+    const paymentUrl = getMercadoPagoCheckoutUrl(plan.id, billingPeriod, result.order.id);
 
     return {
       success: true,
       tenantId: result.tenant.id,
       orderId: result.order.id,
       paymentUrl: paymentUrl || null,
-      message: "Conta criada com sucesso! Faça o pagamento para ativar sua loja.",
+      message: paymentUrl ? "Conta criada. Você será direcionado ao pagamento para ativar sua loja." : "Conta criada e pagamento pendente. Configure o checkout do plano ou entre em contato com o suporte.",
     };
   } catch (error) {
     console.error("Erro ao registrar loja:", error);
