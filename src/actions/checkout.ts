@@ -20,6 +20,9 @@ export async function registerTenant(data: {
   if (!name || !slug || !email || !password) {
     return { success: false, error: "Todos os campos são obrigatórios." };
   }
+  if (billingPeriod !== "monthly" && billingPeriod !== "annual") {
+    return { success: false, error: "Ciclo de cobrança inválido." };
+  }
 
   const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
   if (!cleanSlug) {
@@ -86,7 +89,7 @@ export async function registerTenant(data: {
           tenantId: newTenant.id,
           planId: plan.id,
           billingPeriod,
-          amount: plan.price,
+          amount: billingPeriod === "annual" ? plan.price * 12 : plan.price,
         },
       });
       return { tenant: newTenant, employee: newEmployee, order };

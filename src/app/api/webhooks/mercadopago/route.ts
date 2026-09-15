@@ -111,16 +111,6 @@ export async function POST(req: Request) {
       amount = resource.transaction_amount || 0;
     }
 
-    // Check if subscription or payment is approved/authorized
-    const isSuccess = 
-      (resourceType === "payment" && status === "approved") ||
-      ((resourceType === "preapproval" || resourceType === "subscription") && (status === "authorized" || status === "active"));
-
-    if (!isSuccess) {
-      console.log(`[MERCADO PAGO WEBHOOK] Event status is not successful: ${status}. Skipping activation.`);
-      return NextResponse.json({ message: "Status not successful, skipped" }, { status: 200 });
-    }
-
     // Only a server-created order can associate a provider resource to a tenant
     // and plan. E-mail, description and price are not trusted identifiers.
     if (!externalReference) return NextResponse.json({ received: true, mapped: false }, { status: 200 });
@@ -133,9 +123,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, mapped: false }, { status: 200 });
     }
 
-    // 3. Activate the plan and set tenant active. The advisory lock and unique
-    // event record make webhook retries safe to process exactly once here.
-    console.log("[MERCADO PAGO WEBHOOK] Ativando plano a partir de evento validado.");
+    const isSuccess = (resourceType === "payment" && status === "approved") || ((resourceType === "preapproval" || resourceType === "subscription") && (status === "authorized" || status === "active"));
+    const orderStatus = isSuccess ? "PAID" : status === "rejected" ? "REJECTED" : status === "cancelled" ? "CANCELLED" : status === "paused" ? "PAUSED" : "PENDING";
 
     const duplicate = await prisma.$transaction(async (tx) => {
       await acquireEmployeeDayLock(tx, `mercadopago:${resourceType}:${resourceId}:${status}`);
@@ -154,6 +143,13 @@ export async function POST(req: Request) {
       await tx.paymentWebhookEvent.create({
         data: { provider: "mercadopago", resourceType, resourceId: String(resourceId), status, tenantId: order.tenantId },
       });
+      // A rejected, paused or cancelled event changes only the pending order.
+      // A paid period remains readable/active until its own end date policy is applied.
+      await tx.checkoutOrder.update({
+        where: { id: order.id },
+        data: { status: orderStatus, providerResourceId: String(resourceId), ...(isSuccess ? { paidAt: new Date() } : {}) },
+      });
+      if (!isSuccess) return false;
       await tx.tenantPlan.updateMany({
         where: { tenantId: order.tenantId, status: { in: ["ACTIVE", "PENDING"] } },
         data: { status: "CANCELLED", endDate: new Date() },
@@ -165,10 +161,6 @@ export async function POST(req: Request) {
         where: { id: order.tenantId },
         data: { isActive: true, features: order.plan.features },
       });
-      await tx.checkoutOrder.update({
-        where: { id: order.id },
-        data: { status: "PAID", paidAt: new Date(), providerResourceId: String(resourceId) },
-      });
       return false;
     });
 
@@ -176,11 +168,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
     }
 
-    console.log("[MERCADO PAGO WEBHOOK] Evento processado com sucesso.");
+    console.log(`[MERCADO PAGO WEBHOOK] Evento ${orderStatus} processado com sucesso.`);
     return NextResponse.json({ 
       received: true, 
       mapped: true, 
-      message: "Pedido ativado."
+      message: isSuccess ? "Pedido ativado." : `Pedido atualizado para ${orderStatus}.`
     }, { status: 200 });
 
   } catch (error) {

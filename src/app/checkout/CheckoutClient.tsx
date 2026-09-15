@@ -33,7 +33,7 @@ export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
   const [paymentRedirectUrl, setPaymentRedirectUrl] = useState<string | null>(null);
 
   const plan = plans.find((item) => item.id === selectedPlanId) || plans[0]!;
-  const currentPrice = plan.price;
+  const currentPrice = billingPeriod === "annual" ? plan.price * 12 : plan.price;
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -324,7 +324,7 @@ export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
           <div className="bg-slate-950/60 p-6 rounded-2xl border border-white/5 text-center space-y-2">
             <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Valor total recorrente</span>
             <div className="flex items-baseline justify-center gap-1">
-              <span className="text-3xl font-extrabold">R$ {currentPrice}</span>
+              <span className="text-3xl font-extrabold">R$ {currentPrice.toFixed(2)}</span>
               <span className="text-slate-400 text-xs font-medium">/mês</span>
             </div>
             <p className="text-xs text-slate-500">
