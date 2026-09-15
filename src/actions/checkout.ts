@@ -81,6 +81,7 @@ export async function registerTenant(data: {
           planId: plan.id,
           status: "PENDING", // Pending payment
           startDate: new Date(),
+          billingPeriod,
         },
       });
 

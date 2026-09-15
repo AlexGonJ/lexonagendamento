@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { getCurrentSession } from "@/actions/auth";
 import { getMercadoPagoCheckoutUrl } from "@/lib/checkout-url";
+import { recordAuditEvent } from "@/lib/audit";
 
 async function requireBillingAdmin() {
   const session = await getCurrentSession();
@@ -27,4 +28,13 @@ export async function retryCheckout(orderId: string) {
   if (!paymentUrl) throw new Error("O checkout deste plano ainda não está configurado.");
   await prisma.checkoutOrder.update({ where: { id: order.id }, data: { status: "PENDING" } });
   return { paymentUrl };
+}
+
+export async function cancelRenewalAtPeriodEnd() {
+  const session = await requireBillingAdmin();
+  const activePlan = await prisma.tenantPlan.findFirst({ where: { tenantId: session.tenantId, status: "ACTIVE", cancelAtPeriodEnd: false }, orderBy: { startDate: "desc" } });
+  if (!activePlan) throw new Error("Não há uma assinatura ativa disponível para cancelamento.");
+  await prisma.tenantPlan.update({ where: { id: activePlan.id }, data: { cancelAtPeriodEnd: true, cancelledAt: new Date() } });
+  await recordAuditEvent({ tenantId: session.tenantId, actorId: session.userId, actorRole: "ADMIN", action: "TENANT_PLAN_CANCELLATION_REQUESTED", entityType: "TENANT_PLAN", entityId: activePlan.id, metadata: { endDate: activePlan.endDate?.toISOString() ?? null } });
+  return { success: true, endDate: activePlan.endDate };
 }

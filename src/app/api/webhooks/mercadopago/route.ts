@@ -10,6 +10,12 @@ type MercadoPagoWebhookBody = {
   action?: string;
 };
 
+function endOfPaidPeriod(startDate: Date, billingPeriod: string) {
+  const endDate = new Date(startDate);
+  endDate.setUTCMonth(endDate.getUTCMonth() + (billingPeriod === "annual" ? 12 : 1));
+  return endDate;
+}
+
 function isValidSignature(request: Request, resourceId: string | number) {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
   if (!secret) return process.env.NODE_ENV !== "production";
@@ -150,12 +156,13 @@ export async function POST(req: Request) {
         data: { status: orderStatus, providerResourceId: String(resourceId), ...(isSuccess ? { paidAt: new Date() } : {}) },
       });
       if (!isSuccess) return false;
+      const startedAt = new Date();
       await tx.tenantPlan.updateMany({
         where: { tenantId: order.tenantId, status: { in: ["ACTIVE", "PENDING"] } },
-        data: { status: "CANCELLED", endDate: new Date() },
+        data: { status: "CANCELLED", endDate: startedAt, cancelledAt: startedAt },
       });
       await tx.tenantPlan.create({
-        data: { tenantId: order.tenantId, planId: order.planId, status: "ACTIVE", startDate: new Date() },
+        data: { tenantId: order.tenantId, planId: order.planId, status: "ACTIVE", startDate: startedAt, endDate: endOfPaidPeriod(startedAt, order.billingPeriod), billingPeriod: order.billingPeriod, providerResourceId: String(resourceId) },
       });
       await tx.tenant.update({
         where: { id: order.tenantId },

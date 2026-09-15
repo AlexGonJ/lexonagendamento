@@ -89,7 +89,13 @@ model TenantPlan {
   startDate DateTime  @default(now())
   endDate   DateTime?
   status    String    @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
+  billingPeriod String @default("monthly")
+  providerResourceId String?
+  cancelAtPeriodEnd Boolean @default(false)
+  cancelledAt DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([tenantId, status, endDate])
 }
 
 model CheckoutOrder {
