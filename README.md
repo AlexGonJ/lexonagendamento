@@ -67,6 +67,10 @@ SaaS multiempresa para gestão de agenda, clientes, profissionais e automações
 | `npm run build` | Gera o cliente Prisma e a build de produção |
 | `npm run start` | Inicia a build de produção |
 
+## Rotina de assinaturas
+
+Chame `GET /api/cron/subscription-lifecycle` diariamente com o cabeçalho `x-cron-secret` igual a `CRON_SECRET`. A rotina encerra o acesso público de estabelecimentos cujo período pago terminou, mas preserva o login administrativo e os dados para consulta, exportação e regularização.
+
 ## Rotas principais
 
 | Rota | Finalidade |
