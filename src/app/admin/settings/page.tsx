@@ -1,13 +1,20 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
-import { getTenantSettings, updateTenantSettings } from "@/actions/tenant";
+import { getTenantSettings, updateTenantSettings, addTenantHoliday, removeTenantHoliday, getTimezoneMigrationPreview, migrateTenantBookingTimezone } from "@/actions/tenant";
 
 export default function TenantSettingsPage() {
   const [isPending, startTransition] = useTransition();
   
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [timezone, setTimezone] = useState("America/Sao_Paulo");
+  const [minimumLeadMinutes, setMinimumLeadMinutes] = useState("0");
+  const [cancellationLeadMinutes, setCancellationLeadMinutes] = useState("0");
+  const [holidayDate, setHolidayDate] = useState("");
+  const [holidayName, setHolidayName] = useState("");
+  const [holidays, setHolidays] = useState<Array<{ id: string; date: Date; name: string | null }>>([]);
+  const [timezonePreview, setTimezonePreview] = useState<{ bookingTimeMode: string; bookingCount: number } | null>(null);
   
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -27,6 +34,12 @@ export default function TenantSettingsPage() {
         const tenant = await getTenantSettings();
         setName(tenant.name);
         setDescription(tenant.description || "");
+        setTimezone(tenant.timezone);
+        setMinimumLeadMinutes(String(tenant.minimumLeadMinutes));
+        setCancellationLeadMinutes(String(tenant.cancellationLeadMinutes));
+        setHolidays(tenant.holidays);
+        const preview = await getTimezoneMigrationPreview();
+        setTimezonePreview({ bookingTimeMode: preview.bookingTimeMode, bookingCount: preview.bookingCount });
         setLogoUrl(tenant.logoUrl);
         setCoverUrl(tenant.coverUrl);
       } catch (err) {
@@ -47,6 +60,11 @@ export default function TenantSettingsPage() {
     }
   };
 
+  const handleAddHoliday = () => {
+    const formData = new FormData(); formData.append("date", holidayDate); formData.append("name", holidayName);
+    startTransition(async () => { try { await addTenantHoliday(formData); const updated = await getTenantSettings(); setHolidays(updated.holidays); setHolidayDate(""); setHolidayName(""); } catch (err) { setMessage({ type: "error", text: err instanceof Error ? err.message : "Não foi possível bloquear a data." }); } });
+  };
+
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -62,6 +80,9 @@ export default function TenantSettingsPage() {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("description", description);
+    formData.append("timezone", timezone);
+    formData.append("minimumLeadMinutes", minimumLeadMinutes);
+    formData.append("cancellationLeadMinutes", cancellationLeadMinutes);
     
     if (logoFile) {
       formData.append("logoFile", logoFile);
@@ -144,6 +165,9 @@ export default function TenantSettingsPage() {
         </div>
 
         {/* Logo upload */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 pt-6"><div><h2 className="text-sm font-semibold text-gray-800">Regras da agenda</h2><p className="text-xs text-gray-500">Aplicadas à disponibilidade e cancelamentos.</p></div><div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3"><label className="text-xs text-gray-600">Fuso<select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"><option value="America/Sao_Paulo">São Paulo</option><option value="America/Manaus">Manaus</option><option value="America/Fortaleza">Fortaleza</option><option value="America/Recife">Recife</option></select></label><label className="text-xs text-gray-600">Antecedência (min)<input type="number" min="0" value={minimumLeadMinutes} onChange={(e) => setMinimumLeadMinutes(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" /></label><label className="text-xs text-gray-600">Cancelamento (min)<input type="number" min="0" value={cancellationLeadMinutes} onChange={(e) => setCancellationLeadMinutes(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" /></label></div></div>
+        <div className="border-t border-gray-100 pt-6"><h2 className="text-sm font-semibold text-gray-800 mb-2">Feriados</h2><div className="flex gap-2"><input type="date" value={holidayDate} onChange={(e) => setHolidayDate(e.target.value)} required className="p-2 border rounded-lg" /><input value={holidayName} onChange={(e) => setHolidayName(e.target.value)} placeholder="Nome opcional" className="p-2 border rounded-lg flex-1" /><button type="button" disabled={!holidayDate || isPending} onClick={handleAddHoliday} className="px-3 bg-amber-600 text-white rounded-lg">Bloquear</button></div>{holidays.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{holidays.map((holiday) => <span key={holiday.id} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs">{new Date(holiday.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}{holiday.name ? ` · ${holiday.name}` : ""}<button type="button" onClick={() => startTransition(async () => { await removeTenantHoliday(holiday.id); setHolidays((items) => items.filter((item) => item.id !== holiday.id)); })} className="font-bold text-red-600">×</button></span>)}</div>}</div>
+        {timezonePreview?.bookingTimeMode === "LEGACY_UTC_WALL" && <div className="border-t border-gray-100 pt-6"><h2 className="text-sm font-semibold text-gray-800">Migração de fuso</h2><p className="mt-1 text-xs text-gray-500">Há {timezonePreview.bookingCount} agendamento(s) no formato antigo. Revise o fuso acima e converta-os uma única vez para que horários futuros sejam salvos em UTC real.</p><button type="button" className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700" disabled={isPending} onClick={() => { if (!window.confirm(`Converter ${timezonePreview.bookingCount} agendamento(s) para o fuso ${timezone}? Esta ação preserva a hora exibida e não pode ser desfeita.`)) return; startTransition(async () => { try { await migrateTenantBookingTimezone(timezonePreview.bookingCount); setTimezonePreview((current) => current ? { ...current, bookingTimeMode: "IANA_UTC" } : current); setMessage({ type: "success", text: "Horários migrados com segurança." }); } catch (err) { setMessage({ type: "error", text: err instanceof Error ? err.message : "Não foi possível migrar os horários." }); } }); }}>Converter horários existentes</button></div>}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start border-t border-gray-100 pt-6">
           <div className="md:col-span-1">
             <label className="block text-sm font-semibold text-gray-700 mb-1">Foto de Logotipo</label>

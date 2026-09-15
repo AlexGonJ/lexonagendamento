@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import crypto from "crypto";
 import { getCurrentSession } from "./auth";
 import { hashPassword } from "@/lib/password";
+import { assertImageUpload } from "@/lib/upload-validation";
+import { assertEmployeeCapacity } from "@/lib/plan-limits";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -40,6 +42,19 @@ export async function getEmployees() {
   });
 }
 
+export async function getEmployeeCapacity() {
+  const tenantId = await getActiveTenantId();
+  const [activePlan, activeEmployees] = await Promise.all([
+    prisma.tenantPlan.findFirst({
+      where: { tenantId, status: "ACTIVE", plan: { isActive: true } },
+      include: { plan: { select: { name: true, maxEmployees: true } } },
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.employee.count({ where: { tenantId, isActive: true } }),
+  ]);
+  return activePlan ? { used: activeEmployees, limit: activePlan.plan.maxEmployees, planName: activePlan.plan.name } : null;
+}
+
 export async function getEmployee(id: string) {
   const tenantId = await getActiveTenantId();
   return await prisma.employee.findFirst({
@@ -49,12 +64,9 @@ export async function getEmployee(id: string) {
 }
 
 async function uploadAvatar(imageFile: File, tenantId: string): Promise<string> {
-  if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
-    throw new Error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
-  }
+  const ext = await assertImageUpload(imageFile);
   const arrayBuffer = await imageFile.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const ext = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
   const fileName = `${tenantId}/avatars/avatar_${crypto.randomUUID()}.${ext}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
@@ -111,18 +123,22 @@ export async function createEmployee(formData: FormData) {
     finalAvatarUrl = await uploadAvatar(imageFile, tenantId);
   }
 
-  await prisma.employee.create({
-    data: {
-      name,
-      role,
-      email: email || null,
-      passwordHash: password ? await hashPassword(password) : null,
-      isAdmin,
-      avatarUrl: finalAvatarUrl,
-      phone: phone || null,
-      commissionRate,
-      tenantId,
-    },
+  const passwordHash = password ? await hashPassword(password) : null;
+  await prisma.$transaction(async (tx) => {
+    await assertEmployeeCapacity(tx, tenantId);
+    await tx.employee.create({
+      data: {
+        name,
+        role,
+        email: email || null,
+        passwordHash,
+        isAdmin,
+        avatarUrl: finalAvatarUrl,
+        phone: phone || null,
+        commissionRate,
+        tenantId,
+      },
+    });
   });
 
   revalidatePath("/admin/employees");
@@ -176,6 +192,7 @@ export async function updateEmployee(id: string, formData: FormData) {
       avatarUrl: finalAvatarUrl,
       phone: phone || null,
       commissionRate,
+      ...(newPassword || current.isAdmin !== isAdmin ? { sessionVersion: { increment: 1 } } : {}),
     },
   });
 

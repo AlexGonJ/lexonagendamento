@@ -2,176 +2,39 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { verifySignedToken } from "@/lib/session";
-import { getAvailableSlots } from "@/actions/availability";
-import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
-import { publicEmployeeSelect, publicServiceSelect } from "@/lib/public-data";
+import { createBookingForClient } from "@/lib/booking-service";
 
-function getRequestIp(request: Request) {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "unknown"
-  );
-}
+function getRequestIp(request: Request) { return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown"; }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ tenant: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ tenant: string }> }) {
   try {
-    const { tenant: slug } = await params;
-    const { clientId, serviceId, employeeId, date, notes, captchaToken } = await request.json();
-
-    if (!clientId || !serviceId || !employeeId || !date) {
-      return NextResponse.json({ error: "Dados incompletos para o agendamento" }, { status: 400 });
-    }
-
-    const cookieStore = await cookies();
-    const clientSessionCookie = cookieStore.get("client_token");
-    const clientSession = clientSessionCookie?.value
-      ? await verifySignedToken<{ clientId: string; phone: string }>(clientSessionCookie.value, "client-session")
-      : null;
-
-    if (!clientSession) {
-      return NextResponse.json({ error: "Cliente não autenticado" }, { status: 401 });
-    }
-
-    if (clientSession.clientId !== clientId) {
-      return NextResponse.json({ error: "Sessão do cliente inválida" }, { status: 403 });
-    }
-
-    const tenant = await db.tenant.findUnique({
-      where: { slug },
-    });
-
-    if (!tenant || !tenant.isActive) {
-      return NextResponse.json({ error: "Estabelecimento não encontrado ou indisponível" }, { status: 404 });
-    }
-
-    const client = await db.client.findFirst({
-      where: {
-        id: clientId,
-        phone: clientSession.phone,
-      },
-    });
-
-    if (!client) {
-      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 403 });
-    }
-
-    const ip = getRequestIp(request);
-    const phoneLimit = await assertRateLimit(`booking:create:phone:${client.phone}:${tenant.id}`, {
-      limit: 5,
-      windowMs: 60 * 60 * 1000,
-      blockMs: 2 * 60 * 60 * 1000,
-    });
-    const ipLimit = await assertRateLimit(`booking:create:ip:${ip}:${tenant.id}`, {
-      limit: 15,
-      windowMs: 60 * 60 * 1000,
-      blockMs: 2 * 60 * 60 * 1000,
-    });
-
-    if (!phoneLimit.allowed || !ipLimit.allowed) {
-      return NextResponse.json({ error: "Muitas marcações em pouco tempo. Tente novamente mais tarde." }, { status: 429 });
-    }
-
-    const captchaResult = await verifyTurnstileToken(captchaToken, ip);
-    if (!captchaResult.success) {
-      return NextResponse.json({ error: captchaResult.error }, { status: 400 });
-    }
-
-    const bookingDate = new Date(date);
-    if (Number.isNaN(bookingDate.getTime())) {
-      return NextResponse.json({ error: "Data inválida" }, { status: 400 });
-    }
-    if (bookingDate.getTime() <= Date.now()) {
-      return NextResponse.json({ error: "Não é possível agendar um horário no passado" }, { status: 400 });
-    }
-
-    const booking = await db.$transaction(async (tx) => {
-      await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${employeeId}:${bookingDate.toISOString().split("T")[0]}`);
-
-      const service = await tx.service.findFirst({
-        where: {
-          id: serviceId,
-          tenantId: tenant.id,
-        },
-        include: {
-          employees: true,
-        },
-      });
-
-      if (!service) {
-        throw new Error("Serviço inválido para este estabelecimento");
-      }
-
-      const employee = await tx.employee.findFirst({
-        where: {
-          id: employeeId,
-          tenantId: tenant.id,
-        },
-        include: {
-          services: true,
-        },
-      });
-
-      if (!employee) {
-        throw new Error("Profissional inválido para este estabelecimento");
-      }
-
-      if (!employee.services.some((svc) => svc.id === service.id)) {
-        throw new Error("Este profissional não atende o serviço selecionado");
-      }
-
-      const dateStr = bookingDate.toISOString().split("T")[0];
-      const timeStr = bookingDate.toISOString().slice(11, 16);
-      const availableSlots = await getAvailableSlots(employee.id, dateStr, service.duration, tx);
-
-      if (!availableSlots.includes(timeStr)) {
-        throw new Error("Horário indisponível");
-      }
-
-      return await tx.booking.create({
-        data: {
-          date: bookingDate,
-          notes,
-          tenantId: tenant.id,
-          serviceId: service.id,
-          employeeId: employee.id,
-          clientId: client.id,
-          status: "CONFIRMED",
-          servicePrice: service.price,
-          serviceDuration: service.duration,
-          commissionRate: employee.commissionRate,
-        },
-        select: {
-          id: true,
-          date: true,
-          status: true,
-          notes: true,
-          tenantId: true,
-          serviceId: true,
-          employeeId: true,
-          clientId: true,
-          service: { select: publicServiceSelect },
-          employee: { select: publicEmployeeSelect },
-        },
-      });
-    });
-
-    console.log(
-      `[WHATSAPP NOTIFICATION] Enviado alerta de confirmação para o agendamento do cliente ${clientId} no serviço ${booking.service.name} no dia ${booking.date}`
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: "Agendamento realizado com sucesso!",
-      booking,
-    });
+    const { tenant: tenantSlug } = await params;
+    const body = await request.json();
+    const { clientId, serviceId, employeeId, date, notes, captchaToken } = body;
+    if (![clientId, serviceId, employeeId, date].every((value) => typeof value === "string" && value.length > 0)) return NextResponse.json({ error: "Dados incompletos para o agendamento" }, { status: 400 });
+    const sessionCookie = (await cookies()).get("client_token")?.value;
+    const session = sessionCookie ? await verifySignedToken<{ clientId: string; phone: string }>(sessionCookie, "client-session") : null;
+    if (!session) return NextResponse.json({ error: "Cliente não autenticado" }, { status: 401 });
+    if (session.clientId !== clientId) return NextResponse.json({ error: "Sessão do cliente inválida" }, { status: 403 });
+    const [tenant, client] = await Promise.all([db.tenant.findUnique({ where: { slug: tenantSlug }, select: { id: true, isActive: true } }), db.client.findFirst({ where: { id: clientId, phone: session.phone } })]);
+    if (!tenant?.isActive) return NextResponse.json({ error: "Estabelecimento não encontrado ou indisponível" }, { status: 404 });
+    if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 403 });
+    const [phoneLimit, ipLimit] = await Promise.all([
+      assertRateLimit(`booking:create:phone:${client.phone}:${tenant.id}`, { limit: 5, windowMs: 60 * 60 * 1000, blockMs: 2 * 60 * 60 * 1000 }),
+      assertRateLimit(`booking:create:ip:${getRequestIp(request)}:${tenant.id}`, { limit: 15, windowMs: 60 * 60 * 1000, blockMs: 2 * 60 * 60 * 1000 }),
+    ]);
+    if (!phoneLimit.allowed || !ipLimit.allowed) return NextResponse.json({ error: "Muitas marcações em pouco tempo. Tente novamente mais tarde." }, { status: 429 });
+    const captcha = await verifyTurnstileToken(captchaToken, getRequestIp(request));
+    if (!captcha.success) return NextResponse.json({ error: captcha.error }, { status: 400 });
+    const legacyDate = new Date(date);
+    if (Number.isNaN(legacyDate.getTime())) return NextResponse.json({ error: "Data inválida" }, { status: 400 });
+    const result = await createBookingForClient({ tenantSlug, serviceId, employeeId, clientId, notes: typeof notes === "string" ? notes : undefined, dateStr: legacyDate.toISOString().slice(0, 10), timeStr: legacyDate.toISOString().slice(11, 16) });
+    return NextResponse.json({ success: true, message: "Agendamento realizado com sucesso!", booking: { id: result.bookingId, date: result.bookingDate } });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro interno do servidor";
     console.error("Erro ao criar agendamento:", error);
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

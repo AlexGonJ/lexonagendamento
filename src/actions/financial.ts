@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { getCurrentSession } from "./auth";
 import { revalidatePath } from "next/cache";
+import { recordAuditEvent } from "@/lib/audit";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -28,11 +29,11 @@ export async function getFinancialSummary(month: number, year: number) {
   const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
   const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-  // 2. Buscar agendamentos CONFIRMED no mês
+  // 2. Buscar agendamentos confirmados ou concluídos no mês
   const bookings = await prisma.booking.findMany({
     where: {
       tenantId,
-      status: "CONFIRMED",
+      status: { in: ["CONFIRMED", "COMPLETED"] },
       date: {
         gte: startDate,
         lte: endDate,
@@ -59,7 +60,7 @@ export async function getFinancialSummary(month: number, year: number) {
   });
 
   // 4. Buscar despesas (outros custos) do mês
-  const expenses = await prisma.expense.findMany({
+  const [expenses, receipts] = await Promise.all([prisma.expense.findMany({
     where: {
       tenantId,
       date: {
@@ -70,7 +71,7 @@ export async function getFinancialSummary(month: number, year: number) {
     orderBy: {
       date: "desc",
     },
-  });
+  }), prisma.receipt.findMany({ where: { tenantId, receivedAt: { gte: startDate, lte: endDate } } })]);
 
   // 5. Cálculos Gerais
   // Faturamento de reservas avulsas (que não possuem plano)
@@ -83,6 +84,7 @@ export async function getFinancialSummary(month: number, year: number) {
 
   // Faturamento total = avulsos + planos
   const totalRevenue = regularBookingsRevenue + plansRevenue;
+  const totalReceived = receipts.reduce((sum, receipt) => sum + receipt.amount, 0);
 
   // Comissões pagas aos funcionários (calculada sobre o valor do serviço executado)
   const totalCommissions = bookings.reduce((sum, b) => {
@@ -129,6 +131,7 @@ export async function getFinancialSummary(month: number, year: number) {
     regularBookingsRevenue,
     plansRevenue,
     totalRevenue,
+    totalReceived,
     totalCommissions,
     totalExpenses,
     netProfit,
@@ -137,6 +140,20 @@ export async function getFinancialSummary(month: number, year: number) {
     expenses,
     employeeSummaries,
   };
+}
+
+export async function createReceipt(data: { amount: number; method: string; dateStr: string; note?: string; bookingId?: string }) {
+  const session = await getCurrentSession();
+  if (!session?.isAdmin) throw new Error("Acesso não autorizado.");
+  if (!Number.isFinite(data.amount) || data.amount <= 0 || !data.method || !data.dateStr) throw new Error("Informe valor, método e data válidos.");
+  if (data.bookingId) {
+    const booking = await prisma.booking.findFirst({ where: { id: data.bookingId, tenantId: session.tenantId }, select: { id: true } });
+    if (!booking) throw new Error("Atendimento inválido para este estabelecimento.");
+  }
+  const receipt = await prisma.receipt.create({ data: { tenantId: session.tenantId, bookingId: data.bookingId || null, amount: data.amount, method: data.method, receivedAt: new Date(`${data.dateStr}T12:00:00.000Z`), note: data.note?.trim() || null } });
+  await recordAuditEvent({ tenantId: session.tenantId, actorId: session.userId, actorRole: "ADMIN", action: "RECEIPT_CREATED", entityType: "RECEIPT", entityId: receipt.id, metadata: { method: data.method, bookingId: data.bookingId || null } });
+  revalidatePath("/admin/financial");
+  return { success: true, id: receipt.id };
 }
 
 export async function createExpense(data: {

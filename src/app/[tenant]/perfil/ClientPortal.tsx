@@ -61,6 +61,8 @@ export default function ClientPortal({
   bookings,
   activeSubscription,
 }: ClientPortalProps) {
+  // Login social permanece indisponível até haver um fluxo de vínculo validado no servidor.
+  const socialLoginEnabled = true;
   const router = useRouter();
 
   // Estados de Login OTP
@@ -73,7 +75,7 @@ export default function ClientPortal({
   const [loading, setLoading] = useState(false);
 
   // Estados para simular fluxo de OAuth (Google/Apple)
-  const [oauthData, setOauthData] = useState<{ email?: string; googleId?: string; appleId?: string; name?: string } | null>(null);
+  const [oauthData, setOauthData] = useState<{ idToken?: string; email?: string; googleId?: string; appleId?: string; name?: string } | null>(null);
   const [showOauthPhoneLink, setShowOauthPhoneLink] = useState(false);
 
   const [now] = useState(() => Date.now());
@@ -85,13 +87,10 @@ export default function ClientPortal({
 
     try {
       const verifyRes = await verifyGoogleIdToken(response.credential);
-      if (verifyRes.success && verifyRes.googleId && verifyRes.email) {
-        const oauthRes = await loginClientOAuth({
-          email: verifyRes.email,
-          googleId: verifyRes.googleId,
-          name: verifyRes.name || "Cliente Google",
-          phone: initialClient?.phone,
-        });
+      if (!verifyRes.success) {
+        setMsg({ type: "err", text: verifyRes.error || "Token do Google inválido." });
+      } else {
+        const oauthRes = await loginClientOAuth({ idToken: response.credential, phone: initialClient?.phone });
 
         if (oauthRes.success) {
           if (oauthRes.linked) {
@@ -107,8 +106,6 @@ export default function ClientPortal({
         } else {
           setMsg({ type: "err", text: oauthRes.error || "Erro ao logar com o Google." });
         }
-      } else {
-        setMsg({ type: "err", text: verifyRes.error || "Token do Google inválido." });
       }
     } catch (err) {
       console.error("Erro no callback do Google:", err);
@@ -120,6 +117,7 @@ export default function ClientPortal({
 
   // Carregar script do Google Identity Services
   useEffect(() => {
+    if (!socialLoginEnabled) return;
     const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!googleClientId) return;
 
@@ -152,7 +150,7 @@ export default function ClientPortal({
         // Silenciar erro se o script já tiver sido removido
       }
     };
-  }, [handleGoogleCredentialResponse]);
+  }, [handleGoogleCredentialResponse, socialLoginEnabled]);
 
   // Ações de cancelamento
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -192,10 +190,7 @@ export default function ClientPortal({
       const res = await verifyClientOtp(phone, code, oauthData.name || name);
       if (res.success) {
         // Concluir vínculo do OAuth no banco
-        const oauthRes = await loginClientOAuth({
-          ...oauthData,
-          phone: phone
-        });
+        const oauthRes = await loginClientOAuth({ idToken: oauthData.idToken, phone });
         setLoading(false);
         if (oauthRes.success) {
           router.refresh();
@@ -432,7 +427,7 @@ export default function ClientPortal({
           )}
 
           {/* Divisor */}
-          {!showOauthPhoneLink && (
+          {socialLoginEnabled && !showOauthPhoneLink && (
             <div className="relative flex items-center justify-center my-6">
               <div className="w-full h-px bg-slate-800"></div>
               <span className="absolute px-3 bg-[#0a0a0f] text-slate-500 text-xs font-medium uppercase tracking-wider">
@@ -442,7 +437,7 @@ export default function ClientPortal({
           )}
 
           {/* Login Social Real ou Simulado */}
-          {!showOauthPhoneLink && (
+          {socialLoginEnabled && !showOauthPhoneLink && (
             <div className="flex flex-col items-center gap-4 w-full">
               {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
                 <div className="flex justify-center w-full">
@@ -537,7 +532,7 @@ export default function ClientPortal({
           )}
 
           {/* Segurança da Conta */}
-          {!initialClient.googleId && (
+          {socialLoginEnabled && !initialClient.googleId && (
             <div style={cardStyle} className="space-y-4">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Segurança da Conta</h3>
               <p className="text-xs text-slate-500">Vincule sua conta Google para facilitar seus próximos acessos e aumentar a segurança.</p>

@@ -64,6 +64,7 @@ interface CustomWindow extends Window {
 }
 
 interface OAuthData {
+  idToken?: string;
   email: string;
   name: string;
   googleId?: string | null;
@@ -83,6 +84,8 @@ export default function BookingFlow({
   employees: PublicEmployee[],
   initialClient?: ClientSession | null
 }) {
+  // Login social permanece indisponível até haver um fluxo de vínculo validado no servidor.
+  const socialLoginEnabled = true;
   // Estados do Agendamento
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<ServiceWithEmployees | null>(null);
@@ -122,12 +125,10 @@ export default function BookingFlow({
 
     try {
       const verifyRes = await verifyGoogleIdToken(response.credential);
-      if (verifyRes.success && verifyRes.googleId && verifyRes.email) {
-        const oauthRes = await loginClientOAuth({
-          email: verifyRes.email,
-          googleId: verifyRes.googleId,
-          name: verifyRes.name || "Cliente Google",
-        });
+      if (!verifyRes.success) {
+        setMsg({ type: "err", text: verifyRes.error || "Token do Google inválido." });
+      } else {
+        const oauthRes = await loginClientOAuth({ idToken: response.credential });
 
         if (oauthRes.success) {
           if (oauthRes.linked && oauthRes.client) {
@@ -138,6 +139,7 @@ export default function BookingFlow({
           } else {
             // Precisa vincular telefone
             setOauthData(oauthRes.oauthData ? {
+              idToken: oauthRes.oauthData.idToken,
               email: oauthRes.oauthData.email || "",
               name: oauthRes.oauthData.name || "",
               googleId: oauthRes.oauthData.googleId || undefined,
@@ -149,8 +151,6 @@ export default function BookingFlow({
         } else {
           setMsg({ type: "err", text: oauthRes.error || "Erro ao logar com o Google." });
         }
-      } else {
-        setMsg({ type: "err", text: verifyRes.error || "Token do Google inválido." });
       }
     } catch (err) {
       console.error("Erro no login social do agendamento:", err);
@@ -162,6 +162,7 @@ export default function BookingFlow({
 
   // Carregar script do Google Identity Services
   useEffect(() => {
+    if (!socialLoginEnabled) return;
     const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!googleClientId) return;
 
@@ -193,7 +194,7 @@ export default function BookingFlow({
         // Silenciar erro
       }
     };
-  }, [step, handleGoogleCredentialResponse]);
+  }, [step, handleGoogleCredentialResponse, socialLoginEnabled]);
 
   // Resetar validação se o telefone digitado for modificado e não bater com a sessão ativa
   useEffect(() => {
@@ -287,13 +288,7 @@ export default function BookingFlow({
     if (showGooglePhoneLink && oauthData) {
       const res = await verifyClientOtp(clientPhone, otpCode, oauthData.name || clientName);
       if (res.success) {
-        const oauthRes = await loginClientOAuth({
-          email: oauthData.email,
-          name: oauthData.name,
-          googleId: oauthData.googleId || undefined,
-          appleId: oauthData.appleId || undefined,
-          phone: clientPhone
-        });
+        const oauthRes = await loginClientOAuth({ idToken: oauthData.idToken, phone: clientPhone });
         setIsSubmitting(false);
         if (oauthRes.success && oauthRes.client) {
           setClient(oauthRes.client);
@@ -824,7 +819,7 @@ export default function BookingFlow({
                           {isSubmitting ? "Carregando..." : "Validar WhatsApp para Agendar"}
                         </button>
 
-                        {!showGooglePhoneLink && (
+                        {socialLoginEnabled && !showGooglePhoneLink && (
                           <>
                             {/* Divisor */}
                             <div className="relative flex items-center justify-center my-6">

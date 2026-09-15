@@ -10,6 +10,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { timingSafeEqual } from "crypto";
 import { recordAuditEvent } from "@/lib/audit";
+import { enqueueWhatsappMessage } from "@/lib/whatsapp-outbox";
 
 function hasValidCronSecret(providedSecret?: string) {
   const expectedSecret = process.env.CRON_SECRET;
@@ -266,13 +267,13 @@ export async function runAppointmentRemindersJob(manualTenantId?: string, cronSe
     },
   });
 
-  let sentCount = 0;
-  let simulatedCount = 0;
-  let failedCount = 0;
+  let queuedCount = 0;
 
   for (const booking of bookings) {
-    const res = await sendWhatsappMessage({
+    await prisma.$transaction((tx) => enqueueWhatsappMessage(tx, {
       tenantId: tenant.id,
+      eventKey: `booking:${booking.id}:reminder`,
+      bookingId: booking.id,
       recipient: booking.client.phone,
       type: "REMINDER",
       data: {
@@ -282,22 +283,8 @@ export async function runAppointmentRemindersJob(manualTenantId?: string, cronSe
         dateStr: formatDateBR(booking.date),
         timeStr: formatTimeBR(booking.date),
       },
-    });
-
-    if (res.success) {
-      if (res.status === "SIMULATED") {
-        simulatedCount++;
-      } else {
-        sentCount++;
-      }
-      // Marca como enviado no banco
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { whatsappReminderSent: true },
-      });
-    } else {
-      failedCount++;
-    }
+    }));
+    queuedCount++;
   }
 
   revalidatePath("/admin/whatsapp");
@@ -306,9 +293,7 @@ export async function runAppointmentRemindersJob(manualTenantId?: string, cronSe
   return {
     success: true,
     totalProcessed: bookings.length,
-    sentCount,
-    simulatedCount,
-    failedCount,
+    queuedCount,
   };
 }
 

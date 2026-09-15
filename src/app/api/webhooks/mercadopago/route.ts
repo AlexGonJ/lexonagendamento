@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 
@@ -8,6 +9,29 @@ type MercadoPagoWebhookBody = {
   type?: string;
   action?: string;
 };
+
+function isValidSignature(request: Request, resourceId: string | number) {
+  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (!secret) return process.env.NODE_ENV !== "production";
+
+  const signature = request.headers.get("x-signature");
+  const requestId = request.headers.get("x-request-id");
+  if (!signature || !requestId) return false;
+
+  const values = new Map(signature.split(",").map((part) => {
+    const [key, value] = part.trim().split("=", 2);
+    return [key, value];
+  }));
+  const timestamp = values.get("ts");
+  const receivedHash = values.get("v1");
+  if (!timestamp || !receivedHash) return false;
+
+  const signedPayload = `id:${String(resourceId).toLowerCase()};request-id:${requestId};ts:${timestamp};`;
+  const expectedHash = crypto.createHmac("sha256", secret).update(signedPayload).digest("hex");
+  const received = Buffer.from(receivedHash, "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  return received.length === expected.length && crypto.timingSafeEqual(received, expected);
+}
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +43,8 @@ export async function POST(req: Request) {
 
     let body: MercadoPagoWebhookBody = {};
     try {
-      const parsed: unknown = await req.json();
+      const rawBody = await req.text();
+      const parsed: unknown = rawBody ? JSON.parse(rawBody) : {};
       if (parsed && typeof parsed === "object") {
         body = parsed as MercadoPagoWebhookBody;
       }
@@ -31,10 +56,15 @@ export async function POST(req: Request) {
     // Map topics/types: "preapproval" (subscription), "payment" etc.
     const resourceType = queryTopic || body.type || (body.action && body.action.startsWith("payment.") ? "payment" : undefined) || (body.action && body.action.startsWith("preapproval.") ? "preapproval" : undefined);
 
-    console.log(`[MERCADO PAGO WEBHOOK] Received event. ID: ${resourceId}, Type: ${resourceType}`);
+    console.log(`[MERCADO PAGO WEBHOOK] Evento recebido: tipo ${resourceType}.`);
 
     if (!resourceId || !resourceType) {
       return NextResponse.json({ error: "Missing resource ID or type" }, { status: 200 });
+    }
+
+    if (!isValidSignature(req, resourceId)) {
+      console.warn("[MERCADO PAGO WEBHOOK] Assinatura inválida ou ausente.");
+      return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
     }
 
     const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
@@ -67,33 +97,19 @@ export async function POST(req: Request) {
 
     const resource = await mpResponse.json();
 
-    let payerEmail = "";
     let externalReference = "";
     let status = "";
     let amount = 0;
-    let reason = "";
 
     if (resourceType === "preapproval" || resourceType === "subscription") {
-      payerEmail = resource.payer_email || "";
       externalReference = resource.external_reference || "";
       status = resource.status || ""; // pending, authorized, paused, cancelled
       amount = resource.auto_recurring?.transaction_amount || 0;
-      reason = resource.reason || "";
     } else {
-      payerEmail = resource.payer?.email || "";
       externalReference = resource.external_reference || "";
       status = resource.status || ""; // pending, approved, in_process, rejected, cancelled
       amount = resource.transaction_amount || 0;
-      reason = resource.description || "";
     }
-
-    console.log(`[MERCADO PAGO WEBHOOK] Resource Details:
-      - Payer Email: ${payerEmail}
-      - External Ref: ${externalReference}
-      - Status: ${status}
-      - Amount: ${amount}
-      - Reason: ${reason}
-    `);
 
     // Check if subscription or payment is approved/authorized
     const isSuccess = 
@@ -105,68 +121,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Status not successful, skipped" }, { status: 200 });
     }
 
-    // 1. Find the Tenant/Loja
-    let tenant = null;
-    if (externalReference) {
-      tenant = await prisma.tenant.findUnique({
-        where: { id: externalReference },
-      });
-    }
-
-    if (!tenant && payerEmail) {
-      // Search for tenant where admin employee has the matching email
-      const employee = await prisma.employee.findFirst({
-        where: { email: payerEmail, isAdmin: true },
-        include: { tenant: true },
-      });
-      if (employee) {
-        tenant = employee.tenant;
-      }
-    }
-
-    if (!tenant) {
-      console.warn(`[MERCADO PAGO WEBHOOK] WARNING: Could not find Tenant for payment. Payer: ${payerEmail}, ExternalRef: ${externalReference}. Admin must activate manually.`);
-      return NextResponse.json({ 
-        received: true, 
-        mapped: false, 
-        message: "Tenant not found. Manual activation required." 
-      }, { status: 200 });
-    }
-
-    // 2. Find the database Plan matching the price or description
-    const plans = await prisma.plan.findMany({ where: { isActive: true } });
-    const reasonLower = reason.toLowerCase();
-    
-    let matchedPlan = plans.find((p) => reasonLower.includes(p.name.toLowerCase()));
-    
-    if (!matchedPlan) {
-      // Try mapping by price (Starter=73 or 99, Profissional=149 or 179, Escala=299 or 359)
-      matchedPlan = plans.find((p) => Math.abs(p.price - amount) < 2.0);
-    }
-
-    if (!matchedPlan) {
-      // Search matching standard names in reason text
-      if (reasonLower.includes("starter")) {
-        matchedPlan = plans.find((p) => p.name.toLowerCase() === "starter");
-      } else if (reasonLower.includes("profissional") || reasonLower.includes("pro")) {
-        matchedPlan = plans.find((p) => p.name.toLowerCase() === "profissional");
-      } else if (reasonLower.includes("escala")) {
-        matchedPlan = plans.find((p) => p.name.toLowerCase() === "escala");
-      }
-    }
-
-    if (!matchedPlan) {
-      console.warn(`[MERCADO PAGO WEBHOOK] WARNING: Found Tenant (${tenant.name}) but could not match payment amount/reason to a Plan. Amount: R$ ${amount}, Reason: ${reason}. Admin must activate plan manually.`);
-      return NextResponse.json({ 
-        received: true, 
-        mapped: false, 
-        message: "Plan not found. Manual activation required." 
-      }, { status: 200 });
+    // Only a server-created order can associate a provider resource to a tenant
+    // and plan. E-mail, description and price are not trusted identifiers.
+    if (!externalReference) return NextResponse.json({ received: true, mapped: false }, { status: 200 });
+    const order = await prisma.checkoutOrder.findUnique({
+      where: { id: externalReference },
+      include: { tenant: true, plan: true },
+    });
+    if (!order || order.provider !== "mercadopago" || Math.abs(order.amount - Number(amount)) > 0.01) {
+      console.warn("[MERCADO PAGO WEBHOOK] Pedido não encontrado ou valor divergente.");
+      return NextResponse.json({ received: true, mapped: false }, { status: 200 });
     }
 
     // 3. Activate the plan and set tenant active. The advisory lock and unique
     // event record make webhook retries safe to process exactly once here.
-    console.log(`[MERCADO PAGO WEBHOOK] Activating Plan "${matchedPlan.name}" for Tenant "${tenant.name}" (${tenant.id}).`);
+    console.log("[MERCADO PAGO WEBHOOK] Ativando plano a partir de evento validado.");
 
     const duplicate = await prisma.$transaction(async (tx) => {
       await acquireEmployeeDayLock(tx, `mercadopago:${resourceType}:${resourceId}:${status}`);
@@ -183,18 +152,22 @@ export async function POST(req: Request) {
       if (existingEvent) return true;
 
       await tx.paymentWebhookEvent.create({
-        data: { provider: "mercadopago", resourceType, resourceId: String(resourceId), status, tenantId: tenant.id },
+        data: { provider: "mercadopago", resourceType, resourceId: String(resourceId), status, tenantId: order.tenantId },
       });
       await tx.tenantPlan.updateMany({
-        where: { tenantId: tenant.id, status: "ACTIVE" },
+        where: { tenantId: order.tenantId, status: { in: ["ACTIVE", "PENDING"] } },
         data: { status: "CANCELLED", endDate: new Date() },
       });
       await tx.tenantPlan.create({
-        data: { tenantId: tenant.id, planId: matchedPlan.id, status: "ACTIVE", startDate: new Date() },
+        data: { tenantId: order.tenantId, planId: order.planId, status: "ACTIVE", startDate: new Date() },
       });
       await tx.tenant.update({
-        where: { id: tenant.id },
-        data: { isActive: true, features: matchedPlan.features },
+        where: { id: order.tenantId },
+        data: { isActive: true, features: order.plan.features },
+      });
+      await tx.checkoutOrder.update({
+        where: { id: order.id },
+        data: { status: "PAID", paidAt: new Date(), providerResourceId: String(resourceId) },
       });
       return false;
     });
@@ -203,11 +176,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
     }
 
-    console.log(`[MERCADO PAGO WEBHOOK] Success: Tenant "${tenant.name}" successfully activated on Plan "${matchedPlan.name}"!`);
+    console.log("[MERCADO PAGO WEBHOOK] Evento processado com sucesso.");
     return NextResponse.json({ 
       received: true, 
       mapped: true, 
-      message: `Activated plan ${matchedPlan.name} for tenant ${tenant.name}` 
+      message: "Pedido ativado."
     }, { status: 200 });
 
   } catch (error) {

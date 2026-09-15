@@ -8,6 +8,7 @@ const labels: Record<string, string> = {
   BOOKING_CANCELLED: "Agendamento cancelado",
   BOOKING_DELETED: "Agendamento excluído",
   BOOKING_STATUS_UPDATED: "Status do agendamento atualizado",
+  BOOKING_RESCHEDULED: "Agendamento reagendado",
   TENANT_SETTINGS_UPDATED: "Configurações atualizadas",
   WHATSAPP_SETTINGS_UPDATED: "Configurações do WhatsApp atualizadas",
   EMPLOYEE_CREATED: "Profissional criado",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createExpense, deleteExpense } from "@/actions/financial";
+import { createExpense, deleteExpense, createReceipt } from "@/actions/financial";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { DollarSign, ShoppingBag, Plus, Trash2, FileText, TrendingUp, TrendingDown, Users } from "lucide-react";
 
@@ -31,6 +31,7 @@ interface FinancialClientProps {
     regularBookingsRevenue: number;
     plansRevenue: number;
     totalRevenue: number;
+    totalReceived: number;
     totalCommissions: number;
     totalExpenses: number;
     netProfit: number;
@@ -57,6 +58,9 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
   const [dateStr, setDateStr] = useState(new Date().toISOString().split("T")[0]);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
+  const [receiptAmount, setReceiptAmount] = useState("");
+  const [receiptMethod, setReceiptMethod] = useState("PIX");
+  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0]);
 
   const months = [
     { value: 1, label: "Janeiro" },
@@ -121,6 +125,20 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
     }
   }
 
+  function handleAddReceipt(event: React.FormEvent) {
+    event.preventDefault();
+    setFormError(null);
+    startTransition(async () => {
+      try {
+        await createReceipt({ amount: parseFloat(receiptAmount), method: receiptMethod, dateStr: receiptDate });
+        setReceiptAmount("");
+        setFormSuccess(true);
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : "Erro ao registrar recebimento.");
+      }
+    });
+  }
+
   const profitPercentage = summary.totalRevenue > 0 ? (summary.netProfit / summary.totalRevenue) * 100 : 0;
 
   return (
@@ -167,7 +185,7 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
       </div>
 
       {/* Main KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {/* Card 1: Faturamento */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col hover:border-gray-300 transition-all">
           <div className="flex items-center justify-between mb-2">
@@ -180,6 +198,12 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
           <div className="mt-2 text-xs text-gray-400">
             <span className="text-gray-600 font-semibold">R$ {summary.regularBookingsRevenue.toFixed(2)}</span> avulso | <span className="text-gray-600 font-semibold">R$ {summary.plansRevenue.toFixed(2)}</span> planos
           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Recebido</span><span className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center"><DollarSign size={16} /></span></div>
+          <span className="text-2xl font-bold text-emerald-700">R$ {summary.totalReceived.toFixed(2).replace(".", ",")}</span>
+          <p className="mt-2 text-xs text-gray-400">Entradas registradas manualmente</p>
         </div>
 
         {/* Card 2: Comissões */}
@@ -282,6 +306,15 @@ export default function FinancialClient({ initialMonth, initialYear, summary }: 
 
         {/* Coluna da Direita: Registro e Lista de Despesas */}
         <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><DollarSign className="text-emerald-500" size={18} /> Registrar recebimento</h2>
+            <form onSubmit={handleAddReceipt} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              <div><label className="block text-xs font-medium text-gray-600 mb-1">Valor (R$)</label><input type="number" min="0.01" step="0.01" required value={receiptAmount} onChange={(e) => setReceiptAmount(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1">Método</label><select value={receiptMethod} onChange={(e) => setReceiptMethod(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm"><option>PIX</option><option>Dinheiro</option><option>Cartão</option><option>Transferência</option><option>Outro</option></select></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1">Data</label><input type="date" required value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm" /></div>
+              <button disabled={isPending} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg text-sm disabled:opacity-50">Registrar</button>
+            </form>
+          </div>
           {/* Adicionar Despesa */}
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">

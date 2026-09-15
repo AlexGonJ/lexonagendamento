@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import crypto from "crypto";
 import { getCurrentSession } from "./auth";
+import { assertImageUpload } from "@/lib/upload-validation";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -76,15 +77,12 @@ export async function createService(formData: FormData) {
   let finalImageUrl = null;
 
   if (imageFile && imageFile.size > 0) {
-    if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
-      throw new Error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
-    }
+    const ext = await assertImageUpload(imageFile);
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Upload the original file directly - sharp has binary platform issues on Vercel
     // Supabase Image Transform API handles resizing at serve time
-    const ext = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
     const fileName = `${tenantId}/service_${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
@@ -148,14 +146,11 @@ export async function updateService(id: string, formData: FormData) {
   let finalImageUrl = undefined;
 
   if (imageFile && imageFile.size > 0) {
-    if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
-      throw new Error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
-    }
+    const ext = await assertImageUpload(imageFile);
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Upload the original file directly - sharp has binary platform issues on Vercel
-    const ext = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
     const fileName = `${tenantId}/service_${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage

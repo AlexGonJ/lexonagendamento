@@ -1,0 +1,1 @@
+ALTER TABLE "Employee" ADD COLUMN "sessionVersion" INTEGER NOT NULL DEFAULT 1;

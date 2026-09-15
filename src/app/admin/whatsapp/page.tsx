@@ -221,7 +221,7 @@ export default function WhatsappIntegrationPage() {
       if (res.success) {
         setMessage({
           type: "success",
-          text: `Varredura concluída! Processados: ${res.totalProcessed} | Enviados: ${res.sentCount} | Simulados: ${res.simulatedCount} | Falhas: ${res.failedCount}`
+          text: `Varredura concluída! Processados: ${res.totalProcessed || 0} | Lembretes enfileirados: ${res.queuedCount || 0}`
         });
         // Reload logs
         const updatedLogs = await getWhatsappLogs();

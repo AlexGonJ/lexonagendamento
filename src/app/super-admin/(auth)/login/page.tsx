@@ -87,6 +87,23 @@ export default function SuperAdminLoginPage() {
                 onBlur={(e) => { e.target.style.borderColor = "rgba(139,92,246,0.2)"; e.target.style.boxShadow = "none"; }}
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold mb-2" style={{ color: "#9ca3af" }}>
+                CÓDIGO DO AUTENTICADOR
+              </label>
+              <input
+                type="text"
+                name="totpCode"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                placeholder="000000"
+                required={process.env.NODE_ENV === "production"}
+                className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-600 text-sm outline-none transition-all"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(139,92,246,0.2)" }}
+              />
+            </div>
 
             {state.error && (
               <div

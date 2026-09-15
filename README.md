@@ -33,11 +33,14 @@ SaaS multiempresa para gestão de agenda, clientes, profissionais e automações
    | --- | --- |
    | `DATABASE_URL` e `DIRECT_URL` | Banco PostgreSQL/Supabase |
    | `AUTH_SESSION_SECRET` | Assinatura das sessões |
+   | `OTP_HASH_SECRET` | Chave HMAC dos códigos OTP; recomendada além do segredo de sessão |
+   | `PASSWORD_RESET_SECRET` | Chave HMAC específica para tokens de recuperação de senha |
+   | `APP_URL`, `RESEND_API_KEY` e `EMAIL_FROM` | URL pública e envio de e-mails de recuperação de senha |
    | `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` | Supabase |
    | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Login Google (opcional) |
    | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` | Proteção Turnstile (opcional no desenvolvimento) |
-   | `MERCADOPAGO_ACCESS_TOKEN` | Processamento do webhook de pagamento |
-   | `SUPER_ADMIN_SECRET` e `CRON_SECRET` | Acesso administrativo e endpoints de cron |
+   | `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` | Consulta e validação de assinatura do webhook Mercado Pago; obrigatórias em produção |
+   | `SUPER_ADMIN_SECRET`, `SUPER_ADMIN_TOTP_SECRET` e `CRON_SECRET` | Acesso administrativo com MFA TOTP e endpoints de cron |
 
 3. Gere o cliente Prisma e aplique as migrações do ambiente:
 

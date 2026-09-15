@@ -2,108 +2,36 @@
 
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { scheduleClock, scheduleDateTime, scheduleDayBounds, type BookingTimeMode } from "@/lib/schedule-time";
 
-/**
- * Função utilitária para converter "HH:MM" em minutos desde a meia-noite
- */
-function timeToMinutes(timeStr: string): number {
-  const [h, m] = timeStr.split(':').map(Number);
-  return h * 60 + m;
-}
+function timeToMinutes(value: string) { const [hour, minute] = value.split(":").map(Number); return hour * 60 + minute; }
+function minutesToTime(value: number) { return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`; }
 
-/**
- * Função utilitária para formatar minutos desde a meia-noite em "HH:MM"
- */
-function minutesToTime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-}
-
-export async function getAvailableSlots(
-  employeeId: string, 
-  dateStr: string, // formato "YYYY-MM-DD"
-  serviceDuration: number, // em minutos
-  tx?: Prisma.TransactionClient
-) {
-  const client = tx || prisma;
-
-  // 1. Descobrir o dia da semana da data solicitada
-  // No JavaScript, getDay() de uma string UTC pode bugar por fuso horário.
-  // Vamos forçar o parse correto. "2026-06-25T12:00:00" garante o dia local.
-  const dateObj = new Date(`${dateStr}T12:00:00Z`);
-  const dayOfWeek = dateObj.getUTCDay(); // 0 = Dom, 1 = Seg...
-
-  // 2. Buscar a agenda padrão do funcionário para este dia da semana
-  const schedules = await client.employeeSchedule.findMany({
-    where: { employeeId, dayOfWeek }
-  });
-
-  if (schedules.length === 0) {
-    return []; // Não trabalha neste dia
+/** Returns slots as local wall-clock values and respects the tenant's storage convention. */
+export async function getAvailableSlots(employeeId: string, dateStr: string, serviceDuration: number, tx?: Prisma.TransactionClient) {
+  const client = tx ?? prisma;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !Number.isInteger(serviceDuration) || serviceDuration <= 0) return [];
+  const employee = await client.employee.findUnique({ where: { id: employeeId }, select: { tenantId: true } });
+  if (!employee) return [];
+  const tenant = await client.tenant.findUnique({ where: { id: employee.tenantId }, select: { minimumLeadMinutes: true, timezone: true, bookingTimeMode: true } });
+  if (!tenant) return [];
+  const mode = tenant.bookingTimeMode as BookingTimeMode;
+  const { start: startOfDay, end: endOfDay } = scheduleDayBounds(dateStr, tenant.timezone, mode);
+  const weekday = new Date(`${dateStr}T12:00:00.000Z`).getUTCDay();
+  const [schedules, timeOff, holiday, bookings, availabilityBlocks] = await Promise.all([
+    client.employeeSchedule.findMany({ where: { employeeId, dayOfWeek: weekday } }),
+    client.employeeTimeOff.findFirst({ where: { employeeId, date: { gte: new Date(`${dateStr}T00:00:00.000Z`), lte: new Date(`${dateStr}T23:59:59.999Z`) } }, select: { id: true } }),
+    client.tenantHoliday.findFirst({ where: { tenantId: employee.tenantId, date: { gte: new Date(`${dateStr}T00:00:00.000Z`), lte: new Date(`${dateStr}T23:59:59.999Z`) } }, select: { id: true } }),
+    client.booking.findMany({ where: { employeeId, status: { not: "CANCELLED" }, date: { gte: startOfDay, lte: endOfDay } }, include: { service: true } }),
+    client.employeeAvailabilityBlock.findMany({ where: { employeeId, startAt: { lte: endOfDay }, endAt: { gt: startOfDay } }, select: { startAt: true, endAt: true } }),
+  ]);
+  if (timeOff || holiday || schedules.length === 0) return [];
+  const occupied = bookings.map((booking) => { const clock = scheduleClock(booking.date, tenant.timezone, mode); const start = clock.hour * 60 + clock.minute; return { start, end: start + booking.service.duration }; });
+  const blocked = availabilityBlocks.map((block) => { const startClock = scheduleClock(block.startAt, tenant.timezone, mode); const endClock = scheduleClock(new Date(block.endAt.getTime() - 1), tenant.timezone, mode); return { start: startClock.hour * 60 + startClock.minute, end: endClock.hour * 60 + endClock.minute + 1 }; });
+  const slots: string[] = [];
+  for (const schedule of schedules) for (let start = timeToMinutes(schedule.startTime); start + serviceDuration <= timeToMinutes(schedule.endTime); start += 15) {
+    const end = start + serviceDuration;
+    if (![...occupied, ...blocked].some((block) => start < block.end && end > block.start) && scheduleDateTime(dateStr, minutesToTime(start), tenant.timezone, mode).getTime() > Date.now() + tenant.minimumLeadMinutes * 60_000) slots.push(minutesToTime(start));
   }
-
-  // 3. Buscar os agendamentos já confirmados/pendentes para esse dia
-  // dateStr é "YYYY-MM-DD". Precisamos buscar agendamentos nesse intervalo de 24h.
-  const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
-  const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
-
-  const bookings = await client.booking.findMany({
-    where: {
-      employeeId,
-      status: { not: 'CANCELLED' },
-      date: {
-        gte: startOfDay,
-        lte: endOfDay
-      }
-    },
-    include: {
-      service: true // para saber a duração dos serviços já marcados
-    }
-  });
-
-  // Mapear os bookings para blocos de minutos ocupados [startMin, endMin]
-  const occupiedBlocks = bookings.map(booking => {
-    const bDate = new Date(booking.date);
-    // Extraímos a hora local (ou UTC se preferirmos consistência, aqui assumiremos que a hora salva já reflete a hora do agendamento)
-    // O ideal é usar os métodos UTC se o banco salva em UTC. 
-    const startMin = bDate.getUTCHours() * 60 + bDate.getUTCMinutes();
-    const endMin = startMin + booking.service.duration;
-    return { startMin, endMin };
-  });
-
-  // 4. Gerar os slots possíveis baseados nos blocos de agenda livre
-  const availableSlots: string[] = [];
-  const intervalStep = 15; // Intervalo de 15 em 15 minutos (ex: 09:00, 09:15)
-
-  for (const block of schedules) {
-    const blockStart = timeToMinutes(block.startTime);
-    const blockEnd = timeToMinutes(block.endTime);
-
-    // Iteramos do início ao fim do bloco de 15 em 15 mins
-    for (let currentStart = blockStart; currentStart + serviceDuration <= blockEnd; currentStart += intervalStep) {
-      const currentEnd = currentStart + serviceDuration;
-
-      // Verifica se este slot entra em conflito com algum bloco ocupado
-      const hasConflict = occupiedBlocks.some(occupied => {
-        // Lógica de interseção de intervalos de tempo:
-        // Ocorre conflito se o slot proposto começar antes de terminar o ocupado,
-        // E terminar depois de começar o ocupado.
-        return (currentStart < occupied.endMin) && (currentEnd > occupied.startMin);
-      });
-
-      // Bônus: Não permitir agendar no passado (se for o dia de hoje)
-      const candidate = new Date(`${dateStr}T${minutesToTime(currentStart)}:00.000Z`);
-      const isPast = candidate.getTime() <= Date.now();
-
-      if (!hasConflict && !isPast) {
-        availableSlots.push(minutesToTime(currentStart));
-      }
-    }
-  }
-
-  // Ordena os slots do menor para o maior e remove duplicatas (caso haja blocos sobrepostos acidentalmente)
-  const uniqueSortedSlots = Array.from(new Set(availableSlots)).sort();
-  
-  return uniqueSortedSlots;
+  return Array.from(new Set(slots)).sort();
 }

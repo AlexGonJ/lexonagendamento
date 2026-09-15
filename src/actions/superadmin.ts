@@ -7,6 +7,7 @@ import { createSignedToken, verifySignedToken } from "@/lib/session";
 import { hashPassword } from "@/lib/password";
 import { recordAuditEvent } from "@/lib/audit";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { verifyTotp } from "@/lib/totp";
 
 // --- Auth -------------------------------------------------------------------
 
@@ -32,6 +33,9 @@ export async function superAdminLogin(formData: FormData) {
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
     return { success: false, error: "Senha incorreta." };
   }
+  const totpSecret = process.env.SUPER_ADMIN_TOTP_SECRET;
+  if (!totpSecret && process.env.NODE_ENV === "production") return { success: false, error: "MFA do superadministrador não está configurado." };
+  if (totpSecret && !verifyTotp(String(formData.get("totpCode") || ""), totpSecret)) return { success: false, error: "Código de autenticação inválido." };
   const cookieStore = await cookies();
   const token = await createSignedToken("super-admin", "allowed", 60 * 60 * 8);
   cookieStore.set(

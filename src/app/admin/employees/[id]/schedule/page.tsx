@@ -1,4 +1,4 @@
-import { getEmployeeSchedules, addScheduleBlock, removeScheduleBlock } from "@/actions/schedule";
+import { getEmployeeSchedules, getEmployeeTimeOff, getEmployeeAvailabilityBlocks, addScheduleBlock, addEmployeeTimeOff, addEmployeeAvailabilityBlock, removeScheduleBlock, removeEmployeeTimeOff, removeEmployeeAvailabilityBlock } from "@/actions/schedule";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -17,7 +17,7 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
     notFound();
   }
 
-  const schedules = await getEmployeeSchedules(id);
+  const [schedules, timeOffDays, availabilityBlocks] = await Promise.all([getEmployeeSchedules(id), getEmployeeTimeOff(id), getEmployeeAvailabilityBlocks(id)]);
 
   return (
     <div>
@@ -89,6 +89,16 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
               </button>
             </form>
           </div>
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Folga ou férias</h2>
+            <p className="text-sm text-gray-500 mb-4">Bloqueia todos os horários deste profissional na data escolhida.</p>
+            <form action={addEmployeeTimeOff} className="space-y-3"><input type="hidden" name="employeeId" value={id} /><input type="date" name="date" required className="w-full p-2 border border-gray-300 rounded-lg" /><input type="text" name="reason" placeholder="Motivo opcional" className="w-full p-2 border border-gray-300 rounded-lg" /><button type="submit" className="w-full bg-amber-600 text-white font-semibold py-2 rounded-lg">Bloquear data</button></form>
+          </div>
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Bloqueio por período</h2>
+            <p className="text-sm text-gray-500 mb-4">Use para almoço, consulta ou outro intervalo que não deve aparecer para reserva.</p>
+            <form action={addEmployeeAvailabilityBlock} className="space-y-3"><input type="hidden" name="employeeId" value={id} /><input type="date" name="date" required className="w-full p-2 border border-gray-300 rounded-lg" /><div className="grid grid-cols-2 gap-3"><input type="time" name="startTime" required className="w-full p-2 border border-gray-300 rounded-lg" /><input type="time" name="endTime" required className="w-full p-2 border border-gray-300 rounded-lg" /></div><input type="text" name="reason" placeholder="Motivo opcional" className="w-full p-2 border border-gray-300 rounded-lg" /><button type="submit" className="w-full bg-amber-600 text-white font-semibold py-2 rounded-lg">Bloquear período</button></form>
+          </div>
         </div>
 
         {/* Lista de Blocos Cadastrados */}
@@ -97,6 +107,8 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Horários Configurados</h2>
             
             <div className="space-y-6">
+              <div className="border-b border-gray-100 pb-4"><h3 className="font-medium text-gray-800 mb-3">Folgas e férias</h3>{timeOffDays.length === 0 ? <p className="text-sm text-gray-500">Nenhuma indisponibilidade cadastrada.</p> : <div className="flex flex-wrap gap-2">{timeOffDays.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{item.date.toLocaleDateString("pt-BR", { timeZone: "UTC" })}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeTimeOff(item.id, id); }}><button className="text-red-600 font-bold" title="Remover">×</button></form></div>)}</div>}</div>
+              <div className="border-b border-gray-100 pb-4"><h3 className="font-medium text-gray-800 mb-3">Bloqueios por período</h3>{availabilityBlocks.length === 0 ? <p className="text-sm text-gray-500">Nenhum período bloqueado.</p> : <div className="flex flex-wrap gap-2">{availabilityBlocks.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{item.startAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })} · {item.startAt.toISOString().slice(11, 16)}–{item.endAt.toISOString().slice(11, 16)}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeAvailabilityBlock(item.id, id); }}><button className="text-red-600 font-bold" title="Remover">×</button></form></div>)}</div>}</div>
               {diasDaSemana.map((nomeDia, index) => {
                 // Filtra os blocos desse dia da semana
                 const blocosDoDia = schedules.filter(s => s.dayOfWeek === index);

@@ -49,6 +49,7 @@ export default async function AdminFinancialPage({ searchParams }: PageProps) {
     regularBookingsRevenue: summary.regularBookingsRevenue,
     plansRevenue: summary.plansRevenue,
     totalRevenue: summary.totalRevenue,
+    totalReceived: summary.totalReceived,
     totalCommissions: summary.totalCommissions,
     totalExpenses: summary.totalExpenses,
     netProfit: summary.netProfit,

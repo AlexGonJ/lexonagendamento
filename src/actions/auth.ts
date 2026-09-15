@@ -11,9 +11,9 @@ import { verifyTurnstileToken } from "@/lib/turnstile";
 import { hashPassword, verifyPassword } from "@/lib/password";
 
 function hashOtp(phone: string, code: string) {
-  const secret = process.env.OTP_HASH_SECRET || process.env.SESSION_SECRET;
+  const secret = process.env.OTP_HASH_SECRET || process.env.AUTH_SESSION_SECRET || process.env.NEXTAUTH_SECRET;
   if (!secret && process.env.NODE_ENV === "production") {
-    throw new Error("OTP_HASH_SECRET ou SESSION_SECRET deve ser configurado em produção.");
+    throw new Error("OTP_HASH_SECRET ou AUTH_SESSION_SECRET deve ser configurado em produção.");
   }
 
   return `hmac:${crypto
@@ -39,6 +39,7 @@ export interface SessionData {
   email: string;
   isAdmin: boolean;
   tenantId: string;
+  sessionVersion: number;
 }
 
 export async function login(formData: FormData) {
@@ -84,6 +85,7 @@ export async function login(formData: FormData) {
       email: employee.email || "",
       isAdmin: employee.isAdmin,
       tenantId: employee.tenantId,
+      sessionVersion: employee.sessionVersion,
     };
 
     const cookieStore = await cookies();
@@ -124,9 +126,17 @@ export async function getCurrentSession(): Promise<SessionData | null> {
     if (!session) return null;
     const employee = await prisma.employee.findFirst({
       where: { id: session.userId, tenantId: session.tenantId, isActive: true },
-      select: { id: true, name: true, email: true, isAdmin: true, tenantId: true },
+      select: { id: true, name: true, email: true, isAdmin: true, tenantId: true, sessionVersion: true },
     });
-    return employee ? { userId: employee.id, name: employee.name, email: employee.email || "", isAdmin: employee.isAdmin, tenantId: employee.tenantId } : null;
+    if (!employee || employee.sessionVersion !== session.sessionVersion) return null;
+    return {
+      userId: employee.id,
+      name: employee.name,
+      email: employee.email || "",
+      isAdmin: employee.isAdmin,
+      tenantId: employee.tenantId,
+      sessionVersion: employee.sessionVersion,
+    };
   } catch {
     return null;
   }
@@ -348,7 +358,11 @@ export async function verifyClientOtp(
   }
 }
 
-export async function verifyGoogleIdToken(token: string) {
+type GoogleIdentityResult =
+  | { success: true; email: string; googleId: string; name: string }
+  | { success: false; error: string };
+
+export async function verifyGoogleIdToken(token: string): Promise<GoogleIdentityResult> {
   try {
     const headersList = await headers();
     const ip = headersList.get("x-forwarded-for") || "unknown";
@@ -362,25 +376,34 @@ export async function verifyGoogleIdToken(token: string) {
       return { success: false, error: "Muitas tentativas. Aguarde 30 minutos e tente novamente." };
     }
 
-    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-    if (!res.ok) {
-      const errText = await res.text();
-      return { success: false, error: `Token inválido do Google: ${errText}` };
-    }
-    const payload = await res.json();
-    return {
-      success: true,
-      email: payload.email,
-      googleId: payload.sub,
-      name: payload.name,
-    };
+    return await getGoogleIdentity(token);
   } catch (error) {
     console.error("Erro ao verificar token do Google:", error);
     return { success: false, error: "Falha na validação do token do Google." };
   }
 }
 
+async function getGoogleIdentity(token: string): Promise<GoogleIdentityResult> {
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  if (!clientId) return { success: false, error: "Login Google não configurado." };
+
+  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`, {
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!response.ok) return { success: false, error: "Token do Google inválido ou expirado." };
+
+  const payload = await response.json() as { aud?: string; iss?: string; sub?: string; email?: string; email_verified?: string | boolean; name?: string; exp?: string };
+  const validIssuer = payload.iss === "accounts.google.com" || payload.iss === "https://accounts.google.com";
+  const validExpiry = Number(payload.exp) * 1000 > Date.now();
+  if (!validIssuer || payload.aud !== clientId || !payload.sub || !payload.email || payload.email_verified !== "true" && payload.email_verified !== true || !validExpiry) {
+    return { success: false, error: "A identidade Google não pôde ser validada." };
+  }
+
+  return { success: true, email: payload.email, googleId: payload.sub, name: payload.name || "Cliente" };
+}
+
 export async function loginClientOAuth(data: {
+  idToken?: string;
   email?: string;
   googleId?: string;
   appleId?: string;
@@ -390,13 +413,66 @@ export async function loginClientOAuth(data: {
   success: boolean;
   linked: boolean;
   client: ClientSessionData | null;
-  oauthData: { email?: string; googleId?: string; appleId?: string; name?: string } | null;
+  oauthData: { idToken?: string; email?: string; googleId?: string; appleId?: string; name?: string } | null;
   error?: string;
 }> {
-  // This legacy action accepted client-controlled identity fields. Keep the
-  // exported symbol temporarily so existing clients receive a safe error.
-  void data;
-  return { success: false, linked: false, client: null, oauthData: null, error: "Login social está temporariamente indisponível. Use a verificação por WhatsApp." };
+  try {
+    if (!data.idToken) {
+      return { success: false, linked: false, client: null, oauthData: null, error: "Token Google ausente." };
+    }
+    const identity = await getGoogleIdentity(data.idToken);
+    if (!identity.success) return { success: false, linked: false, client: null, oauthData: null, error: identity.error };
+
+    const rateLimit = await assertRateLimit(`oauth:login:${identity.googleId}`, {
+      limit: 10,
+      windowMs: 5 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    });
+    if (!rateLimit.allowed) return { success: false, linked: false, client: null, oauthData: null, error: "Muitas tentativas. Aguarde alguns minutos." };
+
+    let client = await prisma.client.findUnique({ where: { googleId: identity.googleId } });
+    if (!client && data.phone) {
+      const cleanPhone = data.phone.replace(/\D/g, "");
+      const currentSession = await getCurrentClientSession();
+      if (!currentSession || currentSession.phone.replace(/\D/g, "") !== cleanPhone) {
+        return { success: false, linked: false, client: null, oauthData: null, error: "Valide o telefone antes de vinculá-lo ao Google." };
+      }
+      client = await prisma.client.update({
+        where: { id: currentSession.clientId },
+        data: { googleId: identity.googleId, email: identity.email, name: identity.name || currentSession.name },
+      });
+    }
+
+    if (!client) {
+      return {
+        success: true,
+        linked: false,
+        client: null,
+        oauthData: { idToken: data.idToken, email: identity.email, googleId: identity.googleId, name: identity.name },
+      };
+    }
+
+    const sessionData: ClientSessionData = {
+      clientId: client.id,
+      name: client.name,
+      phone: client.phone,
+      email: client.email,
+      googleId: client.googleId,
+      appleId: client.appleId,
+    };
+    const cookieStore = await cookies();
+    cookieStore.set("client_token", await createSignedToken("client-session", sessionData, 60 * 60 * 24 * 30), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+      path: "/",
+    });
+    return { success: true, linked: true, client: sessionData, oauthData: null };
+  } catch (error) {
+    console.error("Erro no login Google do cliente:", error);
+    return { success: false, linked: false, client: null, oauthData: null, error: "Não foi possível concluir o login Google." };
+  }
   /* try {
     const { email, googleId, appleId, name, phone } = data;
     if (!email && !googleId && !appleId) {

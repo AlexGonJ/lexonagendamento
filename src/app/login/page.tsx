@@ -4,6 +4,7 @@ import { login } from "@/actions/auth";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +108,10 @@ export default function LoginPage() {
               "Entrar no Painel"
             )}
           </button>
+
+          <div className="text-right">
+            <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300">Esqueci minha senha</Link>
+          </div>
         </form>
 
         <div className="mt-8 pt-6 border-t border-slate-800/60 text-center">

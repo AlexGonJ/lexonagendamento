@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { addDays } from "date-fns";
 import { getAvailableSlots } from "./availability";
 import { acquireEmployeeDayLock } from "@/lib/booking-lock";
+import { debitSubscriptionCredit } from "@/lib/credit-ledger";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -154,6 +155,15 @@ export async function createSubscription(data: {
       },
     });
 
+    await tx.creditLedgerEntry.create({
+      data: {
+        customerSubscriptionId: created.id,
+        eventKey: `subscription:${created.id}:initial-credit`,
+        delta: plan.slots,
+        reason: "SUBSCRIPTION_CREATED",
+      },
+    });
+
     if (!data.fixedSchedule) return created;
 
     const { employeeId, serviceId, dayOfWeek, timeStr } = data.fixedSchedule;
@@ -183,7 +193,7 @@ export async function createSubscription(data: {
           throw new Error(`O horário fixo ${dateStr} às ${timeStr} não está disponível.`);
         }
 
-        await tx.booking.create({
+        const booking = await tx.booking.create({
           data: {
             date: bookingDate,
             status: "CONFIRMED",
@@ -196,6 +206,14 @@ export async function createSubscription(data: {
             serviceDuration: serviceRecord.duration,
             commissionRate: employeeRecord.commissionRate,
           },
+        });
+
+        await debitSubscriptionCredit(tx, created.id, booking.id, {
+          tenantId,
+          clientId: data.clientId,
+          status: "ACTIVE",
+          startDate: { lte: bookingDate },
+          endDate: { gte: bookingDate },
         });
 
         slotsUsed++;

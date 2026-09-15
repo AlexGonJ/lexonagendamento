@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getCurrentSession } from "./auth";
+import { scheduleDateTime, type BookingTimeMode } from "@/lib/schedule-time";
 
 async function assertScheduleAccess(employeeId: string, adminOnly = false) {
   const session = await getCurrentSession();
@@ -65,4 +66,51 @@ export async function removeScheduleBlock(scheduleId: string, employeeId: string
 
   revalidatePath(`/admin/employees/${employeeId}/schedule`);
   revalidatePath("/brutusbarbearia/book");
+}
+
+export async function addEmployeeTimeOff(formData: FormData) {
+  const employeeId = String(formData.get("employeeId") || "");
+  const dateStr = String(formData.get("date") || "");
+  const reason = String(formData.get("reason") || "").trim();
+  if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) throw new Error("Informe uma data válida.");
+  await assertScheduleAccess(employeeId, true);
+  await prisma.employeeTimeOff.upsert({ where: { employeeId_date: { employeeId, date: new Date(`${dateStr}T12:00:00.000Z`) } }, create: { employeeId, date: new Date(`${dateStr}T12:00:00.000Z`), reason: reason || null }, update: { reason: reason || null } });
+  revalidatePath(`/admin/employees/${employeeId}/schedule`);
+}
+
+export async function getEmployeeTimeOff(employeeId: string) {
+  await assertScheduleAccess(employeeId);
+  return prisma.employeeTimeOff.findMany({ where: { employeeId }, orderBy: { date: "asc" } });
+}
+
+export async function removeEmployeeTimeOff(id: string, employeeId: string) {
+  await assertScheduleAccess(employeeId, true);
+  await prisma.employeeTimeOff.deleteMany({ where: { id, employeeId } });
+  revalidatePath(`/admin/employees/${employeeId}/schedule`);
+}
+
+export async function addEmployeeAvailabilityBlock(formData: FormData) {
+  const employeeId = String(formData.get("employeeId") || "");
+  const dateStr = String(formData.get("date") || "");
+  const startTime = String(formData.get("startTime") || "");
+  const endTime = String(formData.get("endTime") || "");
+  const reason = String(formData.get("reason") || "").trim();
+  if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || startTime >= endTime) throw new Error("Informe uma data e um intervalo de horário válido.");
+  const session = await assertScheduleAccess(employeeId, true);
+  const tenant = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenant) throw new Error("Estabelecimento não encontrado.");
+  const mode = tenant.bookingTimeMode as BookingTimeMode;
+  await prisma.employeeAvailabilityBlock.create({ data: { employeeId, startAt: scheduleDateTime(dateStr, startTime, tenant.timezone, mode), endAt: scheduleDateTime(dateStr, endTime, tenant.timezone, mode), reason: reason || null } });
+  revalidatePath(`/admin/employees/${employeeId}/schedule`);
+}
+
+export async function getEmployeeAvailabilityBlocks(employeeId: string) {
+  await assertScheduleAccess(employeeId);
+  return prisma.employeeAvailabilityBlock.findMany({ where: { employeeId }, orderBy: { startAt: "asc" } });
+}
+
+export async function removeEmployeeAvailabilityBlock(id: string, employeeId: string) {
+  await assertScheduleAccess(employeeId, true);
+  await prisma.employeeAvailabilityBlock.deleteMany({ where: { id, employeeId } });
+  revalidatePath(`/admin/employees/${employeeId}/schedule`);
 }

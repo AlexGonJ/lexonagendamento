@@ -4,12 +4,15 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getCurrentSession, getCurrentClientSession } from "@/actions/auth";
-import { sendWhatsappMessage } from "@/lib/whatsapp";
 import { getAvailableSlots } from "@/actions/availability";
 import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { recordAuditEvent } from "@/lib/audit";
+import { refundSubscriptionCredit } from "@/lib/credit-ledger";
+import { enqueueWhatsappMessage } from "@/lib/whatsapp-outbox";
+import { createBookingForClient } from "@/lib/booking-service";
+import { scheduleDateTime, type BookingTimeMode } from "@/lib/schedule-time";
 
 interface CreateBookingParams {
   tenantSlug: string;
@@ -21,6 +24,19 @@ interface CreateBookingParams {
   clientPhone: string;
   customerSubscriptionId?: string;
   captchaToken?: string;
+}
+
+const bookingTransitions: Record<string, string[]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["COMPLETED", "NO_SHOW", "CANCELLED"],
+};
+
+function formatDateBR(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
+function formatTimeBR(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }
 
 export async function createBooking(data: CreateBookingParams) {
@@ -77,159 +93,11 @@ export async function createBooking(data: CreateBookingParams) {
       throw new Error(captchaResult.error);
     }
 
-    // 3. Montar o objeto de Data final (Date + Time)
-    const bookingDate = new Date(`${data.dateStr}T${data.timeStr}:00.000Z`);
-    if (Number.isNaN(bookingDate.getTime())) {
-      throw new Error("Data ou horário inválidos.");
-    }
-    if (bookingDate.getTime() <= Date.now()) {
-      throw new Error("Não é possível agendar um horário no passado.");
-    }
-
-    const bookingResult = await prisma.$transaction(async (tx) => {
-      await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${data.employeeId}:${data.dateStr}`);
-
-      const serviceRecord = await tx.service.findFirst({
-        where: {
-          id: data.serviceId,
-          tenantId: tenant.id,
-          isActive: true,
-        },
-        include: {
-          employees: true,
-        },
-      });
-
-      if (!serviceRecord) {
-        throw new Error("Serviço inválido para este estabelecimento.");
-      }
-
-      const employeeRecord = await tx.employee.findFirst({
-        where: {
-          id: data.employeeId,
-          tenantId: tenant.id,
-          isActive: true,
-        },
-        include: {
-          services: true,
-        },
-      });
-
-      if (!employeeRecord) {
-        throw new Error("Profissional inválido para este estabelecimento.");
-      }
-
-      if (!employeeRecord.services.some((svc) => svc.id === serviceRecord.id)) {
-        throw new Error("Este profissional não atende o serviço selecionado.");
-      }
-
-      const availableSlots = await getAvailableSlots(employeeRecord.id, data.dateStr, serviceRecord.duration, tx);
-      if (!availableSlots.includes(data.timeStr)) {
-        throw new Error("O horário selecionado não está mais disponível.");
-      }
-
-      const client = await tx.client.findUnique({
-        where: { id: clientSession.clientId },
-      });
-
-      if (!client) {
-        throw new Error("Cliente não encontrado.");
-      }
-
-      let customerSubscription: { id: string } | null = null;
-      if (data.customerSubscriptionId) {
-        customerSubscription = await tx.customerSubscription.findFirst({
-          where: {
-            id: data.customerSubscriptionId,
-            tenantId: tenant.id,
-            clientId: client.id,
-            status: "ACTIVE",
-            startDate: { lte: bookingDate },
-            endDate: { gte: bookingDate },
-            remainingSlots: { gt: 0 },
-          },
-          select: { id: true },
-        });
-
-        if (!customerSubscription) {
-          throw new Error("A assinatura informada está inválida ou sem créditos.");
-        }
-
-        const debit = await tx.customerSubscription.updateMany({
-          where: {
-            id: customerSubscription.id,
-            tenantId: tenant.id,
-            clientId: client.id,
-            status: "ACTIVE",
-            startDate: { lte: bookingDate },
-            endDate: { gte: bookingDate },
-            remainingSlots: { gt: 0 },
-          },
-          data: { remainingSlots: { decrement: 1 } },
-        });
-        if (debit.count !== 1) {
-          throw new Error("A assinatura não possui mais créditos disponíveis.");
-        }
-      }
-
-      const newBooking = await tx.booking.create({
-        data: {
-          date: bookingDate,
-          status: "CONFIRMED",
-          tenantId: tenant.id,
-          serviceId: serviceRecord.id,
-          employeeId: employeeRecord.id,
-          clientId: client.id,
-          customerSubscriptionId: customerSubscription?.id || null,
-          servicePrice: serviceRecord.price,
-          serviceDuration: serviceRecord.duration,
-          commissionRate: employeeRecord.commissionRate,
-        },
-      });
-
-      return {
-        bookingId: newBooking.id,
-        serviceName: serviceRecord.name,
-        employeeName: employeeRecord.name,
-        clientName: client.name,
-        clientPhone: client.phone,
-      };
+    const bookingResult = await createBookingForClient({
+      tenantSlug: data.tenantSlug, serviceId: data.serviceId, employeeId: data.employeeId,
+      dateStr: data.dateStr, timeStr: data.timeStr, clientId: clientSession.clientId,
+      customerSubscriptionId: data.customerSubscriptionId,
     });
-
-    // Trigger WhatsApp Confirmation
-    try {
-      const formatDateBR = (date: Date) => {
-        return new Intl.DateTimeFormat('pt-BR', {
-          timeZone: 'America/Sao_Paulo',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        }).format(date);
-      };
-      const formatTimeBR = (date: Date) => {
-        return new Intl.DateTimeFormat('pt-BR', {
-          timeZone: 'America/Sao_Paulo',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }).format(date);
-      };
-
-      await sendWhatsappMessage({
-        tenantId: tenant.id,
-        recipient: bookingResult.clientPhone,
-        type: "CONFIRMATION",
-        data: {
-          clientName: bookingResult.clientName,
-          serviceName: bookingResult.serviceName,
-          employeeName: bookingResult.employeeName,
-          dateStr: formatDateBR(bookingDate),
-          timeStr: formatTimeBR(bookingDate)
-        }
-      });
-    } catch (err) {
-      console.error("Falha ao disparar whatsapp de confirmação:", err);
-    }
 
     // Revalidar páginas de admin e reserva
     revalidatePath("/admin");
@@ -315,7 +183,7 @@ export async function getDashboardStats(view: string = "daily") {
 
   const bookingsCount = rangeBookings.filter(b => b.status !== 'CANCELLED').length;
   const revenue = rangeBookings
-    .filter(b => b.status === 'CONFIRMED')
+    .filter(b => ["CONFIRMED", "COMPLETED"].includes(b.status))
     .reduce((sum, b) => sum + (session.isAdmin ? b.service.price : (b.service.price * commissionRate / 100)), 0);
 
   // Novos clientes no intervalo (removida a restrição de data do agendamento para contar corretamente clientes que agendam em outras datas)
@@ -338,7 +206,7 @@ export async function getDashboardStats(view: string = "daily") {
   // 3. Faturamento Hoje (sempre diário) - Requisitado: "Com o faturamento do dia"
   const todayWhereClause: Prisma.BookingWhereInput = {
     tenantId,
-    status: 'CONFIRMED',
+    status: { in: ["CONFIRMED", "COMPLETED"] },
     date: {
       gte: startOfToday,
       lte: endOfToday
@@ -397,7 +265,7 @@ export async function getDashboardStats(view: string = "daily") {
       where: {
         tenantId,
         employeeId: !session.isAdmin ? session.userId : undefined,
-        status: 'CONFIRMED',
+        status: { in: ["CONFIRMED", "COMPLETED"] },
         date: {
           gte: startM,
           lte: endM
@@ -478,7 +346,7 @@ export async function updateBookingStatus(bookingId: string, status: string) {
     const session = await getCurrentSession();
     if (!session) throw new Error("Não autenticado");
 
-    if (!['CONFIRMED', 'CANCELLED'].includes(status)) {
+    if (!['CONFIRMED', 'COMPLETED', 'NO_SHOW', 'CANCELLED'].includes(status)) {
       return { success: false, error: "Status de agendamento inválido." };
     }
 
@@ -505,11 +373,31 @@ export async function updateBookingStatus(bookingId: string, status: string) {
       return { success: false, error: "Você só pode alterar seus próprios agendamentos." };
     }
 
+    if (!bookingTransitions[booking.status]?.includes(status)) {
+      return { success: false, error: "Essa alteração de status não é permitida." };
+    }
+
     // Se estiver mudando para CANCELLED e ainda não estava CANCELLED, devolver créditos e notificar
     if (status === "CANCELLED" && booking.status !== "CANCELLED") {
       await prisma.$transaction(async (tx) => {
         if (booking.customerSubscriptionId) {
-          await tx.customerSubscription.update({ where: { id: booking.customerSubscriptionId }, data: { remainingSlots: { increment: 1 } } });
+          await refundSubscriptionCredit(tx, booking.customerSubscriptionId, booking.id);
+        }
+        if (booking.tenant.whatsappEnabled && booking.tenant.whatsappCancelNotifyEnabled && booking.employee.phone) {
+          await enqueueWhatsappMessage(tx, {
+            tenantId: booking.tenantId,
+            eventKey: `booking:${booking.id}:cancel-notification`,
+            bookingId: booking.id,
+            recipient: booking.employee.phone,
+            type: "CANCEL_NOTIFICATION",
+            data: {
+              clientName: booking.client.name,
+              serviceName: booking.service.name,
+              employeeName: booking.employee.name,
+              dateStr: formatDateBR(booking.date),
+              timeStr: formatTimeBR(booking.date),
+            },
+          });
         }
         await tx.booking.update({ where: { id: bookingId }, data: { status, cancelledAt: new Date() } });
       });
@@ -522,41 +410,6 @@ export async function updateBookingStatus(bookingId: string, status: string) {
         entityId: booking.id,
       });
 
-      if (booking.tenant.whatsappEnabled && booking.tenant.whatsappCancelNotifyEnabled && booking.employee.phone) {
-        try {
-          const formatDateBR = (date: Date) => {
-            return new Intl.DateTimeFormat('pt-BR', {
-              timeZone: 'America/Sao_Paulo',
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric'
-            }).format(date);
-          };
-          const formatTimeBR = (date: Date) => {
-            return new Intl.DateTimeFormat('pt-BR', {
-              timeZone: 'America/Sao_Paulo',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            }).format(date);
-          };
-
-          await sendWhatsappMessage({
-            tenantId: booking.tenantId,
-            recipient: booking.employee.phone,
-            type: "CANCEL_NOTIFICATION",
-            data: {
-              clientName: booking.client.name,
-              serviceName: booking.service.name,
-              employeeName: booking.employee.name,
-              dateStr: formatDateBR(booking.date),
-              timeStr: formatTimeBR(booking.date)
-            }
-          });
-        } catch (err) {
-          console.error("Falha ao enviar notificação de cancelamento ao profissional:", err);
-        }
-      }
     }
 
     if (status !== "CANCELLED") {
@@ -577,6 +430,73 @@ export async function updateBookingStatus(bookingId: string, status: string) {
   } catch (error) {
     console.error("Erro ao atualizar status do agendamento:", error);
     const message = error instanceof Error ? error.message : "Erro ao atualizar status.";
+    return { success: false, error: message };
+  }
+}
+
+export async function rescheduleBooking(bookingId: string, dateStr: string, timeStr: string) {
+  try {
+    const session = await getCurrentSession();
+    if (!session) throw new Error("Não autenticado.");
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { service: true },
+    });
+    if (!booking || booking.tenantId !== session.tenantId) {
+      return { success: false, error: "Agendamento não encontrado." };
+    }
+    const tenantSchedule = await prisma.tenant.findUnique({ where: { id: booking.tenantId }, select: { timezone: true, bookingTimeMode: true, cancellationLeadMinutes: true } });
+    if (!tenantSchedule) return { success: false, error: "Estabelecimento não encontrado." };
+    const newDate = scheduleDateTime(dateStr, timeStr, tenantSchedule.timezone, tenantSchedule.bookingTimeMode as BookingTimeMode);
+    if (Number.isNaN(newDate.getTime()) || newDate.getTime() <= Date.now()) return { success: false, error: "Informe um horário futuro válido." };
+    if (!session.isAdmin && booking.employeeId !== session.userId) {
+      return { success: false, error: "Você só pode reagendar seus próprios atendimentos." };
+    }
+    if (!["PENDING", "CONFIRMED"].includes(booking.status)) {
+      return { success: false, error: "Este atendimento não pode ser reagendado." };
+    }
+    if (booking.date.getTime() - Date.now() < tenantSchedule.cancellationLeadMinutes * 60_000) {
+      return { success: false, error: "O prazo para cancelamento deste atendimento já expirou." };
+    }
+
+    const currentDate = booking.date.toISOString();
+    if (currentDate === newDate.toISOString()) {
+      return { success: true };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await acquireEmployeeDayLock(tx, `booking:${booking.id}`);
+      await acquireEmployeeDayLock(tx, `booking:${booking.tenantId}:${booking.employeeId}:${dateStr}`);
+
+      const slots = await getAvailableSlots(
+        booking.employeeId,
+        dateStr,
+        booking.serviceDuration ?? booking.service.duration,
+        tx
+      );
+      if (!slots.includes(timeStr)) {
+        throw new Error("O novo horário não está mais disponível.");
+      }
+
+      await tx.booking.update({ where: { id: booking.id }, data: { date: newDate } });
+    });
+
+    await recordAuditEvent({
+      tenantId: booking.tenantId,
+      actorId: session.userId,
+      actorRole: session.isAdmin ? "ADMIN" : "EMPLOYEE",
+      action: "BOOKING_RESCHEDULED",
+      entityType: "BOOKING",
+      entityId: booking.id,
+      metadata: { from: booking.date.toISOString(), to: newDate.toISOString() },
+    });
+    revalidatePath("/admin");
+    revalidatePath("/admin/bookings");
+    revalidatePath("/admin/weekly-schedule");
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Não foi possível reagendar.";
     return { success: false, error: message };
   }
 }
@@ -606,7 +526,7 @@ export async function deleteBooking(bookingId: string) {
     // Devolver crédito de plano se deletar reserva ativa
     await prisma.$transaction(async (tx) => {
       if (booking.customerSubscriptionId && booking.status !== "CANCELLED") {
-        await tx.customerSubscription.update({ where: { id: booking.customerSubscriptionId }, data: { remainingSlots: { increment: 1 } } });
+        await refundSubscriptionCredit(tx, booking.customerSubscriptionId, booking.id);
       }
       await tx.booking.delete({ where: { id: bookingId } });
     });
@@ -664,11 +584,34 @@ export async function cancelBooking(bookingId: string) {
       }
     }
 
+    if (!["PENDING", "CONFIRMED"].includes(booking.status)) {
+      return { success: false, error: "Este atendimento não pode mais ser cancelado." };
+    }
+    if (booking.date.getTime() - Date.now() < booking.tenant.cancellationLeadMinutes * 60_000) {
+      return { success: false, error: "O prazo para cancelamento deste atendimento já expirou." };
+    }
+
     // Devolver crédito se estiver ativo
     if (booking.status !== "CANCELLED") {
       await prisma.$transaction(async (tx) => {
         if (booking.customerSubscriptionId) {
-          await tx.customerSubscription.update({ where: { id: booking.customerSubscriptionId }, data: { remainingSlots: { increment: 1 } } });
+          await refundSubscriptionCredit(tx, booking.customerSubscriptionId, booking.id);
+        }
+        if (booking.tenant.whatsappEnabled && booking.tenant.whatsappCancelNotifyEnabled && booking.employee.phone) {
+          await enqueueWhatsappMessage(tx, {
+            tenantId: booking.tenantId,
+            eventKey: `booking:${booking.id}:cancel-notification`,
+            bookingId: booking.id,
+            recipient: booking.employee.phone,
+            type: "CANCEL_NOTIFICATION",
+            data: {
+              clientName: booking.client.name,
+              serviceName: booking.service.name,
+              employeeName: booking.employee.name,
+              dateStr: formatDateBR(booking.date),
+              timeStr: formatTimeBR(booking.date),
+            },
+          });
         }
         await tx.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelledAt: new Date() } });
       });
@@ -682,43 +625,6 @@ export async function cancelBooking(bookingId: string) {
       });
     }
 
-    // Notificar profissional
-    if (booking.tenant.whatsappEnabled && booking.tenant.whatsappCancelNotifyEnabled && booking.employee.phone) {
-      try {
-        const formatDateBR = (date: Date) => {
-          return new Intl.DateTimeFormat('pt-BR', {
-            timeZone: 'America/Sao_Paulo',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-          }).format(date);
-        };
-        const formatTimeBR = (date: Date) => {
-          return new Intl.DateTimeFormat('pt-BR', {
-            timeZone: 'America/Sao_Paulo',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          }).format(date);
-        };
-
-        await sendWhatsappMessage({
-          tenantId: booking.tenantId,
-          recipient: booking.employee.phone,
-          type: "CANCEL_NOTIFICATION",
-          data: {
-            clientName: booking.client.name,
-            serviceName: booking.service.name,
-            employeeName: booking.employee.name,
-            dateStr: formatDateBR(booking.date),
-            timeStr: formatTimeBR(booking.date)
-          }
-        });
-      } catch (err) {
-        console.error("Falha ao enviar notificação de cancelamento ao profissional:", err);
-      }
-    }
-    
     revalidatePath("/admin");
     revalidatePath("/admin/bookings");
     revalidatePath(`/${booking.tenant.slug}/perfil`);

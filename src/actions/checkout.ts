@@ -42,36 +42,15 @@ export async function registerTenant(data: {
       return { success: false, error: "Este e-mail comercial já está cadastrado no sistema." };
     }
 
-    // 3. Find or create the corresponding Plan in the database
-    let plan = await prisma.plan.findFirst({
+    // The checkout must reference an existing, active plan. Falling back to a
+    // different plan would allow a payment to activate the wrong entitlement.
+    const plan = await prisma.plan.findFirst({
       where: {
-        name: {
-          contains: planId,
-          mode: "insensitive",
-        },
+        isActive: true,
+        OR: [{ id: planId }, { name: { equals: planId, mode: "insensitive" } }],
       },
     });
-
-    // Fallback: If no plan is found, find the first active one, or create a default one
-    if (!plan) {
-      plan = await prisma.plan.findFirst({
-        where: { isActive: true },
-      });
-    }
-
-    if (!plan) {
-      // Create a default Plan so the DB works
-      const defaultFeatures = ["booking", "crm", "payment_gateway"];
-      plan = await prisma.plan.create({
-        data: {
-          name: planId.charAt(0).toUpperCase() + planId.slice(1),
-          price: planId === "starter" ? 73.0 : planId === "profissional" ? 149.0 : 299.0,
-          maxEmployees: planId === "starter" ? 1 : planId === "profissional" ? 3 : 99,
-          features: defaultFeatures,
-          isActive: true,
-        },
-      });
-    }
+    if (!plan) return { success: false, error: "O plano selecionado não está disponível." };
 
     const passwordHash = await hashPassword(password);
 
@@ -106,7 +85,15 @@ export async function registerTenant(data: {
         },
       });
 
-      return { tenant: newTenant, employee: newEmployee };
+      const order = await tx.checkoutOrder.create({
+        data: {
+          tenantId: newTenant.id,
+          planId: plan.id,
+          billingPeriod,
+          amount: plan.price,
+        },
+      });
+      return { tenant: newTenant, employee: newEmployee, order };
     });
 
     // 5. Auto login by setting the cookie
@@ -116,6 +103,7 @@ export async function registerTenant(data: {
       email: result.employee.email || "",
       isAdmin: result.employee.isAdmin,
       tenantId: result.employee.tenantId,
+      sessionVersion: result.employee.sessionVersion,
     };
 
     const cookieStore = await cookies();
@@ -155,17 +143,18 @@ export async function registerTenant(data: {
     if (paymentUrl && paymentUrl !== "#") {
       try {
         const urlObj = new URL(paymentUrl);
-        urlObj.searchParams.set("external_reference", result.tenant.id);
+        urlObj.searchParams.set("external_reference", result.order.id);
         paymentUrl = urlObj.toString();
-      } catch (e) {
+      } catch {
         // Fallback: simple string append if URL parsing fails
-        paymentUrl = paymentUrl + (paymentUrl.includes("?") ? "&" : "?") + "external_reference=" + result.tenant.id;
+        paymentUrl = paymentUrl + (paymentUrl.includes("?") ? "&" : "?") + "external_reference=" + result.order.id;
       }
     }
 
     return {
       success: true,
       tenantId: result.tenant.id,
+      orderId: result.order.id,
       paymentUrl: paymentUrl || null,
       message: "Conta criada com sucesso! Faça o pagamento para ativar sua loja.",
     };

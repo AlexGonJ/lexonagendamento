@@ -1,13 +1,16 @@
-import { getEmployees, createEmployee, deleteEmployee } from "@/actions/employees";
+import { getEmployees, getEmployeeCapacity, createEmployee, deleteEmployee } from "@/actions/employees";
 import Link from "next/link";
 
 export default async function AdminEmployees() {
-  const employees = await getEmployees();
+  const [employees, capacity] = await Promise.all([getEmployees(), getEmployeeCapacity()]);
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Gestão de Profissionais</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Gestão de Profissionais</h1>
+          {capacity && <p className="text-sm text-gray-500 mt-1">{capacity.used} de {capacity.limit} profissionais ativos no plano {capacity.planName}.</p>}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -83,8 +86,8 @@ export default async function AdminEmployees() {
                 <input
                   type="password"
                   name="password"
-                  placeholder="Mínimo 6 caracteres"
-                  minLength={6}
+                  placeholder="Mínimo 8 caracteres"
+                  minLength={8}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
