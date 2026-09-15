@@ -112,6 +112,13 @@ export default function AdminLayoutClient({
               >
                 Planos de Clientes
               </Link>
+              <Link
+                href="/admin/audit"
+                onClick={() => setIsSidebarOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                Histórico de atividades
+              </Link>
             </>
           )}
 

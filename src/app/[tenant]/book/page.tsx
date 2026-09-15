@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import BookingFlow from "@/components/BookingFlow";
 import { notFound } from "next/navigation";
 import { getCurrentClientSession } from "@/actions/auth";
+import { publicEmployeeSelect, publicServiceSelect } from "@/lib/public-data";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,11 +14,14 @@ export default async function BookingPage({ params }: { params: Promise<{ tenant
     where: { slug: tenant },
     include: {
       services: {
+        where: { isActive: true },
         orderBy: { createdAt: 'desc' },
-        include: { employees: true }
+        select: { ...publicServiceSelect, employees: { where: { isActive: true }, select: publicEmployeeSelect } }
       },
       employees: {
-        orderBy: { createdAt: 'desc' }
+        where: { isActive: true },
+        orderBy: { createdAt: 'desc' },
+        select: publicEmployeeSelect,
       }
     }
   });

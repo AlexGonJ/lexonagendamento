@@ -76,7 +76,7 @@ export async function getFinancialSummary(month: number, year: number) {
   // Faturamento de reservas avulsas (que não possuem plano)
   const regularBookingsRevenue = bookings
     .filter((b) => !b.customerSubscriptionId)
-    .reduce((sum, b) => sum + b.service.price, 0);
+    .reduce((sum, b) => sum + (b.servicePrice ?? b.service.price), 0);
 
   // Faturamento de assinaturas de planos vendidas no mês
   const plansRevenue = subscriptions.reduce((sum, sub) => sum + sub.plan.price, 0);
@@ -87,7 +87,7 @@ export async function getFinancialSummary(month: number, year: number) {
   // Comissões pagas aos funcionários (calculada sobre o valor do serviço executado)
   const totalCommissions = bookings.reduce((sum, b) => {
     const rate = b.employee.commissionRate;
-    return sum + (b.service.price * rate) / 100;
+    return sum + ((b.servicePrice ?? b.service.price) * (b.commissionRate ?? rate)) / 100;
   }, 0);
 
   // Custos Operacionais = Total de despesas inseridas
@@ -108,9 +108,9 @@ export async function getFinancialSummary(month: number, year: number) {
   const employeeSummaries: EmployeeFinancialSummary[] = employees.map((emp) => {
     const empBookings = bookings.filter((b) => b.employeeId === emp.id);
     const bookingsCount = empBookings.length;
-    const totalServiceValue = empBookings.reduce((sum, b) => sum + b.service.price, 0);
+    const totalServiceValue = empBookings.reduce((sum, b) => sum + (b.servicePrice ?? b.service.price), 0);
     const commissionEarned = empBookings.reduce((sum, b) => {
-      return sum + (b.service.price * emp.commissionRate) / 100;
+      return sum + ((b.servicePrice ?? b.service.price) * (b.commissionRate ?? emp.commissionRate)) / 100;
     }, 0);
 
     return {

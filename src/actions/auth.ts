@@ -8,9 +8,29 @@ import { sendWhatsappMessage } from "@/lib/whatsapp";
 import { createSignedToken, verifySignedToken } from "@/lib/session";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { hashPassword, verifyPassword } from "@/lib/password";
 
-function hashPassword(password: string): string {
-  return crypto.createHash("sha256").update(password).digest("hex");
+function hashOtp(phone: string, code: string) {
+  const secret = process.env.OTP_HASH_SECRET || process.env.SESSION_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("OTP_HASH_SECRET ou SESSION_SECRET deve ser configurado em produção.");
+  }
+
+  return `hmac:${crypto
+    .createHmac("sha256", secret || "development-otp-secret")
+    .update(`${phone}:${code}`)
+    .digest("hex")}`;
+}
+
+function otpMatches(storedCode: string, expectedHash: string, legacyCode: string) {
+  if (storedCode.startsWith("hmac:")) {
+    const stored = Buffer.from(storedCode);
+    const expected = Buffer.from(expectedHash);
+    return stored.length === expected.length && crypto.timingSafeEqual(stored, expected);
+  }
+
+  // Allows OTPs issued before this deployment to expire naturally.
+  return storedCode === legacyCode;
 }
 
 export interface SessionData {
@@ -48,9 +68,13 @@ export async function login(formData: FormData) {
       return { success: false, error: "Credenciais inválidas." };
     }
 
-    const hashedInput = hashPassword(password);
-    if (hashedInput !== employee.passwordHash) {
+    const passwordResult = await verifyPassword(password, employee.passwordHash);
+    if (!passwordResult.valid) {
       return { success: false, error: "Credenciais inválidas." };
+    }
+
+    if (passwordResult.needsUpgrade) {
+      await prisma.employee.update({ where: { id: employee.id }, data: { passwordHash: await hashPassword(password) } });
     }
 
     // Criar dados da sessão
@@ -96,7 +120,13 @@ export async function getCurrentSession(): Promise<SessionData | null> {
     if (!sessionCookie || !sessionCookie.value) {
       return null;
     }
-    return await verifySignedToken<SessionData>(sessionCookie.value, "employee-session");
+    const session = await verifySignedToken<SessionData>(sessionCookie.value, "employee-session");
+    if (!session) return null;
+    const employee = await prisma.employee.findFirst({
+      where: { id: session.userId, tenantId: session.tenantId, isActive: true },
+      select: { id: true, name: true, email: true, isAdmin: true, tenantId: true },
+    });
+    return employee ? { userId: employee.id, name: employee.name, email: employee.email || "", isAdmin: employee.isAdmin, tenantId: employee.tenantId } : null;
   } catch {
     return null;
   }
@@ -158,23 +188,25 @@ export async function sendClientOtp(
       return { success: false, error: captchaResult.error };
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const codeHash = hashOtp(cleanPhone, code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
 
     await prisma.otpVerification.create({
       data: {
         phone: cleanPhone,
-        code,
+        code: codeHash,
         expiresAt,
       },
     });
 
     // Se houver um tenantId e ele tiver WhatsApp habilitado, envia a mensagem de verdade
+    let deliverySucceeded = false;
     if (tenantId) {
       try {
         const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
         if (tenant && tenant.whatsappEnabled) {
-          await sendWhatsappMessage({
+          const result = await sendWhatsappMessage({
             tenantId,
             recipient: cleanPhone,
             type: "TEST",
@@ -187,13 +219,17 @@ export async function sendClientOtp(
               timeStr: ""
             }
           });
+          deliverySucceeded = result.success;
         }
       } catch (whatsappErr) {
         console.error("Falha ao enviar OTP real via WhatsApp:", whatsappErr);
       }
     }
 
-    console.log(`[WHATSAPP OTP] Código enviado para ${cleanPhone}: ${code}`);
+    if (process.env.NODE_ENV === "production" && !deliverySucceeded) {
+      await prisma.otpVerification.deleteMany({ where: { phone: cleanPhone, code: codeHash } });
+      return { success: false, error: "Não foi possível enviar o código. Tente novamente mais tarde." };
+    }
     return {
       success: true,
       message: "Código enviado via WhatsApp.",
@@ -230,38 +266,48 @@ export async function verifyClientOtp(
       };
     }
 
-    const verification = await prisma.otpVerification.findFirst({
+    const verificationCandidates = await prisma.otpVerification.findMany({
       where: {
         phone: cleanPhone,
-        code,
         expiresAt: { gt: new Date() },
       },
       orderBy: {
         createdAt: "desc",
       },
+      take: 5,
     });
+    const expectedHash = hashOtp(cleanPhone, code);
+    const verification = verificationCandidates.find((candidate) =>
+      otpMatches(candidate.code, expectedHash, code)
+    );
 
     if (!verification) {
       return { success: false, error: "Código inválido ou expirado." };
     }
 
-    // Excluir código utilizado
-    await prisma.otpVerification.delete({
-      where: { id: verification.id },
-    });
-
+    const suppliedName = name?.trim();
     let client = await prisma.client.findUnique({
       where: { phone: cleanPhone },
     });
 
     if (!client) {
-      if (!name) {
+      if (!suppliedName) {
         return { success: false, needsName: true, message: "Primeiro acesso! Por favor, informe seu nome." };
       }
+    }
+
+    const consumed = await prisma.otpVerification.deleteMany({
+      where: { id: verification.id },
+    });
+    if (consumed.count !== 1) {
+      return { success: false, error: "Código já utilizado. Solicite um novo código." };
+    }
+
+    if (!client) {
       client = await prisma.client.create({
         data: {
           phone: cleanPhone,
-          name,
+          name: suppliedName!,
         },
       });
     } else if (name) {
@@ -340,8 +386,18 @@ export async function loginClientOAuth(data: {
   appleId?: string;
   name?: string;
   phone?: string; // Telefone opcional para o vínculo
-}) {
-  try {
+}): Promise<{
+  success: boolean;
+  linked: boolean;
+  client: ClientSessionData | null;
+  oauthData: { email?: string; googleId?: string; appleId?: string; name?: string } | null;
+  error?: string;
+}> {
+  // This legacy action accepted client-controlled identity fields. Keep the
+  // exported symbol temporarily so existing clients receive a safe error.
+  void data;
+  return { success: false, linked: false, client: null, oauthData: null, error: "Login social está temporariamente indisponível. Use a verificação por WhatsApp." };
+  /* try {
     const { email, googleId, appleId, name, phone } = data;
     if (!email && !googleId && !appleId) {
       return { success: false, error: "Identificadores OAuth ausentes." };
@@ -475,7 +531,7 @@ export async function loginClientOAuth(data: {
   } catch (error) {
     console.error("Erro no login social do cliente:", error);
     return { success: false, error: "Erro interno no servidor ao tentar logar com rede social." };
-  }
+  } */
 }
 
 export async function logoutClient() {

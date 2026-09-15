@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { publicServiceSelect } from '@/lib/public-data'
 
 export async function GET(
   request: Request,
@@ -17,8 +18,9 @@ export async function GET(
     }
 
     const services = await db.service.findMany({
-      where: { tenantId: tenant.id },
-      orderBy: { category: 'asc' }
+      where: { tenantId: tenant.id, isActive: true },
+      orderBy: { category: 'asc' },
+      select: publicServiceSelect,
     })
 
     return NextResponse.json({ success: true, services })

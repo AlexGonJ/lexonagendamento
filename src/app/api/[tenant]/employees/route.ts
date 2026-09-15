@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { publicEmployeeSelect } from '@/lib/public-data'
 
 export async function GET(
   request: Request,
@@ -17,8 +18,9 @@ export async function GET(
     }
 
     const employees = await db.employee.findMany({
-      where: { tenantId: tenant.id },
-      orderBy: { name: 'asc' }
+      where: { tenantId: tenant.id, isActive: true },
+      orderBy: { name: 'asc' },
+      select: publicEmployeeSelect,
     })
 
     return NextResponse.json({ success: true, employees })

@@ -1,10 +1,10 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import crypto from "crypto";
 import { cookies } from "next/headers";
 import { createSignedToken } from "@/lib/session";
 import { SessionData } from "@/actions/auth";
+import { hashPassword } from "@/lib/password";
 
 export async function registerTenant(data: {
   name: string;
@@ -73,7 +73,7 @@ export async function registerTenant(data: {
       });
     }
 
-    const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+    const passwordHash = await hashPassword(password);
 
     // 4. Create Tenant, Employee and TenantPlan in a transaction
     const result = await prisma.$transaction(async (tx) => {

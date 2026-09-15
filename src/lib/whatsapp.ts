@@ -1,4 +1,40 @@
 import prisma from "@/lib/prisma";
+import { lookup } from "dns/promises";
+
+function isPrivateAddress(address: string) {
+  const normalized = address.toLowerCase();
+  if (normalized === "::1" || normalized === "::" || normalized.startsWith("fe80:") || normalized.startsWith("fc") || normalized.startsWith("fd")) {
+    return true;
+  }
+
+  const octets = normalized.split(".").map(Number);
+  if (octets.length !== 4 || octets.some(Number.isNaN)) return false;
+  const [first, second] = octets;
+  return first === 10 || first === 127 || first === 0 ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168);
+}
+
+export async function getSafeEvolutionApiUrl(apiUrl: string) {
+  let url: URL;
+  try {
+    url = new URL(apiUrl);
+  } catch {
+    throw new Error("Informe uma URL válida para a Evolution API.");
+  }
+
+  if (url.username || url.password || url.protocol !== "https:") {
+    throw new Error("A Evolution API deve usar uma URL HTTPS sem credenciais embutidas.");
+  }
+
+  const addresses = await lookup(url.hostname, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some((entry) => isPrivateAddress(entry.address))) {
+    throw new Error("A URL da Evolution API não pode apontar para endereços internos.");
+  }
+
+  return url.toString().replace(/\/$/, "");
+}
 
 export interface WhatsappConnectionParams {
   provider: string; // "simulador" | "evolution" | "meta"
@@ -84,8 +120,7 @@ export async function verifyWhatsappConnection(
     }
 
     try {
-      // Remove barra final do URL se houver
-      const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const baseUrl = await getSafeEvolutionApiUrl(apiUrl);
       const url = `${baseUrl}/instance/connectionState/${number}`;
 
       const res = await fetch(url, {
@@ -230,7 +265,7 @@ export async function sendWhatsappMessage(
         throw new Error("Parâmetros da Evolution API estão incompletos no cadastro.");
       }
 
-      const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const baseUrl = await getSafeEvolutionApiUrl(apiUrl);
       const url = `${baseUrl}/message/sendText/${number}`;
 
       const res = await fetch(url, {
@@ -243,6 +278,7 @@ export async function sendWhatsappMessage(
           number: recipientPhone,
           text: textMessageBody,
         }),
+        signal: AbortSignal.timeout(10000),
       });
 
       if (!res.ok) {

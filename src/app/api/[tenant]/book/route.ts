@@ -6,6 +6,7 @@ import { getAvailableSlots } from "@/actions/availability";
 import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { publicEmployeeSelect, publicServiceSelect } from "@/lib/public-data";
 
 function getRequestIp(request: Request) {
   return (
@@ -85,6 +86,9 @@ export async function POST(
     if (Number.isNaN(bookingDate.getTime())) {
       return NextResponse.json({ error: "Data inválida" }, { status: 400 });
     }
+    if (bookingDate.getTime() <= Date.now()) {
+      return NextResponse.json({ error: "Não é possível agendar um horário no passado" }, { status: 400 });
+    }
 
     const booking = await db.$transaction(async (tx) => {
       await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${employeeId}:${bookingDate.toISOString().split("T")[0]}`);
@@ -138,10 +142,21 @@ export async function POST(
           employeeId: employee.id,
           clientId: client.id,
           status: "CONFIRMED",
+          servicePrice: service.price,
+          serviceDuration: service.duration,
+          commissionRate: employee.commissionRate,
         },
-        include: {
-          service: true,
-          employee: true,
+        select: {
+          id: true,
+          date: true,
+          status: true,
+          notes: true,
+          tenantId: true,
+          serviceId: true,
+          employeeId: true,
+          clientId: true,
+          service: { select: publicServiceSelect },
+          employee: { select: publicEmployeeSelect },
         },
       });
     });

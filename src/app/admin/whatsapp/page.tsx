@@ -100,7 +100,7 @@ export default function WhatsappIntegrationPage() {
       setWhatsappEnabled(config.whatsappEnabled);
       setWhatsappProvider(config.whatsappProvider);
       setWhatsappApiUrl(config.whatsappApiUrl || "");
-      setWhatsappToken(config.whatsappToken || "");
+      setWhatsappToken("");
       setWhatsappNumber(config.whatsappNumber || "");
       setWhatsappWabaId(config.whatsappWabaId || "");
 

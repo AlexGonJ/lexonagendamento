@@ -37,6 +37,7 @@ async function assertEmployeeIdsBelongToTenant(employeeIds: string[], tenantId: 
     where: {
       id: { in: employeeIds },
       tenantId,
+      isActive: true,
     },
     select: { id: true },
   });
@@ -75,6 +76,9 @@ export async function createService(formData: FormData) {
   let finalImageUrl = null;
 
   if (imageFile && imageFile.size > 0) {
+    if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
+      throw new Error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
+    }
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -144,6 +148,9 @@ export async function updateService(id: string, formData: FormData) {
   let finalImageUrl = undefined;
 
   if (imageFile && imageFile.size > 0) {
+    if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
+      throw new Error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
+    }
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -197,9 +204,7 @@ export async function deleteService(id: string) {
   await requireAdminSession();
   const tenantId = await getActiveTenantId();
   await assertServiceBelongsToTenant(id, tenantId);
-  await prisma.service.delete({
-    where: { id }
-  });
+  await prisma.service.update({ where: { id }, data: { isActive: false } });
   revalidatePath("/admin/services");
   revalidatePath("/brutusbarbearia/book");
 }

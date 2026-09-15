@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { acquireEmployeeDayLock } from "@/lib/booking-lock";
+
+type MercadoPagoWebhookBody = {
+  data?: { id?: string | number };
+  id?: string | number;
+  type?: string;
+  action?: string;
+};
 
 export async function POST(req: Request) {
   try {
@@ -9,10 +17,13 @@ export async function POST(req: Request) {
     const queryId = url.searchParams.get("id") || url.searchParams.get("data.id");
     const queryTopic = url.searchParams.get("topic") || url.searchParams.get("type");
 
-    let body: any = {};
+    let body: MercadoPagoWebhookBody = {};
     try {
-      body = await req.json();
-    } catch (e) {
+      const parsed: unknown = await req.json();
+      if (parsed && typeof parsed === "object") {
+        body = parsed as MercadoPagoWebhookBody;
+      }
+    } catch {
       // Body might be empty or not JSON
     }
 
@@ -153,33 +164,44 @@ export async function POST(req: Request) {
       }, { status: 200 });
     }
 
-    // 3. Activate the plan and set tenant active
+    // 3. Activate the plan and set tenant active. The advisory lock and unique
+    // event record make webhook retries safe to process exactly once here.
     console.log(`[MERCADO PAGO WEBHOOK] Activating Plan "${matchedPlan.name}" for Tenant "${tenant.name}" (${tenant.id}).`);
 
-    // Cancel any previous active plans
-    await prisma.tenantPlan.updateMany({
-      where: { tenantId: tenant.id, status: "ACTIVE" },
-      data: { status: "CANCELLED", endDate: new Date() },
+    const duplicate = await prisma.$transaction(async (tx) => {
+      await acquireEmployeeDayLock(tx, `mercadopago:${resourceType}:${resourceId}:${status}`);
+      const existingEvent = await tx.paymentWebhookEvent.findUnique({
+        where: {
+          provider_resourceType_resourceId_status: {
+            provider: "mercadopago",
+            resourceType,
+            resourceId: String(resourceId),
+            status,
+          },
+        },
+      });
+      if (existingEvent) return true;
+
+      await tx.paymentWebhookEvent.create({
+        data: { provider: "mercadopago", resourceType, resourceId: String(resourceId), status, tenantId: tenant.id },
+      });
+      await tx.tenantPlan.updateMany({
+        where: { tenantId: tenant.id, status: "ACTIVE" },
+        data: { status: "CANCELLED", endDate: new Date() },
+      });
+      await tx.tenantPlan.create({
+        data: { tenantId: tenant.id, planId: matchedPlan.id, status: "ACTIVE", startDate: new Date() },
+      });
+      await tx.tenant.update({
+        where: { id: tenant.id },
+        data: { isActive: true, features: matchedPlan.features },
+      });
+      return false;
     });
 
-    // Create the new active tenant plan
-    await prisma.tenantPlan.create({
-      data: {
-        tenantId: tenant.id,
-        planId: matchedPlan.id,
-        status: "ACTIVE",
-        startDate: new Date(),
-      },
-    });
-
-    // Mark tenant as active and assign features
-    await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: {
-        isActive: true,
-        features: matchedPlan.features,
-      },
-    });
+    if (duplicate) {
+      return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
+    }
 
     console.log(`[MERCADO PAGO WEBHOOK] Success: Tenant "${tenant.name}" successfully activated on Plan "${matchedPlan.name}"!`);
     return NextResponse.json({ 

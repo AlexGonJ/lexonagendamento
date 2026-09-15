@@ -4,9 +4,21 @@ import prisma from "@/lib/prisma";
 import { getCurrentSession } from "@/actions/auth";
 import { 
   sendWhatsappMessage, 
-  verifyWhatsappConnection 
+  verifyWhatsappConnection,
+  getSafeEvolutionApiUrl,
 } from "@/lib/whatsapp";
 import { revalidatePath } from "next/cache";
+import { timingSafeEqual } from "crypto";
+import { recordAuditEvent } from "@/lib/audit";
+
+function hasValidCronSecret(providedSecret?: string) {
+  const expectedSecret = process.env.CRON_SECRET;
+  if (!expectedSecret || !providedSecret) return false;
+
+  const expected = Buffer.from(expectedSecret);
+  const provided = Buffer.from(providedSecret);
+  return expected.length === provided.length && timingSafeEqual(expected, provided);
+}
 
 // Format date to DD/MM/YYYY in SP timezone
 function formatDateBR(date: Date): string {
@@ -30,7 +42,7 @@ function formatTimeBR(date: Date): string {
 
 export async function getWhatsappSettings() {
   const session = await getCurrentSession();
-  if (!session) {
+  if (!session || !session.isAdmin) {
     throw new Error("Não autorizado.");
   }
 
@@ -40,7 +52,6 @@ export async function getWhatsappSettings() {
       whatsappEnabled: true,
       whatsappProvider: true,
       whatsappApiUrl: true,
-      whatsappToken: true,
       whatsappNumber: true,
       whatsappWabaId: true,
       whatsappConfirmEnabled: true,
@@ -60,7 +71,7 @@ export async function getWhatsappSettings() {
     throw new Error("Estabelecimento não encontrado.");
   }
 
-  return tenant;
+  return { ...tenant, whatsappTokenConfigured: Boolean((await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { whatsappToken: true } }))?.whatsappToken) };
 }
 
 interface UpdateWhatsappSettingsData {
@@ -90,13 +101,20 @@ export async function updateWhatsappSettings(data: UpdateWhatsappSettingsData) {
 
   const tenantId = session.tenantId;
 
+  if (data.whatsappProvider === "evolution") {
+    if (!data.whatsappApiUrl) {
+      throw new Error("Informe a URL da Evolution API.");
+    }
+    await getSafeEvolutionApiUrl(data.whatsappApiUrl);
+  }
+
   await prisma.tenant.update({
     where: { id: tenantId },
     data: {
       whatsappEnabled: data.whatsappEnabled,
       whatsappProvider: data.whatsappProvider,
       whatsappApiUrl: data.whatsappApiUrl || null,
-      whatsappToken: data.whatsappToken || null,
+      ...(data.whatsappToken ? { whatsappToken: data.whatsappToken } : {}),
       whatsappNumber: data.whatsappNumber || null,
       whatsappWabaId: data.whatsappWabaId || null,
       whatsappConfirmEnabled: data.whatsappConfirmEnabled,
@@ -112,13 +130,27 @@ export async function updateWhatsappSettings(data: UpdateWhatsappSettingsData) {
     }
   });
 
+  await recordAuditEvent({
+    tenantId,
+    actorId: session.userId,
+    actorRole: "ADMIN",
+    action: "WHATSAPP_SETTINGS_UPDATED",
+    entityType: "TENANT",
+    entityId: tenantId,
+    metadata: {
+      provider: data.whatsappProvider,
+      enabled: data.whatsappEnabled,
+      tokenChanged: Boolean(data.whatsappToken),
+    },
+  });
+
   revalidatePath("/admin/whatsapp");
   return { success: true };
 }
 
 export async function checkWhatsappConnection() {
   const session = await getCurrentSession();
-  if (!session) {
+  if (!session || !session.isAdmin) {
     throw new Error("Não autorizado.");
   }
 
@@ -148,7 +180,7 @@ export async function checkWhatsappConnection() {
 
 export async function sendTestWhatsappMessage(phone: string, text: string) {
   const session = await getCurrentSession();
-  if (!session) {
+  if (!session || !session.isAdmin) {
     throw new Error("Não autorizado.");
   }
 
@@ -175,7 +207,7 @@ export async function sendTestWhatsappMessage(phone: string, text: string) {
 
 export async function getWhatsappLogs() {
   const session = await getCurrentSession();
-  if (!session) {
+  if (!session || !session.isAdmin) {
     throw new Error("Não autorizado.");
   }
 
@@ -189,14 +221,16 @@ export async function getWhatsappLogs() {
 }
 
 // Job/Automation: Check bookings and send reminders (Hours before)
-export async function runAppointmentRemindersJob(manualTenantId?: string) {
-  // If manualTenantId is passed (e.g. from CRON endpoint or manual execution), use it.
-  // Otherwise, use the session tenant.
+export async function runAppointmentRemindersJob(manualTenantId?: string, cronSecret?: string) {
   let tenantId = manualTenantId;
   
+  if (tenantId && !hasValidCronSecret(cronSecret)) {
+    throw new Error("Não autorizado.");
+  }
+
   if (!tenantId) {
     const session = await getCurrentSession();
-    if (!session) throw new Error("Não autorizado.");
+    if (!session || !session.isAdmin) throw new Error("Não autorizado.");
     tenantId = session.tenantId;
   }
 
@@ -279,12 +313,16 @@ export async function runAppointmentRemindersJob(manualTenantId?: string) {
 }
 
 // Job/Automation: Check clients inactive for X days (e.g. 30 days)
-export async function runInactiveClientRemindersJob(manualTenantId?: string) {
+export async function runInactiveClientRemindersJob(manualTenantId?: string, cronSecret?: string) {
   let tenantId = manualTenantId;
   
+  if (tenantId && !hasValidCronSecret(cronSecret)) {
+    throw new Error("Não autorizado.");
+  }
+
   if (!tenantId) {
     const session = await getCurrentSession();
-    if (!session) throw new Error("Não autorizado.");
+    if (!session || !session.isAdmin) throw new Error("Não autorizado.");
     tenantId = session.tenantId;
   }
 

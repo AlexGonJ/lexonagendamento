@@ -18,63 +18,68 @@ export async function assertRateLimit(
   key: string,
   options: RateLimitOptions
 ): Promise<RateLimitResult> {
-  const now = new Date();
-  const blockMs = options.blockMs ?? options.windowMs;
-  const record = await prisma.rateLimitState.findUnique({ where: { key } });
+  return prisma.$transaction(async (tx) => {
+    // Serializa a atualização por chave para que requisições concorrentes não
+    // ultrapassem o limite entre a leitura e a escrita do contador.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rate-limit:${key}`}))`;
 
-  if (record?.blockedUntil && record.blockedUntil.getTime() > now.getTime()) {
-    return {
-      allowed: false,
-      retryAfterSeconds: secondsFromMs(record.blockedUntil.getTime() - now.getTime()),
-    };
-  }
+    const now = new Date();
+    const blockMs = options.blockMs ?? options.windowMs;
+    const record = await tx.rateLimitState.findUnique({ where: { key } });
 
-  const windowExpired =
-    !record || now.getTime() - record.windowStart.getTime() >= options.windowMs;
+    if (record?.blockedUntil && record.blockedUntil.getTime() > now.getTime()) {
+      return {
+        allowed: false,
+        retryAfterSeconds: secondsFromMs(record.blockedUntil.getTime() - now.getTime()),
+      };
+    }
 
-  if (windowExpired) {
-    await prisma.rateLimitState.upsert({
-      where: { key },
-      create: {
-        key,
-        count: 1,
-        windowStart: now,
-        blockedUntil: null,
-      },
-      update: {
-        count: 1,
-        windowStart: now,
-        blockedUntil: null,
-      },
-    });
+    const windowExpired =
+      !record || now.getTime() - record.windowStart.getTime() >= options.windowMs;
 
-    return { allowed: true, remaining: options.limit - 1 };
-  }
+    if (windowExpired) {
+      await tx.rateLimitState.upsert({
+        where: { key },
+        create: {
+          key,
+          count: 1,
+          windowStart: now,
+          blockedUntil: null,
+        },
+        update: {
+          count: 1,
+          windowStart: now,
+          blockedUntil: null,
+        },
+      });
 
-  const nextCount = record.count + 1;
-  if (nextCount > options.limit) {
-    const blockedUntil = new Date(now.getTime() + blockMs);
-    await prisma.rateLimitState.update({
+      return { allowed: true, remaining: options.limit - 1 };
+    }
+
+    const nextCount = record.count + 1;
+    if (nextCount > options.limit) {
+      const blockedUntil = new Date(now.getTime() + blockMs);
+      await tx.rateLimitState.update({
+        where: { key },
+        data: {
+          blockedUntil,
+        },
+      });
+
+      return {
+        allowed: false,
+        retryAfterSeconds: secondsFromMs(blockMs),
+      };
+    }
+
+    await tx.rateLimitState.update({
       where: { key },
       data: {
-        blockedUntil,
+        count: nextCount,
+        blockedUntil: null,
       },
     });
 
-    return {
-      allowed: false,
-      retryAfterSeconds: secondsFromMs(blockMs),
-    };
-  }
-
-  await prisma.rateLimitState.update({
-    where: { key },
-    data: {
-      count: nextCount,
-      blockedUntil: null,
-    },
+    return { allowed: true, remaining: options.limit - nextCount };
   });
-
-  return { allowed: true, remaining: options.limit - nextCount };
 }
-

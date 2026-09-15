@@ -2,8 +2,20 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getCurrentSession } from "./auth";
+
+async function assertScheduleAccess(employeeId: string, adminOnly = false) {
+  const session = await getCurrentSession();
+  if (!session) throw new Error("Não autenticado.");
+  const employee = await prisma.employee.findFirst({ where: { id: employeeId, tenantId: session.tenantId }, select: { id: true } });
+  if (!employee || (adminOnly && !session.isAdmin) || (!session.isAdmin && session.userId !== employeeId)) {
+    throw new Error("Não autorizado.");
+  }
+  return session;
+}
 
 export async function getEmployeeSchedules(employeeId: string) {
+  await assertScheduleAccess(employeeId);
   return await prisma.employeeSchedule.findMany({
     where: { employeeId },
     orderBy: [
@@ -23,6 +35,11 @@ export async function addScheduleBlock(formData: FormData) {
     throw new Error("Preencha todos os campos corretamente.");
   }
 
+  if (dayOfWeek < 0 || dayOfWeek > 6 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) {
+    throw new Error("Informe dia e horários válidos.");
+  }
+  await assertScheduleAccess(employeeId, true);
+
   if (startTime >= endTime) {
     throw new Error("O horário de fim deve ser posterior ao horário de início.");
   }
@@ -41,9 +58,10 @@ export async function addScheduleBlock(formData: FormData) {
 }
 
 export async function removeScheduleBlock(scheduleId: string, employeeId: string) {
-  await prisma.employeeSchedule.delete({
-    where: { id: scheduleId }
-  });
+  await assertScheduleAccess(employeeId, true);
+  const schedule = await prisma.employeeSchedule.findFirst({ where: { id: scheduleId, employeeId }, select: { id: true } });
+  if (!schedule) throw new Error("Horário não encontrado.");
+  await prisma.employeeSchedule.delete({ where: { id: schedule.id } });
 
   revalidatePath(`/admin/employees/${employeeId}/schedule`);
   revalidatePath("/brutusbarbearia/book");

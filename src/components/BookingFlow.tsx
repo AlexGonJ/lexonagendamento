@@ -9,10 +9,14 @@ import { addDays, format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { sendClientOtp, verifyClientOtp, loginClientOAuth, verifyGoogleIdToken } from '@/actions/auth';
 import TurnstileWidget from './TurnstileWidget';
-import { Service, Employee } from '@prisma/client';
+type PublicEmployee = { id: string; name: string; role: string; avatarUrl: string | null };
+type PublicService = {
+  id: string; name: string; description: string | null; price: number; duration: number;
+  category: string; imageUrl: string | null;
+};
 
-interface ServiceWithEmployees extends Service {
-  employees: Employee[];
+interface ServiceWithEmployees extends PublicService {
+  employees: PublicEmployee[];
 }
 
 interface ClientSession {
@@ -76,13 +80,13 @@ export default function BookingFlow({
   tenantId: string,
   tenantSlug: string, 
   services: ServiceWithEmployees[], 
-  employees: Employee[],
+  employees: PublicEmployee[],
   initialClient?: ClientSession | null
 }) {
   // Estados do Agendamento
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<ServiceWithEmployees | null>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<PublicEmployee | null>(null);
   const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
 
@@ -564,7 +568,7 @@ export default function BookingFlow({
                 {(() => {
                   if (!selectedService) return null;
                   const allowedEmployees = employees.filter(emp =>
-                    selectedService.employees?.some((se: Employee) => se.id === emp.id)
+                    selectedService.employees?.some((se: PublicEmployee) => se.id === emp.id)
                   );
                     
                   if (allowedEmployees.length === 0) {

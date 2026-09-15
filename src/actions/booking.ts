@@ -9,6 +9,7 @@ import { getAvailableSlots } from "@/actions/availability";
 import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { recordAuditEvent } from "@/lib/audit";
 
 interface CreateBookingParams {
   tenantSlug: string;
@@ -81,6 +82,9 @@ export async function createBooking(data: CreateBookingParams) {
     if (Number.isNaN(bookingDate.getTime())) {
       throw new Error("Data ou horário inválidos.");
     }
+    if (bookingDate.getTime() <= Date.now()) {
+      throw new Error("Não é possível agendar um horário no passado.");
+    }
 
     const bookingResult = await prisma.$transaction(async (tx) => {
       await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${data.employeeId}:${data.dateStr}`);
@@ -89,6 +93,7 @@ export async function createBooking(data: CreateBookingParams) {
         where: {
           id: data.serviceId,
           tenantId: tenant.id,
+          isActive: true,
         },
         include: {
           employees: true,
@@ -103,6 +108,7 @@ export async function createBooking(data: CreateBookingParams) {
         where: {
           id: data.employeeId,
           tenantId: tenant.id,
+          isActive: true,
         },
         include: {
           services: true,
@@ -138,6 +144,8 @@ export async function createBooking(data: CreateBookingParams) {
             tenantId: tenant.id,
             clientId: client.id,
             status: "ACTIVE",
+            startDate: { lte: bookingDate },
+            endDate: { gte: bookingDate },
             remainingSlots: { gt: 0 },
           },
           select: { id: true },
@@ -145,6 +153,22 @@ export async function createBooking(data: CreateBookingParams) {
 
         if (!customerSubscription) {
           throw new Error("A assinatura informada está inválida ou sem créditos.");
+        }
+
+        const debit = await tx.customerSubscription.updateMany({
+          where: {
+            id: customerSubscription.id,
+            tenantId: tenant.id,
+            clientId: client.id,
+            status: "ACTIVE",
+            startDate: { lte: bookingDate },
+            endDate: { gte: bookingDate },
+            remainingSlots: { gt: 0 },
+          },
+          data: { remainingSlots: { decrement: 1 } },
+        });
+        if (debit.count !== 1) {
+          throw new Error("A assinatura não possui mais créditos disponíveis.");
         }
       }
 
@@ -157,15 +181,11 @@ export async function createBooking(data: CreateBookingParams) {
           employeeId: employeeRecord.id,
           clientId: client.id,
           customerSubscriptionId: customerSubscription?.id || null,
+          servicePrice: serviceRecord.price,
+          serviceDuration: serviceRecord.duration,
+          commissionRate: employeeRecord.commissionRate,
         },
       });
-
-      if (customerSubscription) {
-        await tx.customerSubscription.update({
-          where: { id: customerSubscription.id },
-          data: { remainingSlots: { decrement: 1 } },
-        });
-      }
 
       return {
         bookingId: newBooking.id,
@@ -458,6 +478,10 @@ export async function updateBookingStatus(bookingId: string, status: string) {
     const session = await getCurrentSession();
     if (!session) throw new Error("Não autenticado");
 
+    if (!['CONFIRMED', 'CANCELLED'].includes(status)) {
+      return { success: false, error: "Status de agendamento inválido." };
+    }
+
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -483,12 +507,20 @@ export async function updateBookingStatus(bookingId: string, status: string) {
 
     // Se estiver mudando para CANCELLED e ainda não estava CANCELLED, devolver créditos e notificar
     if (status === "CANCELLED" && booking.status !== "CANCELLED") {
-      if (booking.customerSubscriptionId) {
-        await prisma.customerSubscription.update({
-          where: { id: booking.customerSubscriptionId },
-          data: { remainingSlots: { increment: 1 } }
-        });
-      }
+      await prisma.$transaction(async (tx) => {
+        if (booking.customerSubscriptionId) {
+          await tx.customerSubscription.update({ where: { id: booking.customerSubscriptionId }, data: { remainingSlots: { increment: 1 } } });
+        }
+        await tx.booking.update({ where: { id: bookingId }, data: { status, cancelledAt: new Date() } });
+      });
+      await recordAuditEvent({
+        tenantId: booking.tenantId,
+        actorId: session.userId,
+        actorRole: session.isAdmin ? "ADMIN" : "EMPLOYEE",
+        action: "BOOKING_CANCELLED",
+        entityType: "BOOKING",
+        entityId: booking.id,
+      });
 
       if (booking.tenant.whatsappEnabled && booking.tenant.whatsappCancelNotifyEnabled && booking.employee.phone) {
         try {
@@ -527,10 +559,18 @@ export async function updateBookingStatus(bookingId: string, status: string) {
       }
     }
 
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status }
-    });
+    if (status !== "CANCELLED") {
+      await prisma.booking.update({ where: { id: bookingId }, data: { status } });
+      await recordAuditEvent({
+        tenantId: booking.tenantId,
+        actorId: session.userId,
+        actorRole: session.isAdmin ? "ADMIN" : "EMPLOYEE",
+        action: "BOOKING_STATUS_UPDATED",
+        entityType: "BOOKING",
+        entityId: booking.id,
+        metadata: { status },
+      });
+    }
     revalidatePath("/admin");
     revalidatePath("/admin/bookings");
     return { success: true };
@@ -564,15 +604,19 @@ export async function deleteBooking(bookingId: string) {
     }
 
     // Devolver crédito de plano se deletar reserva ativa
-    if (booking.customerSubscriptionId && booking.status !== "CANCELLED") {
-      await prisma.customerSubscription.update({
-        where: { id: booking.customerSubscriptionId },
-        data: { remainingSlots: { increment: 1 } }
-      });
-    }
-
-    await prisma.booking.delete({
-      where: { id: bookingId }
+    await prisma.$transaction(async (tx) => {
+      if (booking.customerSubscriptionId && booking.status !== "CANCELLED") {
+        await tx.customerSubscription.update({ where: { id: booking.customerSubscriptionId }, data: { remainingSlots: { increment: 1 } } });
+      }
+      await tx.booking.delete({ where: { id: bookingId } });
+    });
+    await recordAuditEvent({
+      tenantId: booking.tenantId,
+      actorId: session.userId,
+      actorRole: session.isAdmin ? "ADMIN" : "EMPLOYEE",
+      action: "BOOKING_DELETED",
+      entityType: "BOOKING",
+      entityId: booking.id,
     });
     revalidatePath("/admin");
     revalidatePath("/admin/bookings");
@@ -607,6 +651,13 @@ export async function cancelBooking(bookingId: string) {
       return { success: false, error: "Não autorizado. Faça login para cancelar." };
     }
 
+    if (employeeSession && booking.tenantId !== employeeSession.tenantId) {
+      return { success: false, error: "Você não tem permissão para cancelar este agendamento." };
+    }
+    if (employeeSession && !employeeSession.isAdmin && booking.employeeId !== employeeSession.userId) {
+      return { success: false, error: "Você só pode cancelar seus próprios agendamentos." };
+    }
+
     if (clientSession && !employeeSession) {
       if (booking.clientId !== clientSession.clientId) {
         return { success: false, error: "Você não tem permissão para cancelar este agendamento." };
@@ -614,17 +665,22 @@ export async function cancelBooking(bookingId: string) {
     }
 
     // Devolver crédito se estiver ativo
-    if (booking.customerSubscriptionId && booking.status !== "CANCELLED") {
-      await prisma.customerSubscription.update({
-        where: { id: booking.customerSubscriptionId },
-        data: { remainingSlots: { increment: 1 } }
+    if (booking.status !== "CANCELLED") {
+      await prisma.$transaction(async (tx) => {
+        if (booking.customerSubscriptionId) {
+          await tx.customerSubscription.update({ where: { id: booking.customerSubscriptionId }, data: { remainingSlots: { increment: 1 } } });
+        }
+        await tx.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+      });
+      await recordAuditEvent({
+        tenantId: booking.tenantId,
+        actorId: employeeSession?.userId ?? clientSession?.clientId,
+        actorRole: employeeSession ? (employeeSession.isAdmin ? "ADMIN" : "EMPLOYEE") : "CLIENT",
+        action: "BOOKING_CANCELLED",
+        entityType: "BOOKING",
+        entityId: booking.id,
       });
     }
-
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: "CANCELLED" }
-    });
 
     // Notificar profissional
     if (booking.tenant.whatsappEnabled && booking.tenant.whatsappCancelNotifyEnabled && booking.employee.phone) {

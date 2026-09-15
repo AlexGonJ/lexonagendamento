@@ -6,27 +6,31 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("session_token");
   const superAdminCookie = request.cookies.get("super_admin_token");
+  const employeeSession = sessionCookie?.value
+    ? await verifySignedToken(sessionCookie.value, "employee-session")
+    : null;
+  const superAdminSession = superAdminCookie?.value
+    ? await verifySignedToken(superAdminCookie.value, "super-admin")
+    : null;
 
   // ── Redirecionamentos de Segurança (Antigo proxy.ts) ───────────────────
   if (pathname.startsWith("/super-admin") && !pathname.startsWith("/super-admin/login")) {
-    if (!superAdminCookie?.value) {
+    if (superAdminSession !== "allowed") {
       return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
   }
 
-  if (pathname.startsWith("/admin") && !sessionCookie) {
+  if (pathname.startsWith("/admin") && !employeeSession) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  let response = NextResponse.next();
+  const response = NextResponse.next();
 
   // ── Sliding Sessions (Renovação de Tokens) ─────────────────────────────
   
   // Employee sliding session (1 day)
-  if (sessionCookie?.value) {
-    const session = await verifySignedToken(sessionCookie.value, "employee-session");
-    if (session) {
-      const newToken = await createSignedToken("employee-session", session, 60 * 60 * 24);
+  if (employeeSession) {
+      const newToken = await createSignedToken("employee-session", employeeSession, 60 * 60 * 24);
       response.cookies.set({
         name: "session_token",
         value: newToken,
@@ -36,7 +40,6 @@ export async function proxy(request: NextRequest) {
         maxAge: 60 * 60 * 24, // 1 dia
         path: "/",
       });
-    }
   }
 
   // Client sliding session (30 dias)

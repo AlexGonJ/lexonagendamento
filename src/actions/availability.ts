@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 /**
  * Função utilitária para converter "HH:MM" em minutos desde a meia-noite
@@ -23,9 +24,9 @@ export async function getAvailableSlots(
   employeeId: string, 
   dateStr: string, // formato "YYYY-MM-DD"
   serviceDuration: number, // em minutos
-  tx?: any
+  tx?: Prisma.TransactionClient
 ) {
-  const client = (tx || prisma) as typeof prisma;
+  const client = tx || prisma;
 
   // 1. Descobrir o dia da semana da data solicitada
   // No JavaScript, getDay() de uma string UTC pode bugar por fuso horário.
@@ -92,13 +93,8 @@ export async function getAvailableSlots(
       });
 
       // Bônus: Não permitir agendar no passado (se for o dia de hoje)
-      const now = new Date();
-      const isPast = false;
-      if (dateStr === now.toISOString().split('T')[0]) {
-        // Aqui precisaria comparar o currentStart com a hora/minuto atual
-        // Para simplificar o MVP, não bloquearemos rigorosamente fuso horário, 
-        // mas é uma melhoria futura.
-      }
+      const candidate = new Date(`${dateStr}T${minutesToTime(currentStart)}:00.000Z`);
+      const isPast = candidate.getTime() <= Date.now();
 
       if (!hasConflict && !isPast) {
         availableSlots.push(minutesToTime(currentStart));

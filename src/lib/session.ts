@@ -1,9 +1,9 @@
 function getAuthSecret() {
-  return (
-    process.env.AUTH_SESSION_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "dev-session-secret"
-  );
+  const secret = process.env.AUTH_SESSION_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SESSION_SECRET deve ser configurado em produção.");
+  }
+  return secret || "development-only-session-secret";
 }
 
 function base64UrlEncode(buffer: ArrayBuffer | Uint8Array) {

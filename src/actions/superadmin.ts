@@ -1,9 +1,12 @@
 "use server";
-import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { timingSafeEqual } from "crypto";
 import { createSignedToken, verifySignedToken } from "@/lib/session";
+import { hashPassword } from "@/lib/password";
+import { recordAuditEvent } from "@/lib/audit";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 // --- Auth -------------------------------------------------------------------
 
@@ -12,7 +15,23 @@ export async function superAdminLogin(formData: FormData) {
   if (!secret) return { success: false, error: "Informe a senha de acesso." };
   const validSecret = process.env.SUPER_ADMIN_SECRET;
   if (!validSecret) return { success: false, error: "Super admin nao configurado no servidor." };
-  if (secret !== validSecret) return { success: false, error: "Senha incorreta." };
+
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "unknown";
+  const rateLimit = await assertRateLimit(`login:super-admin:${ip}`, {
+    limit: 5,
+    windowMs: 5 * 60 * 1000,
+    blockMs: 30 * 60 * 1000,
+  });
+  if (!rateLimit.allowed) {
+    return { success: false, error: "Muitas tentativas. Aguarde 30 minutos e tente novamente." };
+  }
+
+  const supplied = Buffer.from(secret);
+  const expected = Buffer.from(validSecret);
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+    return { success: false, error: "Senha incorreta." };
+  }
   const cookieStore = await cookies();
   const token = await createSignedToken("super-admin", "allowed", 60 * 60 * 8);
   cookieStore.set(
@@ -144,7 +163,7 @@ export async function createTenantEmployee(
 
     let passwordHash: string | null = null;
     if (password) {
-      passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+      passwordHash = await hashPassword(password);
     }
 
     await prisma.employee.create({
@@ -156,6 +175,14 @@ export async function createTenantEmployee(
         isAdmin,
         tenantId,
       },
+    });
+
+    await recordAuditEvent({
+      tenantId,
+      actorRole: "SUPER_ADMIN",
+      action: "EMPLOYEE_CREATED",
+      entityType: "EMPLOYEE",
+      metadata: { isAdmin },
     });
 
     return { success: true };
@@ -181,6 +208,14 @@ export async function createTenant(formData: FormData) {
     if (planId) {
       await prisma.tenantPlan.create({ data: { tenantId: tenant.id, planId, status: "ACTIVE" } });
     }
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorRole: "SUPER_ADMIN",
+      action: "TENANT_CREATED",
+      entityType: "TENANT",
+      entityId: tenant.id,
+      metadata: { slug: tenant.slug, planAssigned: Boolean(planId) },
+    });
     return { success: true, tenantId: tenant.id };
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
@@ -194,6 +229,14 @@ export async function toggleTenantStatus(id: string, isActive: boolean) {
   try {
     await requireSuperAdminAuth();
     await prisma.tenant.update({ where: { id }, data: { isActive } });
+    await recordAuditEvent({
+      tenantId: id,
+      actorRole: "SUPER_ADMIN",
+      action: "TENANT_STATUS_UPDATED",
+      entityType: "TENANT",
+      entityId: id,
+      metadata: { isActive },
+    });
     return { success: true };
   } catch {
     return { success: false, error: "Erro ao atualizar status." };
@@ -204,6 +247,14 @@ export async function updateTenantFeatures(id: string, features: string[]) {
   try {
     await requireSuperAdminAuth();
     await prisma.tenant.update({ where: { id }, data: { features } });
+    await recordAuditEvent({
+      tenantId: id,
+      actorRole: "SUPER_ADMIN",
+      action: "TENANT_FEATURES_UPDATED",
+      entityType: "TENANT",
+      entityId: id,
+      metadata: { featureCount: features.length },
+    });
     return { success: true };
   } catch {
     return { success: false, error: "Erro ao atualizar features." };
@@ -216,6 +267,13 @@ export async function updateTenantTheme(id: string, themeBgColor: string | null,
     await prisma.tenant.update({
       where: { id },
       data: { themeBgColor, themeButtonColor },
+    });
+    await recordAuditEvent({
+      tenantId: id,
+      actorRole: "SUPER_ADMIN",
+      action: "TENANT_THEME_UPDATED",
+      entityType: "TENANT",
+      entityId: id,
     });
     return { success: true };
   } catch {
@@ -232,6 +290,14 @@ export async function assignPlanToTenant(tenantId: string, planId: string) {
       include: { plan: true },
     });
     await prisma.tenant.update({ where: { id: tenantId }, data: { features: tenantPlan.plan.features } });
+    await recordAuditEvent({
+      tenantId,
+      actorRole: "SUPER_ADMIN",
+      action: "TENANT_PLAN_ASSIGNED",
+      entityType: "TENANT_PLAN",
+      entityId: tenantPlan.id,
+      metadata: { planId },
+    });
     return { success: true };
   } catch {
     return { success: false, error: "Erro ao atribuir plano." };

@@ -5,15 +5,17 @@ import { getCurrentSession } from "@/actions/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import { recordAuditEvent } from "@/lib/audit";
 
 export async function getTenantSettings() {
   const session = await getCurrentSession();
-  if (!session) {
+  if (!session || !session.isAdmin) {
     throw new Error("Não autorizado.");
   }
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: session.tenantId },
+    select: { id: true, name: true, description: true, logoUrl: true, coverUrl: true, themeBgColor: true, themeButtonColor: true },
   });
 
   if (!tenant) {
@@ -21,6 +23,13 @@ export async function getTenantSettings() {
   }
 
   return tenant;
+}
+
+function assertImageUpload(file: File) {
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(file.type) || file.size > 5 * 1024 * 1024) {
+    throw new Error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
+  }
 }
 
 export async function updateTenantSettings(formData: FormData) {
@@ -54,6 +63,7 @@ export async function updateTenantSettings(formData: FormData) {
 
   // Upload de Logo
   if (logoFile && logoFile.size > 0) {
+    assertImageUpload(logoFile);
     const arrayBuffer = await logoFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -81,6 +91,7 @@ export async function updateTenantSettings(formData: FormData) {
 
   // Upload de Capa/Banner
   if (coverFile && coverFile.size > 0) {
+    assertImageUpload(coverFile);
     const arrayBuffer = await coverFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -115,6 +126,18 @@ export async function updateTenantSettings(formData: FormData) {
       logoUrl,
       coverUrl,
     }
+  });
+
+  await recordAuditEvent({
+    tenantId,
+    actorId: session.userId,
+    actorRole: "ADMIN",
+    action: "TENANT_SETTINGS_UPDATED",
+    entityType: "TENANT",
+    entityId: tenantId,
+    metadata: {
+      changed: ["name", "description", ...(logoFile?.size ? ["logo"] : []), ...(coverFile?.size ? ["cover"] : [])],
+    },
   });
 
   // Revalida a página inicial do tenant e os agendamentos

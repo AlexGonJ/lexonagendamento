@@ -5,10 +5,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import crypto from "crypto";
 import { getCurrentSession } from "./auth";
-
-function hashPassword(password: string): string {
-  return crypto.createHash("sha256").update(password).digest("hex");
-}
+import { hashPassword } from "@/lib/password";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -52,6 +49,9 @@ export async function getEmployee(id: string) {
 }
 
 async function uploadAvatar(imageFile: File, tenantId: string): Promise<string> {
+  if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
+    throw new Error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
+  }
   const arrayBuffer = await imageFile.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const ext = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
@@ -116,7 +116,7 @@ export async function createEmployee(formData: FormData) {
       name,
       role,
       email: email || null,
-      passwordHash: password ? hashPassword(password) : null,
+      passwordHash: password ? await hashPassword(password) : null,
       isAdmin,
       avatarUrl: finalAvatarUrl,
       phone: phone || null,
@@ -171,7 +171,7 @@ export async function updateEmployee(id: string, formData: FormData) {
       name,
       role,
       email: email || null,
-      passwordHash: newPassword ? hashPassword(newPassword) : current.passwordHash,
+      passwordHash: newPassword ? await hashPassword(newPassword) : current.passwordHash,
       isAdmin,
       avatarUrl: finalAvatarUrl,
       phone: phone || null,
@@ -188,9 +188,7 @@ export async function deleteEmployee(id: string) {
   await requireAdminSession();
   const tenantId = await getActiveTenantId();
   await assertEmployeeBelongsToTenant(id, tenantId);
-  await prisma.employee.delete({
-    where: { id },
-  });
+  await prisma.employee.update({ where: { id }, data: { isActive: false } });
   revalidatePath("/admin/employees");
   revalidatePath("/brutusbarbearia/book");
 }
