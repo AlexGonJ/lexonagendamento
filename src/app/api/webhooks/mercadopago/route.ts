@@ -130,7 +130,8 @@ export async function POST(req: Request) {
     }
 
     const isSuccess = (resourceType === "payment" && status === "approved") || ((resourceType === "preapproval" || resourceType === "subscription") && (status === "authorized" || status === "active"));
-    const orderStatus = isSuccess ? "PAID" : status === "rejected" ? "REJECTED" : status === "cancelled" ? "CANCELLED" : status === "paused" ? "PAUSED" : "PENDING";
+    const isReversal = resourceType === "payment" && ["refunded", "charged_back"].includes(status);
+    const orderStatus = isSuccess ? "PAID" : isReversal ? "REFUNDED" : status === "rejected" ? "REJECTED" : status === "cancelled" ? "CANCELLED" : status === "paused" ? "PAUSED" : "PENDING";
 
     const duplicate = await prisma.$transaction(async (tx) => {
       await acquireEmployeeDayLock(tx, `mercadopago:${resourceType}:${resourceId}:${status}`);
@@ -155,6 +156,12 @@ export async function POST(req: Request) {
         where: { id: order.id },
         data: { status: orderStatus, providerResourceId: String(resourceId), ...(isSuccess ? { paidAt: new Date() } : {}) },
       });
+      if (isReversal) {
+        const endedAt = new Date();
+        await tx.tenantPlan.updateMany({ where: { tenantId: order.tenantId, planId: order.planId, status: "ACTIVE" }, data: { status: "CANCELLED", endDate: endedAt, cancelledAt: endedAt } });
+        await tx.tenant.update({ where: { id: order.tenantId }, data: { isActive: false } });
+        return false;
+      }
       if (!isSuccess) return false;
       const startedAt = new Date();
       await tx.tenantPlan.updateMany({

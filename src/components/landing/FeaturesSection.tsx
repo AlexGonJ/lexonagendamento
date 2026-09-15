@@ -82,7 +82,7 @@ const features = [
       "Calendário interativo com visões diária e semanal para acompanhar os horários do negócio.",
     points: [
       "Visão diária e semanal interativa",
-      "Sincronização com Google Calendar",
+      "Adição de horários ao Google Calendar",
       "Bloqueio de horários e intervalos automáticos",
     ],
     icon: Calendar,
