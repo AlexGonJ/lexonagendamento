@@ -29,12 +29,14 @@ const plans: Array<{
     hasFreePlatformMonth: true,
     ctaStyle: "secondary",
     features: [
-      { label: "1 profissional", status: "included" },
+      { label: "Até 2 profissionais", status: "included" },
       { label: "Agenda online e página de agendamento", status: "included" },
       { label: "Cadastro de serviços e clientes", status: "included" },
       { label: "Gestão de horários e atendimentos", status: "included" },
-      { label: "Automação por WhatsApp", status: "unavailable" },
-      { label: "Personalização de marca", status: "unavailable" },
+      { label: "Identidade visual e CRM completo", status: "unavailable" },
+      { label: "Financeiro e estoque", status: "unavailable" },
+      { label: "WhatsApp com comunicação manual", status: "unavailable" },
+      { label: "Suporte padrão", status: "included" },
     ],
   },
   {
@@ -42,17 +44,20 @@ const plans: Array<{
     name: "Profissional",
     icon: Crown,
     description: "Para quem quer uma operação mais completa e flexível.",
-    monthlyPrice: 89,
+    monthlyPrice: 119,
     popular: true,
     hasFreePlatformMonth: true,
     ctaStyle: "primary",
     features: [
-      { label: "Até 3 profissionais", status: "included" },
+      { label: "Até 5 profissionais", status: "included" },
       { label: "Tudo do plano Agenda", status: "included" },
       { label: "Identidade visual da página", status: "included" },
-      { label: "CRM e painel financeiro", status: "included" },
-      { label: "Automação por WhatsApp disponível mediante taxa extra", status: "optional" },
-      { label: "Conexão pela API oficial da Meta", status: "unavailable" },
+      { label: "CRM completo", status: "included" },
+      { label: "Financeiro e estoque básicos", status: "included" },
+      { label: "WhatsApp opcional via API oficial (taxa à parte)", status: "optional" },
+      { label: "Confirmações, lembretes e reativação com o add-on", status: "optional" },
+      { label: "Canal sem risco de bloqueio com o add-on ativo", status: "optional" },
+      { label: "Suporte prioritário", status: "included" },
     ],
   },
   {
@@ -60,15 +65,20 @@ const plans: Array<{
     name: "Automação",
     icon: Building2,
     description: "Para operar com automações de WhatsApp desde o início.",
-    monthlyPrice: 169,
+    monthlyPrice: 229,
+    hasFreePlatformMonth: true,
     ctaStyle: "slate",
     features: [
-      { label: "Até 6 profissionais", status: "included" },
+      { label: "Até 8 profissionais", status: "included" },
       { label: "Tudo do plano Profissional", status: "included" },
+      { label: "Financeiro avançado com DRE completo", status: "included" },
+      { label: "Estoque avançado com alertas de reposição", status: "included" },
       { label: "Automação por WhatsApp inclusa", status: "included" },
       { label: "Confirmações, lembretes e reativação", status: "included" },
-      { label: "Opção de conexão com a API oficial da Meta", status: "included" },
-      { label: "Configuração acompanhada", status: "included" },
+      { label: "Conexão pela API oficial da Meta", status: "included" },
+      { label: "Configuração acompanhada (setup assistido)", status: "included" },
+      { label: "Canal sem risco de bloqueio", status: "included" },
+      { label: "Suporte prioritário e dedicado", status: "included" },
     ],
   },
 ];
@@ -103,18 +113,16 @@ export default function PricingSection() {
             <span className="text-gradient-brand">E evolua no seu ritmo.</span>
           </h2>
           <p className="text-lg text-landing-text-muted leading-relaxed">
-            Planos mensais, sem fidelidade e com uma estrutura simples para o
-            momento do seu negócio. A automação é ativada apenas quando você optar por ela.
+            Planos mensais, sem fidelidade e com uma estrutura clara para cada
+            momento do seu negócio. O primeiro mês é grátis em qualquer plano.
           </p>
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-6 lg:gap-5 items-stretch max-w-5xl mx-auto">
           {plans.map((plan, i) => {
             const PlanIcon = plan.icon;
-            const ctaLabel = plan.hasFreePlatformMonth ? "Começar mês grátis" : "Quero automatizar";
-            const whatsappMessage = plan.hasFreePlatformMonth
-              ? `Olá! Quero começar o primeiro mês grátis no plano ${plan.name} da Lexon Agenda.`
-              : `Olá! Quero conhecer o plano ${plan.name} com automação da Lexon Agenda.`;
+            const ctaLabel = "Começar mês grátis";
+            const whatsappMessage = `Olá! Quero começar o primeiro mês grátis no plano ${plan.name} da Lexon Agenda.`;
 
             return (
               <motion.article
@@ -211,7 +219,7 @@ export default function PricingSection() {
         >
           <p className="text-xs text-landing-text-muted leading-relaxed text-center">
             <span className="font-semibold text-slate-300">Sobre a automação por WhatsApp:</span>{" "}
-            no plano Profissional, a automação pode ser adicionada mediante taxa extra, informada durante a negociação, e passa a ser cobrada a partir da ativação. No plano Automação, ela já está inclusa desde o início. A conexão com a API oficial da Meta é uma opção exclusiva desse plano; cobranças de conversas e templates da Meta são contratadas diretamente com a Meta.
+            no plano Agenda, a comunicação é manual. No Profissional, a automação é um add-on opcional via API oficial, com taxa à parte e cobrada somente após a ativação. No plano Automação, ela já está inclusa, com setup assistido e canal oficial sem risco de bloqueio. Eventuais cobranças de conversas e templates da Meta são pagas diretamente à Meta.
           </p>
         </motion.div>
 
@@ -222,7 +230,7 @@ export default function PricingSection() {
           transition={{ delay: 0.5 }}
           className="text-center text-sm text-landing-text-muted mt-8 font-medium"
         >
-          Primeiro mês da plataforma sem custo · Automação cobrada na ativação · Sem fidelidade
+          Primeiro mês grátis em todos os planos · Sem fidelidade · Automação somente via API oficial
         </motion.p>
       </div>
     </section>

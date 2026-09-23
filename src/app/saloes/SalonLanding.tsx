@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -39,10 +40,10 @@ export default function SalonLanding() {
         <div className={styles.heroShade} />
 
         <nav className={styles.nav} aria-label="Navegação principal">
-          <a href="/" className={styles.brand} aria-label="Lexon Agenda, início">
+          <Link href="/" className={styles.brand} aria-label="Lexon Agenda, início">
             <span className={styles.brandMark}>L</span>
             <span>lexon<span className={styles.brandDot}>.</span></span>
-          </a>
+          </Link>
           <a className={styles.navLink} href={whatsappUrl}>
             Falar sobre meu salão <ArrowUpRight size={16} />
           </a>
@@ -190,7 +191,7 @@ export default function SalonLanding() {
             <MessageCircle size={24} strokeWidth={1.5} />
             <span>Para a gestão</span>
             <h3>Conversas que podem entrar no fluxo.</h3>
-            <p>Quando fizer sentido, a automação de WhatsApp pode ser adicionada ao plano para apoiar sua operação.</p>
+            <p>No Profissional, a automação pode ser adicionada via API oficial. No Automação, ela já faz parte da operação.</p>
           </article>
         </div>
       </section>
@@ -206,7 +207,7 @@ export default function SalonLanding() {
           <p className={styles.kicker}>quando você quiser dar o próximo passo</p>
           <h2>O WhatsApp pode trabalhar <em>com</em> o seu salão.</h2>
           <p>
-            A automação é uma escolha para quando a sua rotina pedir esse apoio. Ela é contratada à parte e sua taxa é combinada na negociação — com clareza antes de qualquer ativação.
+            No plano Profissional, a automação via API oficial é um add-on com taxa à parte, cobrada só após a ativação. No Automação, ela já vem inclusa, com setup assistido e canal oficial.
           </p>
           <a href={whatsappUrl} className={styles.outlineButton}>
             Entender a automação para meu salão <ArrowUpRight size={18} />
@@ -246,12 +247,12 @@ export default function SalonLanding() {
             <p className={styles.planDescription}>Para começar com uma agenda online simples e profissional.</p>
             <p className={styles.price}><span>R$ 59</span><small>/mês</small></p>
             <p className={styles.freeMonth}>Primeiro mês da plataforma grátis</p>
-            <a href="/whatsapp?source=saloes&intent=plan_interest&plan=agenda&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Agenda%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></a>
+            <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=agenda&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Agenda%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
-              <li><Check size={15} /> 1 profissional</li>
+              <li><Check size={15} /> Até 2 profissionais</li>
               <li><Check size={15} /> Agenda e página de agendamento</li>
-              <li><Check size={15} /> Serviços e clientes organizados</li>
-              <li className={styles.mutedFeature}>Automação por WhatsApp não incluída</li>
+              <li><Check size={15} /> Serviços, clientes e horários organizados</li>
+              <li><Check size={15} /> Suporte padrão</li>
             </ul>
           </motion.article>
 
@@ -267,14 +268,15 @@ export default function SalonLanding() {
             <div className={styles.planIcon}><Crown size={19} /></div>
             <p className={styles.planName}>Profissional</p>
             <p className={styles.planDescription}>Para uma operação mais completa, com espaço para crescer.</p>
-            <p className={styles.price}><span>R$ 89</span><small>/mês</small></p>
+            <p className={styles.price}><span>R$ 119</span><small>/mês</small></p>
             <p className={styles.freeMonth}>Primeiro mês da plataforma grátis</p>
-            <a href="/whatsapp?source=saloes&intent=plan_interest&plan=profissional&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Profissional%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></a>
+            <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=profissional&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Profissional%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
-              <li><Check size={15} /> Até 3 profissionais</li>
-              <li><Check size={15} /> Identidade visual do salão</li>
-              <li><Check size={15} /> CRM e painel financeiro</li>
-              <li><Check size={15} /> Automação disponível com taxa extra</li>
+              <li><Check size={15} /> Até 5 profissionais</li>
+              <li><Check size={15} /> Identidade visual e CRM completo</li>
+              <li><Check size={15} /> Financeiro e estoque básicos</li>
+              <li><Check size={15} /> WhatsApp opcional via API oficial</li>
+              <li><Check size={15} /> Suporte prioritário</li>
             </ul>
           </motion.article>
 
@@ -290,18 +292,19 @@ export default function SalonLanding() {
             <div className={styles.planIcon}><Building2 size={19} /></div>
             <p className={styles.planName}>Automação</p>
             <p className={styles.planDescription}>Para quem quer colocar o WhatsApp dentro da operação.</p>
-            <p className={styles.price}><span>R$ 169</span><small>/mês</small></p>
-            <p className={styles.planSpacer} aria-hidden="true" />
-            <a href="/whatsapp?source=saloes&intent=plan_interest&plan=automacao&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Automa%C3%A7%C3%A3o%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero falar sobre este plano <ArrowUpRight size={16} /></a>
+            <p className={styles.price}><span>R$ 229</span><small>/mês</small></p>
+            <p className={styles.freeMonth}>Primeiro mês da plataforma grátis</p>
+            <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=automacao&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Automa%C3%A7%C3%A3o%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
-              <li><Check size={15} /> Até 6 profissionais</li>
-              <li><Check size={15} /> Automação por WhatsApp inclusa</li>
-              <li><Check size={15} /> Confirmações, lembretes e reativação</li>
-              <li className={styles.metaFeature}><Check size={15} /> Opção de conexão pela API oficial da Meta</li>
+              <li><Check size={15} /> Até 8 profissionais</li>
+              <li><Check size={15} /> Financeiro com DRE e estoque avançado</li>
+              <li><Check size={15} /> Automação, confirmações e reativação</li>
+              <li><Check size={15} /> Setup assistido e suporte dedicado</li>
+              <li className={styles.metaFeature}><Check size={15} /> Canal oficial sem risco de bloqueio</li>
             </ul>
           </motion.article>
         </div>
-        <p className={styles.pricingNote}>A automação é um serviço contratado à parte quando você optar por ativá-la. No plano Automação, ela já faz parte da mensalidade. As cobranças de conversas e templates da Meta são contratadas diretamente com a Meta.</p>
+        <p className={styles.pricingNote}>Primeiro mês grátis nos três planos. No Profissional, a automação via API oficial é um add-on opcional, com taxa à parte e cobrada após a ativação. No Automação, ela já está inclusa, com setup assistido e canal oficial sem risco de bloqueio. Conversas e templates são cobrados diretamente pela Meta.</p>
       </section>
 
       <section className={styles.finalCta}>
@@ -314,7 +317,7 @@ export default function SalonLanding() {
       </section>
 
       <footer className={styles.footer}>
-        <a href="/" className={styles.brand}><span className={styles.brandMark}>L</span><span>lexon<span className={styles.brandDot}>.</span></span></a>
+        <Link href="/" className={styles.brand}><span className={styles.brandMark}>L</span><span>lexon<span className={styles.brandDot}>.</span></span></Link>
         <span>Agenda pensada para negócios de beleza.</span>
         <span>© {new Date().getFullYear()} Lexon Agenda</span>
       </footer>

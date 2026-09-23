@@ -33,8 +33,8 @@ export default function CTASection() {
 
             <p className="text-lg text-slate-300 max-w-xl mx-auto leading-relaxed">
               Conheça a Lexon Agenda no lançamento e teste a plataforma por um
-              mês antes de decidir o próximo passo. Caso opte pela automação,
-              ela é contratada a partir da ativação.
+              mês antes de decidir o próximo passo. No plano Profissional, o
+              add-on de WhatsApp só é cobrado quando for ativado.
             </p>
 
             {/* CTA */}
@@ -52,7 +52,7 @@ export default function CTASection() {
             <div className="flex flex-wrap items-center justify-center gap-6 pt-4">
               {[
                 { icon: Shield, text: "Sem fidelidade" },
-                { icon: Zap, text: "Automação cobrada na ativação" },
+                { icon: Zap, text: "Automação somente via API oficial" },
               ].map((item) => (
                 <div
                   key={item.text}

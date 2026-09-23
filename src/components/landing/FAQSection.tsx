@@ -18,7 +18,7 @@ const faqs = [
   {
     question: "Como funciona a integração com WhatsApp?",
     answer:
-      "O plano Agenda não inclui automação. No Profissional, você pode ativá-la mediante uma taxa extra, informada durante a negociação, que passa a ser cobrada na ativação. No plano Automação, ela já está inclusa e você também pode escolher a conexão com a API oficial da Meta. Nesse caso, os custos de conversas e templates são pagos diretamente à Meta.",
+      "No plano Agenda, a comunicação é manual. No Profissional, você pode contratar a automação como add-on via API oficial da Meta, com taxa à parte cobrada somente após a ativação. No plano Automação, ela já está inclusa, com configuração acompanhada e canal oficial sem risco de bloqueio. Os custos de conversas e templates são pagos diretamente à Meta.",
   },
   {
     question: "Posso cancelar a qualquer momento?",
@@ -28,7 +28,7 @@ const faqs = [
   {
     question: "Existe um período de teste?",
     answer:
-      "Durante o lançamento, o primeiro mês da plataforma é grátis nos planos Agenda e Profissional. A automação por WhatsApp é contratada à parte e, caso você opte por ativá-la, começa a ser cobrada desde a ativação.",
+      "Durante o lançamento, o primeiro mês da plataforma é grátis nos três planos: Agenda, Profissional e Automação. No Profissional, o add-on de WhatsApp só começa a ser cobrado quando for ativado.",
   },
   {
     question: "Como funciona a página personalizada do meu negócio?",
