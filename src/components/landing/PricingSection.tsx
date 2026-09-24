@@ -34,8 +34,8 @@ const plans: Array<{
       { label: "Cadastro de serviços e clientes", status: "included" },
       { label: "Gestão de horários e atendimentos", status: "included" },
       { label: "Identidade visual e CRM completo", status: "unavailable" },
-      { label: "Financeiro e estoque", status: "unavailable" },
-      { label: "WhatsApp com comunicação manual", status: "unavailable" },
+      { label: "Financeiro e estoque não incluídos", status: "unavailable" },
+      { label: "WhatsApp com comunicação manual", status: "included" },
       { label: "Suporte padrão", status: "included" },
     ],
   },
@@ -53,10 +53,10 @@ const plans: Array<{
       { label: "Tudo do plano Agenda", status: "included" },
       { label: "Identidade visual da página", status: "included" },
       { label: "CRM completo", status: "included" },
-      { label: "Financeiro e estoque básicos", status: "included" },
+      { label: "Financeiro básico", status: "included" },
+      { label: "Estoque: produtos, entradas, saídas e ajustes", status: "included" },
       { label: "WhatsApp opcional via API oficial (taxa à parte)", status: "optional" },
       { label: "Confirmações, lembretes e reativação com o add-on", status: "optional" },
-      { label: "Canal sem risco de bloqueio com o add-on ativo", status: "optional" },
       { label: "Suporte prioritário", status: "included" },
     ],
   },
@@ -73,11 +73,10 @@ const plans: Array<{
       { label: "Tudo do plano Profissional", status: "included" },
       { label: "Financeiro avançado com DRE completo", status: "included" },
       { label: "Estoque avançado com alertas de reposição", status: "included" },
-      { label: "Automação por WhatsApp inclusa", status: "included" },
+      { label: "Automação por WhatsApp via API oficial inclusa", status: "included" },
       { label: "Confirmações, lembretes e reativação", status: "included" },
       { label: "Conexão pela API oficial da Meta", status: "included" },
       { label: "Configuração acompanhada (setup assistido)", status: "included" },
-      { label: "Canal sem risco de bloqueio", status: "included" },
       { label: "Suporte prioritário e dedicado", status: "included" },
     ],
   },
@@ -219,7 +218,7 @@ export default function PricingSection() {
         >
           <p className="text-xs text-landing-text-muted leading-relaxed text-center">
             <span className="font-semibold text-slate-300">Sobre a automação por WhatsApp:</span>{" "}
-            no plano Agenda, a comunicação é manual. No Profissional, a automação é um add-on opcional via API oficial, com taxa à parte e cobrada somente após a ativação. No plano Automação, ela já está inclusa, com setup assistido e canal oficial sem risco de bloqueio. Eventuais cobranças de conversas e templates da Meta são pagas diretamente à Meta.
+            no plano Agenda, a comunicação é manual e o estoque não está incluído. O Profissional inclui controle básico de produtos, entradas, saídas e ajustes; a automação via API oficial é um add-on opcional, cobrado após a ativação. O plano Automação inclui alertas de reposição e automação oficial com setup assistido. Conversas e templates da Meta são cobrados diretamente pela Meta.
           </p>
         </motion.div>
 

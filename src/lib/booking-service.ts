@@ -3,7 +3,7 @@ import { getAvailableSlots } from "@/actions/availability";
 import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 import { debitSubscriptionCredit } from "@/lib/credit-ledger";
 import { enqueueWhatsappMessage } from "@/lib/whatsapp-outbox";
-import { scheduleDateTime, type BookingTimeMode } from "@/lib/schedule-time";
+import { scheduleDateTime, scheduleInstant, type BookingTimeMode } from "@/lib/schedule-time";
 import { assertMonthlyBookingCapacity } from "@/lib/plan-limits";
 
 export type BookingRequest = { tenantSlug: string; serviceId: string; employeeId: string; dateStr: string; timeStr: string; clientId: string; customerSubscriptionId?: string; notes?: string };
@@ -13,11 +13,12 @@ export async function createBookingForClient(input: BookingRequest) {
   const tenant = await prisma.tenant.findUnique({ where: { slug: input.tenantSlug } });
   if (!tenant?.isActive) throw new Error("Este estabelecimento está indisponível no momento.");
   const bookingDate = scheduleDateTime(input.dateStr, input.timeStr, tenant.timezone, tenant.bookingTimeMode as BookingTimeMode);
-  if (Number.isNaN(bookingDate.getTime()) || bookingDate.getTime() <= Date.now()) throw new Error("Data ou horário inválidos.");
+  const bookingInstant = scheduleInstant(bookingDate, tenant.timezone, tenant.bookingTimeMode as BookingTimeMode);
+  if (Number.isNaN(bookingInstant.getTime()) || bookingInstant.getTime() <= Date.now()) throw new Error("Data ou horário inválidos.");
 
   return prisma.$transaction(async (tx) => {
     await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${input.employeeId}:${input.dateStr}`);
-    await assertMonthlyBookingCapacity(tx, tenant.id, bookingDate);
+    await assertMonthlyBookingCapacity(tx, tenant.id, bookingDate, tenant.timezone, tenant.bookingTimeMode as BookingTimeMode);
     const [service, employee, client] = await Promise.all([
       tx.service.findFirst({ where: { id: input.serviceId, tenantId: tenant.id, isActive: true } }),
       tx.employee.findFirst({ where: { id: input.employeeId, tenantId: tenant.id, isActive: true }, include: { services: { select: { id: true } } } }),

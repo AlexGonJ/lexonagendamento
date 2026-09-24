@@ -12,7 +12,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { refundSubscriptionCredit } from "@/lib/credit-ledger";
 import { enqueueWhatsappMessage } from "@/lib/whatsapp-outbox";
 import { createBookingForClient } from "@/lib/booking-service";
-import { scheduleDateTime, type BookingTimeMode } from "@/lib/schedule-time";
+import { addScheduleCalendarDays, calendarDateString, formatScheduleDate, formatScheduleTime, scheduleDateTime, scheduleDayBounds, scheduleInstant, scheduleMonthBounds, scheduleParts, type BookingTimeMode } from "@/lib/schedule-time";
 
 interface CreateBookingParams {
   tenantSlug: string;
@@ -33,14 +33,6 @@ const bookingTransitions: Record<string, string[]> = {
 
 function hasReceptionDeskAccess(session: { isAdmin: boolean; accessRole?: string }) {
   return session.isAdmin || session.accessRole === "RECEPTION";
-}
-
-function formatDateBR(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
-}
-
-function formatTimeBR(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }
 
 export async function createBooking(data: CreateBookingParams) {
@@ -121,6 +113,10 @@ export async function getDashboardStats(view: string = "daily") {
   const session = await getCurrentSession();
   if (!session) throw new Error("Não autenticado");
   const tenantId = session.tenantId;
+  const tenantSchedule = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenantSchedule) throw new Error("Estabelecimento não encontrado.");
+  const timeZone = tenantSchedule.timezone;
+  const bookingTimeMode = tenantSchedule.bookingTimeMode as BookingTimeMode;
 
   // Obter taxa de comissão se for colaborador
   let commissionRate = 50.0;
@@ -131,41 +127,31 @@ export async function getDashboardStats(view: string = "daily") {
     commissionRate = employee?.commissionRate ?? 50.0;
   }
 
-  // 1. Obter datas fundamentais no fuso de SP
+  // 1. Obter datas fundamentais no fuso configurado no estabelecimento
   const now = new Date();
-  const dateInBr = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(now);
-  const [day, month, year] = dateInBr.split('/');
-  
-  const todayMidday = new Date(`${year}-${month}-${day}T12:00:00.000Z`);
-  const dateStr = `${year}-${month}-${day}`;
-
-  const startOfToday = new Date(`${dateStr}T00:00:00.000Z`);
-  const endOfToday = new Date(`${dateStr}T23:59:59.999Z`);
+  const dateStr = calendarDateString(now, timeZone);
+  const todayBounds = scheduleDayBounds(dateStr, timeZone, bookingTimeMode);
+  const { year, month } = scheduleParts(now, timeZone, "IANA_UTC");
 
   // Configurar intervalos com base no filtro selecionado (daily, weekly, monthly)
-  let rangeStart = startOfToday;
-  let rangeEnd = endOfToday;
+  let rangeStart = todayBounds.start;
+  let rangeEnd = todayBounds.end;
+  let createdAtRange = scheduleDayBounds(dateStr, timeZone, "IANA_UTC");
 
   if (view === "weekly") {
-    const currentDayOfWeek = todayMidday.getUTCDay();
+    const currentDayOfWeek = new Date(`${dateStr}T12:00:00.000Z`).getUTCDay();
     const dayOffsetToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-    const monday = new Date(todayMidday);
-    monday.setUTCDate(todayMidday.getUTCDate() + dayOffsetToMonday);
-    
-    rangeStart = new Date(`${monday.toISOString().split('T')[0]}T00:00:00.000Z`);
-    
-    const sunday = new Date(monday);
-    sunday.setUTCDate(monday.getUTCDate() + 6);
-    rangeEnd = new Date(`${sunday.toISOString().split('T')[0]}T23:59:59.999Z`);
+    const monday = addScheduleCalendarDays(dateStr, dayOffsetToMonday);
+    const sunday = addScheduleCalendarDays(monday, 6);
+    rangeStart = scheduleDayBounds(monday, timeZone, bookingTimeMode).start;
+    rangeEnd = scheduleDayBounds(sunday, timeZone, bookingTimeMode).end;
+    createdAtRange = { start: scheduleDayBounds(monday, timeZone, "IANA_UTC").start, end: scheduleDayBounds(sunday, timeZone, "IANA_UTC").end };
   } else if (view === "monthly") {
-    rangeStart = new Date(`${year}-${month}-01T00:00:00.000Z`);
-    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-    rangeEnd = new Date(`${year}-${month}-${lastDay.toString().padStart(2, '0')}T23:59:59.999Z`);
+    const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
+    const monthSample = scheduleDateTime(firstDay, "12:00", timeZone, bookingTimeMode);
+    ({ start: rangeStart, end: rangeEnd } = scheduleMonthBounds(monthSample, timeZone, bookingTimeMode));
+    const actualMonthSample = scheduleDateTime(firstDay, "12:00", timeZone, "IANA_UTC");
+    createdAtRange = scheduleMonthBounds(actualMonthSample, timeZone, "IANA_UTC");
   }
 
   // 2. Buscar agendamentos do intervalo selecionado
@@ -193,8 +179,8 @@ export async function getDashboardStats(view: string = "daily") {
   // Novos clientes no intervalo (removida a restrição de data do agendamento para contar corretamente clientes que agendam em outras datas)
   const clientRangeWhereClause: Prisma.ClientWhereInput = {
     createdAt: {
-      gte: rangeStart,
-      lte: rangeEnd
+      gte: createdAtRange.start,
+      lte: createdAtRange.end
     },
     bookings: {
       some: {
@@ -211,10 +197,7 @@ export async function getDashboardStats(view: string = "daily") {
   const todayWhereClause: Prisma.BookingWhereInput = {
     tenantId,
     status: { in: ["CONFIRMED", "COMPLETED"] },
-    date: {
-      gte: startOfToday,
-      lte: endOfToday
-    },
+    date: { gte: todayBounds.start, lte: todayBounds.end },
     ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} )
   };
   const todayBookings = await prisma.booking.findMany({
@@ -228,10 +211,7 @@ export async function getDashboardStats(view: string = "daily") {
   // 4. Próximos horários hoje (todos os ativos hoje)
   const upcomingWhereClause: Prisma.BookingWhereInput = {
     tenantId,
-    date: {
-      gte: startOfToday,
-      lte: endOfToday
-    },
+    date: { gte: todayBounds.start, lte: todayBounds.end },
     ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} )
   };
   const todayAllBookings = await prisma.booking.findMany({
@@ -252,18 +232,13 @@ export async function getDashboardStats(view: string = "daily") {
   const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(todayMidday);
-    d.setUTCDate(1); // Ajusta o dia para 1 primeiro para evitar problemas de virada de mês com durações diferentes (ex: Fev 29)
-    d.setUTCMonth(d.getUTCMonth() - i);
-
+    const d = new Date(Date.UTC(year, month - 1 - i, 1, 12));
     const y = d.getUTCFullYear();
     const m = d.getUTCMonth() + 1;
-    const mStr = m.toString().padStart(2, '0');
+    const mStr = m.toString().padStart(2, "0");
     const label = `${monthNames[d.getUTCMonth()]}/${y.toString().slice(-2)}`;
-
-    const startM = new Date(`${y}-${mStr}-01T00:00:00.000Z`);
-    const lastDayM = new Date(y, m, 0).getDate();
-    const endM = new Date(`${y}-${mStr}-${lastDayM.toString().padStart(2, '0')}T23:59:59.999Z`);
+    const monthSample = scheduleDateTime(`${y}-${mStr}-01`, "12:00", timeZone, bookingTimeMode);
+    const { start: startM, end: endM } = scheduleMonthBounds(monthSample, timeZone, bookingTimeMode);
 
     const monthBookings = await prisma.booking.findMany({
       where: {
@@ -303,7 +278,9 @@ export async function getDashboardStats(view: string = "daily") {
     chartData,
     percentageChange,
     thisMonthRevenue,
-    lastMonthRevenue
+    lastMonthRevenue,
+    timeZone,
+    bookingTimeMode,
   };
 }
 
@@ -311,17 +288,16 @@ export async function getBookings(filters?: { status?: string; date?: string; se
   const session = await getCurrentSession();
   if (!session) throw new Error("Não autenticado");
   const tenantId = session.tenantId;
+  const tenantSchedule = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenantSchedule) throw new Error("Estabelecimento não encontrado.");
+  const bookingTimeMode = tenantSchedule.bookingTimeMode as BookingTimeMode;
+  const filterBounds = filters?.date ? scheduleDayBounds(filters.date, tenantSchedule.timezone, bookingTimeMode) : null;
 
   const whereClause: Prisma.BookingWhereInput = {
     tenantId,
     ...( !hasReceptionDeskAccess(session) ? { employeeId: session.userId } : {} ),
     ...( (filters?.status && filters.status !== 'ALL') ? { status: filters.status } : {} ),
-    ...( filters?.date ? {
-      date: {
-        gte: new Date(`${filters.date}T00:00:00.000Z`),
-        lte: new Date(`${filters.date}T23:59:59.999Z`)
-      }
-    } : {} ),
+    ...( filterBounds ? { date: { gte: filterBounds.start, lte: filterBounds.end } } : {} ),
     ...( filters?.search ? {
       client: {
         OR: [
@@ -332,7 +308,7 @@ export async function getBookings(filters?: { status?: string; date?: string; se
     } : {} )
   };
 
-  return await prisma.booking.findMany({
+  const bookings = await prisma.booking.findMany({
     where: whereClause,
     include: {
       client: true,
@@ -343,6 +319,7 @@ export async function getBookings(filters?: { status?: string; date?: string; se
       date: 'desc'
     }
   });
+  return { bookings, timeZone: tenantSchedule.timezone, bookingTimeMode };
 }
 
 export async function updateBookingStatus(bookingId: string, status: string) {
@@ -398,8 +375,8 @@ export async function updateBookingStatus(bookingId: string, status: string) {
               clientName: booking.client.name,
               serviceName: booking.service.name,
               employeeName: booking.employee.name,
-              dateStr: formatDateBR(booking.date),
-              timeStr: formatTimeBR(booking.date),
+              dateStr: formatScheduleDate(booking.date, booking.tenant.timezone, booking.tenant.bookingTimeMode as BookingTimeMode),
+              timeStr: formatScheduleTime(booking.date, booking.tenant.timezone, booking.tenant.bookingTimeMode as BookingTimeMode),
             },
           });
         }
@@ -453,19 +430,21 @@ export async function rescheduleBooking(bookingId: string, dateStr: string, time
     const tenantSchedule = await prisma.tenant.findUnique({ where: { id: booking.tenantId }, select: { timezone: true, bookingTimeMode: true, cancellationLeadMinutes: true } });
     if (!tenantSchedule) return { success: false, error: "Estabelecimento não encontrado." };
     const newDate = scheduleDateTime(dateStr, timeStr, tenantSchedule.timezone, tenantSchedule.bookingTimeMode as BookingTimeMode);
-    if (Number.isNaN(newDate.getTime()) || newDate.getTime() <= Date.now()) return { success: false, error: "Informe um horário futuro válido." };
+    const newBookingInstant = scheduleInstant(newDate, tenantSchedule.timezone, tenantSchedule.bookingTimeMode as BookingTimeMode);
+    if (Number.isNaN(newBookingInstant.getTime()) || newBookingInstant.getTime() <= Date.now()) return { success: false, error: "Informe um horário futuro válido." };
     if (!hasReceptionDeskAccess(session) && booking.employeeId !== session.userId) {
       return { success: false, error: "Você só pode reagendar seus próprios atendimentos." };
     }
     if (!["PENDING", "CONFIRMED"].includes(booking.status)) {
       return { success: false, error: "Este atendimento não pode ser reagendado." };
     }
-    if (booking.date.getTime() - Date.now() < tenantSchedule.cancellationLeadMinutes * 60_000) {
+    const currentBookingInstant = scheduleInstant(booking.date, tenantSchedule.timezone, tenantSchedule.bookingTimeMode as BookingTimeMode);
+    if (currentBookingInstant.getTime() - Date.now() < tenantSchedule.cancellationLeadMinutes * 60_000) {
       return { success: false, error: "O prazo para cancelamento deste atendimento já expirou." };
     }
 
-    const currentDate = booking.date.toISOString();
-    if (currentDate === newDate.toISOString()) {
+    const currentDate = currentBookingInstant.toISOString();
+    if (currentDate === newBookingInstant.toISOString()) {
       return { success: true };
     }
 
@@ -493,7 +472,7 @@ export async function rescheduleBooking(bookingId: string, dateStr: string, time
       action: "BOOKING_RESCHEDULED",
       entityType: "BOOKING",
       entityId: booking.id,
-      metadata: { from: booking.date.toISOString(), to: newDate.toISOString() },
+      metadata: { from: currentBookingInstant.toISOString(), to: newBookingInstant.toISOString() },
     });
     revalidatePath("/admin");
     revalidatePath("/admin/bookings");
@@ -591,7 +570,8 @@ export async function cancelBooking(bookingId: string) {
     if (!["PENDING", "CONFIRMED"].includes(booking.status)) {
       return { success: false, error: "Este atendimento não pode mais ser cancelado." };
     }
-    if (booking.date.getTime() - Date.now() < booking.tenant.cancellationLeadMinutes * 60_000) {
+    const bookingInstant = scheduleInstant(booking.date, booking.tenant.timezone, booking.tenant.bookingTimeMode as BookingTimeMode);
+    if (bookingInstant.getTime() - Date.now() < booking.tenant.cancellationLeadMinutes * 60_000) {
       return { success: false, error: "O prazo para cancelamento deste atendimento já expirou." };
     }
 
@@ -612,8 +592,8 @@ export async function cancelBooking(bookingId: string) {
               clientName: booking.client.name,
               serviceName: booking.service.name,
               employeeName: booking.employee.name,
-              dateStr: formatDateBR(booking.date),
-              timeStr: formatTimeBR(booking.date),
+              dateStr: formatScheduleDate(booking.date, booking.tenant.timezone, booking.tenant.bookingTimeMode as BookingTimeMode),
+              timeStr: formatScheduleTime(booking.date, booking.tenant.timezone, booking.tenant.bookingTimeMode as BookingTimeMode),
             },
           });
         }

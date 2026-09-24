@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { scheduleClock, scheduleDateTime, scheduleDayBounds, type BookingTimeMode } from "@/lib/schedule-time";
+import { scheduleClock, scheduleDateTime, scheduleDayBounds, scheduleInstant, type BookingTimeMode } from "@/lib/schedule-time";
 
 function timeToMinutes(value: string) { const [hour, minute] = value.split(":").map(Number); return hour * 60 + minute; }
 function minutesToTime(value: number) { return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`; }
@@ -31,7 +31,9 @@ export async function getAvailableSlots(employeeId: string, dateStr: string, ser
   const slots: string[] = [];
   for (const schedule of schedules) for (let start = timeToMinutes(schedule.startTime); start + serviceDuration <= timeToMinutes(schedule.endTime); start += 15) {
     const end = start + serviceDuration;
-    if (![...occupied, ...blocked].some((block) => start < block.end && end > block.start) && scheduleDateTime(dateStr, minutesToTime(start), tenant.timezone, mode).getTime() > Date.now() + tenant.minimumLeadMinutes * 60_000) slots.push(minutesToTime(start));
+    const slotStoredDate = scheduleDateTime(dateStr, minutesToTime(start), tenant.timezone, mode);
+    const slotInstant = scheduleInstant(slotStoredDate, tenant.timezone, mode);
+    if (![...occupied, ...blocked].some((block) => start < block.end && end > block.start) && slotInstant.getTime() > Date.now() + tenant.minimumLeadMinutes * 60_000) slots.push(minutesToTime(start));
   }
   return Array.from(new Set(slots)).sort();
 }

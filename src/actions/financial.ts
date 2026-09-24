@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentSession } from "./auth";
 import { revalidatePath } from "next/cache";
 import { recordAuditEvent } from "@/lib/audit";
+import { calendarDateString, scheduleDayBounds, scheduleMonthBounds, type BookingTimeMode } from "@/lib/schedule-time";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -16,8 +17,14 @@ function toCents(amount: number) {
   return Math.round(amount * 100);
 }
 
-function businessDate(date = new Date()) {
-  return new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date)}T12:00:00.000Z`);
+async function getTenantSchedule(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenant) throw new Error("Estabelecimento não encontrado.");
+  return { timeZone: tenant.timezone, bookingTimeMode: tenant.bookingTimeMode as BookingTimeMode };
+}
+
+function businessDate(date: Date, timeZone: string) {
+  return new Date(`${calendarDateString(date, timeZone)}T12:00:00.000Z`);
 }
 
 export interface EmployeeFinancialSummary {
@@ -33,10 +40,13 @@ export interface EmployeeFinancialSummary {
 
 export async function getFinancialSummary(month: number, year: number) {
   const tenantId = await getActiveTenantId();
+  const { timeZone, bookingTimeMode } = await getTenantSchedule(tenantId);
 
-  // 1. Definir o início e fim do mês correspondente
-  const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
-  const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+  // Agendamentos seguem a compatibilidade do modo de armazenamento; os demais
+  // eventos financeiros são instantes reais e usam os limites do calendário local.
+  const monthAnchor = new Date(Date.UTC(year, month - 1, 1, 12));
+  const bookingBounds = scheduleMonthBounds(monthAnchor, timeZone, bookingTimeMode);
+  const financialBounds = scheduleMonthBounds(monthAnchor, timeZone, "IANA_UTC");
 
   // 2. Buscar agendamentos confirmados ou concluídos no mês
   const bookings = await prisma.booking.findMany({
@@ -44,8 +54,8 @@ export async function getFinancialSummary(month: number, year: number) {
       tenantId,
       status: { in: ["CONFIRMED", "COMPLETED"] },
       date: {
-        gte: startDate,
-        lte: endDate,
+        gte: bookingBounds.start,
+        lte: bookingBounds.end,
       },
     },
     include: {
@@ -59,8 +69,8 @@ export async function getFinancialSummary(month: number, year: number) {
     where: {
       tenantId,
       startDate: {
-        gte: startDate,
-        lte: endDate,
+        gte: financialBounds.start,
+        lte: financialBounds.end,
       },
     },
     include: {
@@ -73,14 +83,14 @@ export async function getFinancialSummary(month: number, year: number) {
     where: {
       tenantId,
       date: {
-        gte: startDate,
-        lte: endDate,
+        gte: financialBounds.start,
+        lte: financialBounds.end,
       },
     },
     orderBy: {
       date: "desc",
     },
-  }), prisma.receipt.findMany({ where: { tenantId, receivedAt: { gte: startDate, lte: endDate } } })]);
+  }), prisma.receipt.findMany({ where: { tenantId, receivedAt: { gte: financialBounds.start, lte: financialBounds.end } } })]);
 
   // 5. Cálculos Gerais
   // Faturamento de reservas avulsas (que não possuem plano)
@@ -169,7 +179,8 @@ export async function createReceipt(data: { amount: number; method: string; date
 export async function openCashSession(openingAmount: number, note?: string) {
   const session = await getCurrentSession();
   if (!session?.isAdmin) throw new Error("Apenas administradores podem abrir o caixa.");
-  const date = businessDate(); const openingCents = Math.round(openingAmount * 100);
+  const { timeZone } = await getTenantSchedule(session.tenantId);
+  const date = businessDate(new Date(), timeZone); const openingCents = Math.round(openingAmount * 100);
   if (!Number.isFinite(openingCents) || openingCents < 0) throw new Error("Informe uma abertura válida.");
   const cash = await prisma.cashSession.upsert({ where: { tenantId_businessDate: { tenantId: session.tenantId, businessDate: date } }, create: { tenantId: session.tenantId, businessDate: date, openedById: session.userId, openingCents, note: note?.trim().slice(0, 500) || null }, update: {} });
   await recordAuditEvent({ tenantId: session.tenantId, actorId: session.userId, actorRole: "ADMIN", action: "CASH_SESSION_OPENED", entityType: "CASH_SESSION", entityId: cash.id });
@@ -179,11 +190,13 @@ export async function openCashSession(openingAmount: number, note?: string) {
 export async function closeCashSession(countedAmount: number, note?: string) {
   const session = await getCurrentSession();
   if (!session?.isAdmin) throw new Error("Apenas administradores podem fechar o caixa.");
-  const date = businessDate(); const countedCents = Math.round(countedAmount * 100);
+  const { timeZone } = await getTenantSchedule(session.tenantId);
+  const date = businessDate(new Date(), timeZone); const countedCents = Math.round(countedAmount * 100);
   if (!Number.isFinite(countedCents) || countedCents < 0) throw new Error("Informe uma contagem válida.");
   const cash = await prisma.cashSession.findUnique({ where: { tenantId_businessDate: { tenantId: session.tenantId, businessDate: date } } });
   if (!cash || cash.closedAt) throw new Error("Não há caixa aberto para fechar hoje.");
-  const receipts = await prisma.receipt.aggregate({ where: { tenantId: session.tenantId, receivedAt: { gte: date, lt: new Date(date.getTime() + 86400000) }, method: { equals: "DINHEIRO", mode: "insensitive" } }, _sum: { amountCents: true, amount: true } });
+  const receiptDay = scheduleDayBounds(calendarDateString(new Date(), timeZone), timeZone, "IANA_UTC");
+  const receipts = await prisma.receipt.aggregate({ where: { tenantId: session.tenantId, receivedAt: { gte: receiptDay.start, lte: receiptDay.end }, method: { equals: "DINHEIRO", mode: "insensitive" } }, _sum: { amountCents: true, amount: true } });
   const expectedCents = cash.openingCents + (receipts._sum.amountCents ?? Math.round((receipts._sum.amount ?? 0) * 100));
   const updated = await prisma.cashSession.update({ where: { id: cash.id }, data: { closedById: session.userId, closedAt: new Date(), countedCents, expectedCents, differenceCents: countedCents - expectedCents, note: note?.trim().slice(0, 500) || cash.note } });
   await recordAuditEvent({ tenantId: session.tenantId, actorId: session.userId, actorRole: "ADMIN", action: "CASH_SESSION_CLOSED", entityType: "CASH_SESSION", entityId: updated.id, metadata: { differenceCents: updated.differenceCents } });
@@ -192,7 +205,8 @@ export async function closeCashSession(countedAmount: number, note?: string) {
 
 export async function getTodayCashSession() {
   const tenantId = await getActiveTenantId();
-  return prisma.cashSession.findUnique({ where: { tenantId_businessDate: { tenantId, businessDate: businessDate() } } });
+  const { timeZone } = await getTenantSchedule(tenantId);
+  return prisma.cashSession.findUnique({ where: { tenantId_businessDate: { tenantId, businessDate: businessDate(new Date(), timeZone) } } });
 }
 
 export async function createExpense(data: {

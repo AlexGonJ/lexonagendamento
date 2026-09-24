@@ -58,6 +58,8 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
       tenantId={tenant.id}
       tenantSlug={tenantSlug}
       tenantName={tenant.name}
+      timeZone={tenant.timezone}
+      bookingTimeMode={tenant.bookingTimeMode}
       logoUrl={logoUrl}
       initialClient={clientSession}
       bookings={bookings}

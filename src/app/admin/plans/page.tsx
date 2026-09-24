@@ -24,6 +24,8 @@ export default async function AdminPlansPage() {
   }
 
   const tenantId = session.tenantId;
+  const tenantSchedule = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenantSchedule) redirect("/login");
 
   const plans = await getCustomerPlans();
   const subscriptions = await getSubscriptions();
@@ -81,6 +83,8 @@ export default async function AdminPlansPage() {
       clients={mappedClients}
       employees={mappedEmployees}
       services={mappedServices}
+      timeZone={tenantSchedule.timezone}
+      bookingTimeMode={tenantSchedule.bookingTimeMode}
     />
   );
 }

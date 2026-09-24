@@ -106,3 +106,5 @@ docs/             Documentação operacional
 O documento [documentacao_arquitetura.md](documentacao_arquitetura.md) registra decisões e escopo do MVP.
 
 Consulte também [Operação de produção](docs/OPERACAO_PRODUCAO.md) para cron, backup, restauração, monitoramento e rollback.
+
+As regras de RLS, permissões da Data API e proteção do Storage estão em [Segurança do Supabase](docs/SEGURANCA_SUPABASE.md).

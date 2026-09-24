@@ -1,4 +1,5 @@
 import { getDashboardStats } from "@/actions/booking";
+import { formatScheduleTime, type BookingTimeMode } from "@/lib/schedule-time";
 import Link from "next/link";
 
 interface PageProps {
@@ -18,7 +19,9 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
     todayRevenue, 
     upcomingBookings,
     chartData,
-    percentageChange
+    percentageChange,
+    timeZone,
+    bookingTimeMode,
   } = await getDashboardStats(view);
 
   // Helper labels for ranges
@@ -110,10 +113,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
               <p className="text-gray-500 text-sm py-12 text-center">Nenhum agendamento para hoje.</p>
             ) : (
               upcomingBookings.map((booking) => {
-                const bDate = new Date(booking.date);
-                const hours = bDate.getUTCHours().toString().padStart(2, '0');
-                const minutes = bDate.getUTCMinutes().toString().padStart(2, '0');
-                const bookingTime = `${hours}:${minutes}`;
+                const bookingTime = formatScheduleTime(new Date(booking.date), timeZone, bookingTimeMode as BookingTimeMode);
 
                 let badgeColor = "bg-blue-50 text-blue-700 border-blue-100";
                 if (booking.status === "PENDING") {

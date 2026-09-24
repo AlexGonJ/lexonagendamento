@@ -1,4 +1,5 @@
 import { getBookings, updateBookingStatus, deleteBooking, rescheduleBooking } from "@/actions/booking";
+import { formatScheduleDate, formatScheduleTime, scheduleDateString, type BookingTimeMode } from "@/lib/schedule-time";
 import Link from "next/link";
 
 interface PageProps {
@@ -15,7 +16,7 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
   const status = params.status || "ALL";
   const date = params.date || "";
 
-  const bookings = await getBookings({ search, status, date });
+  const { bookings, timeZone, bookingTimeMode } = await getBookings({ search, status, date });
 
   // Formatting WhatsApp link helper
   const getWhatsAppLink = (phone: string) => {
@@ -134,14 +135,9 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
                 </tr>
               ) : (
                 bookings.map((booking) => {
-                  const bDate = new Date(booking.date);
-                  const day = bDate.getUTCDate().toString().padStart(2, "0");
-                  const month = (bDate.getUTCMonth() + 1).toString().padStart(2, "0");
-                  const year = bDate.getUTCFullYear();
-                  const hours = bDate.getUTCHours().toString().padStart(2, "0");
-                  const minutes = bDate.getUTCMinutes().toString().padStart(2, "0");
-                  const formattedDate = `${day}/${month}/${year}`;
-                  const formattedTime = `${hours}:${minutes}`;
+                  const bookingDate = new Date(booking.date);
+                  const formattedDate = formatScheduleDate(bookingDate, timeZone, bookingTimeMode as BookingTimeMode);
+                  const formattedTime = formatScheduleTime(bookingDate, timeZone, bookingTimeMode as BookingTimeMode);
 
                   // Status badge style
                   let statusBadgeClass = "bg-blue-50 text-blue-700 border-blue-100";
@@ -281,8 +277,8 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
                                 );
                               }}
                             >
-                              <input name="date" type="date" defaultValue={booking.date.toISOString().slice(0, 10)} className="w-28 rounded border border-gray-300 px-1 py-1 text-xs" aria-label="Nova data" />
-                              <input name="time" type="time" defaultValue={booking.date.toISOString().slice(11, 16)} className="w-20 rounded border border-gray-300 px-1 py-1 text-xs" aria-label="Novo horário" />
+                              <input name="date" type="date" defaultValue={scheduleDateString(bookingDate, timeZone, bookingTimeMode as BookingTimeMode)} className="w-28 rounded border border-gray-300 px-1 py-1 text-xs" aria-label="Nova data" />
+                              <input name="time" type="time" defaultValue={formattedTime} className="w-20 rounded border border-gray-300 px-1 py-1 text-xs" aria-label="Novo horário" />
                               <button type="submit" className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-lg transition-colors cursor-pointer">
                                 Reagendar
                               </button>

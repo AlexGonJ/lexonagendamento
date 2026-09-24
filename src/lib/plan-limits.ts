@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { scheduleMonthBounds, scheduleParts, type BookingTimeMode } from "@/lib/schedule-time";
 
 export async function assertEmployeeCapacity(tx: Prisma.TransactionClient, tenantId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`tenant-employee-capacity:${tenantId}`}))`;
@@ -15,8 +16,16 @@ export async function assertEmployeeCapacity(tx: Prisma.TransactionClient, tenan
   }
 }
 
-export async function assertMonthlyBookingCapacity(tx: Prisma.TransactionClient, tenantId: string, bookingDate: Date) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`tenant-booking-capacity:${tenantId}:${bookingDate.getUTCFullYear()}-${bookingDate.getUTCMonth() + 1}`}))`;
+export async function assertMonthlyBookingCapacity(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  bookingDate: Date,
+  timeZone: string,
+  mode: BookingTimeMode,
+) {
+  const localDate = scheduleParts(bookingDate, timeZone, mode);
+  const monthKey = `${localDate.year}-${String(localDate.month).padStart(2, "0")}`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`tenant-booking-capacity:${tenantId}:${monthKey}`}))`;
   const activePlan = await tx.tenantPlan.findFirst({
     where: { tenantId, status: "ACTIVE", plan: { isActive: true } },
     include: { plan: { select: { maxBookingsPerMonth: true, name: true } } },
@@ -25,8 +34,7 @@ export async function assertMonthlyBookingCapacity(tx: Prisma.TransactionClient,
   if (!activePlan) return;
   const limit = activePlan.plan.maxBookingsPerMonth;
   if (limit === null) return;
-  const monthStart = new Date(Date.UTC(bookingDate.getUTCFullYear(), bookingDate.getUTCMonth(), 1));
-  const monthEnd = new Date(Date.UTC(bookingDate.getUTCFullYear(), bookingDate.getUTCMonth() + 1, 1));
-  const count = await tx.booking.count({ where: { tenantId, date: { gte: monthStart, lt: monthEnd }, status: { not: "CANCELLED" } } });
+  const { start: monthStart, end: monthEnd } = scheduleMonthBounds(bookingDate, timeZone, mode);
+  const count = await tx.booking.count({ where: { tenantId, date: { gte: monthStart, lte: monthEnd }, status: { not: "CANCELLED" } } });
   if (count >= limit) throw new Error(`O plano ${activePlan.plan.name} atingiu o limite mensal de ${limit} agendamentos.`);
 }

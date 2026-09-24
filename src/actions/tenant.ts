@@ -172,27 +172,44 @@ export async function getTimezoneMigrationPreview() {
   const tenant = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true, bookingTimeMode: true, bookingTimezoneMigratedAt: true } });
   if (!tenant) throw new Error("Estabelecimento não encontrado.");
   const summary = await prisma.booking.aggregate({ where: { tenantId: session.tenantId }, _count: { id: true }, _min: { date: true }, _max: { date: true } });
-  return { ...tenant, bookingCount: summary._count.id, firstBooking: summary._min.date, lastBooking: summary._max.date };
+  const blockCount = await prisma.employeeAvailabilityBlock.count({ where: { employee: { tenantId: session.tenantId } } });
+  return { ...tenant, bookingCount: summary._count.id, blockCount, firstBooking: summary._min.date, lastBooking: summary._max.date };
 }
 
-/** Converts legacy UTC-wall timestamps after the admin confirms the reviewed row count. */
-export async function migrateTenantBookingTimezone(expectedBookingCount: number) {
+/** Converts legacy wall-clock appointment and availability timestamps after the admin confirms the reviewed row counts. */
+export async function migrateTenantBookingTimezone(expectedCounts: { bookingCount: number; blockCount: number }) {
   const session = await getCurrentSession();
   if (!session?.isAdmin) throw new Error("Não autorizado.");
   const tenant = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true, bookingTimeMode: true } });
   if (!tenant) throw new Error("Estabelecimento não encontrado.");
   if (tenant.bookingTimeMode === "IANA_UTC") throw new Error("Os horários deste estabelecimento já foram migrados.");
   const bookings = await prisma.booking.findMany({ where: { tenantId: session.tenantId }, select: { id: true, date: true } });
-  if (bookings.length !== expectedBookingCount) throw new Error("A quantidade de agendamentos mudou. Revise a prévia antes de migrar.");
+  const blocks = await prisma.employeeAvailabilityBlock.findMany({ where: { employee: { tenantId: session.tenantId } }, select: { id: true, startAt: true, endAt: true } });
+  if (bookings.length !== expectedCounts.bookingCount || blocks.length !== expectedCounts.blockCount) throw new Error("A quantidade de agendamentos ou bloqueios mudou. Revise a prévia antes de migrar.");
   await prisma.$transaction(async (tx) => {
     for (const booking of bookings) {
       const dateStr = `${booking.date.getUTCFullYear()}-${String(booking.date.getUTCMonth() + 1).padStart(2, "0")}-${String(booking.date.getUTCDate()).padStart(2, "0")}`;
       const timeStr = `${String(booking.date.getUTCHours()).padStart(2, "0")}:${String(booking.date.getUTCMinutes()).padStart(2, "0")}`;
       await tx.booking.update({ where: { id: booking.id }, data: { date: scheduleDateTime(dateStr, timeStr, tenant.timezone, "IANA_UTC") } });
     }
+    for (const block of blocks) {
+      const startDate = scheduleDateTime(
+        `${block.startAt.getUTCFullYear()}-${String(block.startAt.getUTCMonth() + 1).padStart(2, "0")}-${String(block.startAt.getUTCDate()).padStart(2, "0")}`,
+        `${String(block.startAt.getUTCHours()).padStart(2, "0")}:${String(block.startAt.getUTCMinutes()).padStart(2, "0")}`,
+        tenant.timezone,
+        "IANA_UTC",
+      );
+      const endDate = scheduleDateTime(
+        `${block.endAt.getUTCFullYear()}-${String(block.endAt.getUTCMonth() + 1).padStart(2, "0")}-${String(block.endAt.getUTCDate()).padStart(2, "0")}`,
+        `${String(block.endAt.getUTCHours()).padStart(2, "0")}:${String(block.endAt.getUTCMinutes()).padStart(2, "0")}`,
+        tenant.timezone,
+        "IANA_UTC",
+      );
+      await tx.employeeAvailabilityBlock.update({ where: { id: block.id }, data: { startAt: startDate, endAt: endDate } });
+    }
     await tx.tenant.update({ where: { id: session.tenantId }, data: { bookingTimeMode: "IANA_UTC", bookingTimezoneMigratedAt: new Date() } });
   });
-  await recordAuditEvent({ tenantId: session.tenantId, actorId: session.userId, actorRole: "ADMIN", action: "BOOKING_TIMEZONE_MIGRATED", entityType: "TENANT", entityId: session.tenantId, metadata: { bookingCount: bookings.length, timezone: tenant.timezone } });
+  await recordAuditEvent({ tenantId: session.tenantId, actorId: session.userId, actorRole: "ADMIN", action: "BOOKING_TIMEZONE_MIGRATED", entityType: "TENANT", entityId: session.tenantId, metadata: { bookingCount: bookings.length, blockCount: blocks.length, timezone: tenant.timezone } });
   revalidatePath("/admin"); revalidatePath("/admin/settings");
-  return { success: true, migrated: bookings.length };
+  return { success: true, migratedBookings: bookings.length, migratedBlocks: blocks.length };
 }

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createCustomerPlan, deleteCustomerPlan, createSubscription, cancelSubscription } from "@/actions/plans";
 import { Plus, Trash2, UserPlus } from "lucide-react";
+import { calendarDateString, formatScheduleDate, type BookingTimeMode } from "@/lib/schedule-time";
 
 interface CustomerPlan {
   id: string;
@@ -44,6 +45,8 @@ interface PlansClientProps {
   clients: Client[];
   employees: Employee[];
   services: Service[];
+  timeZone: string;
+  bookingTimeMode: string;
 }
 
 interface FixedSchedulePayload {
@@ -60,7 +63,7 @@ interface CreateSubscriptionPayload {
   fixedSchedule: FixedSchedulePayload | null;
 }
 
-export default function PlansClient({ plans, subscriptions, clients, employees, services }: PlansClientProps) {
+export default function PlansClient({ plans, subscriptions, clients, employees, services, timeZone, bookingTimeMode }: PlansClientProps) {
   const [activeTab, setActiveTab] = useState<"plans" | "subscriptions">("subscriptions");
   const [isPending, startTransition] = useTransition();
   const [now] = useState(() => Date.now());
@@ -68,7 +71,7 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
   // Estados de Nova Assinatura
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedPlanId, setSelectedPlanId] = useState("");
-  const [startDateStr, setStartDateStr] = useState(new Date().toISOString().split("T")[0]);
+  const [startDateStr, setStartDateStr] = useState(() => calendarDateString(new Date(), timeZone));
   const [showFixedSchedule, setShowFixedSchedule] = useState(false);
   const [fixedEmployeeId, setFixedEmployeeId] = useState("");
   const [fixedServiceId, setFixedServiceId] = useState("");
@@ -151,7 +154,7 @@ export default function PlansClient({ plans, subscriptions, clients, employees, 
   }
 
   const formatDateBR = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+    return formatScheduleDate(new Date(dateStr), timeZone, bookingTimeMode as BookingTimeMode);
   };
 
   return (

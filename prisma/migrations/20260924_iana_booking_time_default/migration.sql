@@ -1,0 +1,1 @@
+ALTER TABLE "Tenant" ALTER COLUMN "bookingTimeMode" SET DEFAULT 'IANA_UTC';

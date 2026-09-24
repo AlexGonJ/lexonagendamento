@@ -4,6 +4,7 @@ import { updateBookingStatus, deleteBooking } from "@/actions/booking";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { addScheduleCalendarDays, calendarDateString, formatScheduleDate, formatScheduleTime, scheduleDateString, scheduleDayBounds, scheduleParts, weekdayForDateString, type BookingTimeMode } from "@/lib/schedule-time";
 
 interface PageProps {
   searchParams: Promise<{
@@ -18,6 +19,10 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
   if (!session) {
     redirect("/login");
   }
+  const tenantSchedule = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenantSchedule) redirect("/login");
+  const timeZone = tenantSchedule.timezone;
+  const bookingTimeMode = tenantSchedule.bookingTimeMode as BookingTimeMode;
 
   const params = await searchParams;
   const weekOffset = parseInt(params.weekOffset || "0") || 0;
@@ -35,46 +40,23 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId) || 
     (selectedEmployeeId === session.userId ? { name: session.name } : null);
 
-  // 1. Configurar datas da semana de trabalho (Segunda a Domingo)
+  // 1. Configurar datas da semana de trabalho no fuso do estabelecimento
   const now = new Date();
-  const dateInBr = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(now);
-  const [day, month, year] = dateInBr.split("/");
-  
-  const todayMidday = new Date(`${year}-${month}-${day}T12:00:00.000Z`);
-  const currentDayOfWeek = todayMidday.getUTCDay(); // 0 = Dom, 1 = Seg...
+  const todayStr = calendarDateString(now, timeZone);
+  const currentDayOfWeek = weekdayForDateString(todayStr); // 0 = Dom, 1 = Seg...
   const dayOffsetToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-
-  const monday = new Date(todayMidday);
-  monday.setUTCDate(todayMidday.getUTCDate() + dayOffsetToMonday + (weekOffset * 7));
+  const monday = addScheduleCalendarDays(todayStr, dayOffsetToMonday + weekOffset * 7);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setUTCDate(monday.getUTCDate() + i);
-    
-    const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-    const name = dayNames[d.getUTCDay()];
-    
-    const formattedDate = new Intl.DateTimeFormat("pt-BR", {
-      timeZone: "UTC",
-      day: "2-digit",
-      month: "2-digit"
-    }).format(d);
-    
-    const y = d.getUTCFullYear();
-    const m = (d.getUTCMonth() + 1).toString().padStart(2, "0");
-    const dayStr = d.getUTCDate().toString().padStart(2, "0");
-    const dateStr = `${y}-${m}-${dayStr}`;
+    const dateStr = addScheduleCalendarDays(monday, i);
+    const name = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", weekday: "long" }).format(new Date(`${dateStr}T12:00:00.000Z`));
+    const formattedDate = formatScheduleDate(new Date(`${dateStr}T12:00:00.000Z`), timeZone, "LEGACY_UTC_WALL").slice(0, 5);
     
     return { name, dateStr, formattedDate };
   });
 
-  const startOfWeek = new Date(`${weekDays[0].dateStr}T00:00:00.000Z`);
-  const endOfWeek = new Date(`${weekDays[6].dateStr}T23:59:59.999Z`);
+  const startOfWeek = scheduleDayBounds(weekDays[0].dateStr, timeZone, bookingTimeMode).start;
+  const endOfWeek = scheduleDayBounds(weekDays[6].dateStr, timeZone, bookingTimeMode).end;
 
   // 2. Buscar agendamentos do funcionário selecionado para esta semana
   const bookings = selectedEmployeeId 
@@ -109,7 +91,8 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
   // Helpers para posicionamento absoluto
   const calculatePosition = (date: Date, duration: number) => {
     const bDate = new Date(date);
-    const bMinutes = bDate.getUTCHours() * 60 + bDate.getUTCMinutes();
+    const parts = scheduleParts(bDate, timeZone, bookingTimeMode);
+    const bMinutes = parts.hour * 60 + parts.minute;
     const startMinutesLimit = START_HOUR * 60;
     
     // Minutos desde o início da agenda
@@ -226,7 +209,7 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
           {/* Colunas dos Dias */}
           {weekDays.map((dayInfo, colIdx) => {
             const dayBookings = bookings.filter((b) => {
-              const bDateStr = new Date(b.date).toISOString().split("T")[0];
+              const bDateStr = scheduleDateString(new Date(b.date), timeZone, bookingTimeMode);
               return bDateStr === dayInfo.dateStr;
             });
 
@@ -248,7 +231,7 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
                 {dayBookings.map((booking) => {
                   const pos = calculatePosition(booking.date, booking.service.duration);
                   const bDate = new Date(booking.date);
-                  const timeStr = `${bDate.getUTCHours().toString().padStart(2, "0")}:${bDate.getUTCMinutes().toString().padStart(2, "0")}`;
+                  const timeStr = formatScheduleTime(bDate, timeZone, bookingTimeMode);
 
                   let bgClass = "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800";
                   if (booking.status === "PENDING") {
@@ -336,7 +319,7 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
                   <span className="font-semibold text-gray-800">
                     {(() => {
                       const d = new Date(selectedBooking.date);
-                      return `${d.getUTCDate().toString().padStart(2, "0")}/${(d.getUTCMonth() + 1).toString().padStart(2, "0")}/${d.getUTCFullYear()}`;
+                      return formatScheduleDate(d, timeZone, bookingTimeMode);
                     })()}
                   </span>
                 </div>
@@ -345,7 +328,7 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
                   <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 text-sm inline-block">
                     {(() => {
                       const d = new Date(selectedBooking.date);
-                      return `${d.getUTCHours().toString().padStart(2, "0")}:${d.getUTCMinutes().toString().padStart(2, "0")}`;
+                      return formatScheduleTime(d, timeZone, bookingTimeMode);
                     })()}
                   </span>
                 </div>

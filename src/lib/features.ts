@@ -7,6 +7,8 @@ export const AVAILABLE_FEATURES = [
   { slug: "custom_branding", label: "Identidade Visual", description: "Logo e cores personalizadas" },
   { slug: "whatsapp_automation", label: "Automacao WhatsApp", description: "Mensagens automaticas via WhatsApp" },
   { slug: "payment_gateway", label: "Gateway de Pagamento", description: "Integracao com meios de pagamento" },
+  { slug: "inventory", label: "Controle de estoque", description: "Produtos, entradas, saídas e ajustes de estoque" },
+  { slug: "inventory_advanced", label: "Alertas de reposição", description: "Limite mínimo por produto e alertas de estoque baixo" },
 ] as const;
 
 export type FeatureSlug = typeof AVAILABLE_FEATURES[number]["slug"];

@@ -50,6 +50,8 @@ export default async function AdminCRMPage() {
     },
     orderBy: { name: "asc" },
   });
+  const tenantSchedule = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenantSchedule) redirect("/login");
 
   // Mapear para passar dados limpos
   const mappedClients = clients.map((c) => ({
@@ -81,5 +83,5 @@ export default async function AdminCRMPage() {
     })),
   }));
 
-  return <CRMClient clients={mappedClients} />;
+  return <CRMClient clients={mappedClients} timeZone={tenantSchedule.timezone} bookingTimeMode={tenantSchedule.bookingTimeMode} />;
 }

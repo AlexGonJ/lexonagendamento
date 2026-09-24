@@ -208,6 +208,9 @@ export async function createTenant(formData: FormData) {
   if (!/^[a-z0-9-]+$/.test(slug)) return { success: false, error: "Slug invalido. Use apenas letras minusculas, numeros e hifens." };
   try {
     const features = featuresRaw ? featuresRaw.split(",").filter(Boolean) : [];
+    if (features.includes("inventory_advanced") && !features.includes("inventory")) {
+      return { success: false, error: "Alertas avançados exigem a feature Controle de estoque." };
+    }
     const tenant = await prisma.tenant.create({ data: { name, slug, description: description || null, features, isActive: true } });
     if (planId) {
       await prisma.tenantPlan.create({ data: { tenantId: tenant.id, planId, status: "ACTIVE" } });
@@ -250,6 +253,9 @@ export async function toggleTenantStatus(id: string, isActive: boolean) {
 export async function updateTenantFeatures(id: string, features: string[]) {
   try {
     await requireSuperAdminAuth();
+    if (features.includes("inventory_advanced") && !features.includes("inventory")) {
+      return { success: false, error: "Alertas avançados exigem a feature Controle de estoque." };
+    }
     await prisma.tenant.update({ where: { id }, data: { features } });
     await recordAuditEvent({
       tenantId: id,
@@ -333,6 +339,9 @@ export async function createPlan(formData: FormData) {
   if (!name || isNaN(price) || isNaN(maxEmployees) || (maxBookingsRaw && (maxBookingsPerMonth === null || !Number.isInteger(maxBookingsPerMonth) || maxBookingsPerMonth < 1))) return { success: false, error: "Preencha todos os campos." };
   try {
     const features = featuresRaw ? featuresRaw.split(",").filter(Boolean) : [];
+    if (features.includes("inventory_advanced") && !features.includes("inventory")) {
+      return { success: false, error: "Alertas avançados exigem a feature Controle de estoque." };
+    }
     await prisma.plan.create({ data: { name, price, maxEmployees, maxBookingsPerMonth, features } });
     return { success: true };
   } catch {
@@ -343,7 +352,36 @@ export async function createPlan(formData: FormData) {
 export async function updatePlan(id: string, data: { name?: string; price?: number; maxEmployees?: number; maxBookingsPerMonth?: number | null; features?: string[]; isActive?: boolean }) {
   try {
     await requireSuperAdminAuth();
-    await prisma.plan.update({ where: { id }, data });
+    if (data.features?.includes("inventory_advanced") && !data.features.includes("inventory")) {
+      return { success: false, error: "Alertas avançados exigem a feature Controle de estoque." };
+    }
+    await prisma.$transaction(async (tx) => {
+      const currentPlan = await tx.plan.findUnique({ where: { id }, select: { features: true } });
+      if (!currentPlan) throw new Error("Plano não encontrado.");
+
+      const updatedPlan = await tx.plan.update({ where: { id }, data });
+      const inventoryFlags = ["inventory", "inventory_advanced"];
+      const inventoryFeatureChanged = data.features !== undefined
+        && inventoryFlags.some((feature) => currentPlan.features.includes(feature) !== updatedPlan.features.includes(feature));
+      if (!inventoryFeatureChanged) return;
+
+      const activeAssignments = await tx.tenantPlan.findMany({
+        where: { planId: id, status: "ACTIVE" },
+        select: { tenantId: true },
+      });
+      const tenantIds = [...new Set(activeAssignments.map((assignment) => assignment.tenantId))];
+      for (const tenantId of tenantIds) {
+        const tenant = await tx.tenant.findUnique({ where: { id: tenantId }, select: { features: true } });
+        if (!tenant) continue;
+        const nextFeatures = new Set(tenant.features);
+        for (const feature of inventoryFlags) {
+          if (updatedPlan.features.includes(feature)) nextFeatures.add(feature);
+          else nextFeatures.delete(feature);
+        }
+        if (!nextFeatures.has("inventory")) nextFeatures.delete("inventory_advanced");
+        await tx.tenant.update({ where: { id: tenantId }, data: { features: [...nextFeatures] } });
+      }
+    });
     return { success: true };
   } catch {
     return { success: false, error: "Erro ao atualizar plano." };

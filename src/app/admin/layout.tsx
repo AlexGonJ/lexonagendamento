@@ -21,6 +21,10 @@ export default async function AdminLayout({
   const employee = await prisma.employee.findUnique({
     where: { id: session.userId }
   });
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.tenantId },
+    select: { features: true },
+  });
 
   const avatar = employee?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.name)}&background=random`;
   const roleDisplay = employee?.role || (session.isAdmin ? "Administrador" : "Colaborador");
@@ -28,6 +32,7 @@ export default async function AdminLayout({
   return (
     <AdminLayoutClient 
       session={session} 
+      features={tenant?.features ?? []}
       avatar={avatar} 
       roleDisplay={roleDisplay}
     >

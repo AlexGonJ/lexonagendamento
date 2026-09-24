@@ -2,6 +2,8 @@ import { getFinancialSummary } from "@/actions/financial";
 import { getCurrentSession } from "@/actions/auth";
 import { redirect } from "next/navigation";
 import FinancialClient from "./FinancialClient";
+import prisma from "@/lib/prisma";
+import { calendarDateString } from "@/lib/schedule-time";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +32,12 @@ export default async function AdminFinancialPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
 
-  // Obter mês e ano atual no fuso de SP
+  const tenant = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true } });
+  const timeZone = tenant?.timezone || "America/Sao_Paulo";
+
+  // O período inicial acompanha o calendário local configurado pelo estabelecimento.
   const now = new Date();
-  const spDateString = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    month: "2-digit",
-    year: "numeric",
-  }).format(now);
-  const [currentMonth, currentYear] = spDateString.split("/");
+  const [currentYear, currentMonth] = calendarDateString(now, timeZone).split("-");
 
   const month = params.month ? parseInt(params.month) : parseInt(currentMonth);
   const year = params.year ? parseInt(params.year) : parseInt(currentYear);

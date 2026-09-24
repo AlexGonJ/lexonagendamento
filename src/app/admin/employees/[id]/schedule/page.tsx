@@ -2,6 +2,7 @@ import { getEmployeeSchedules, getEmployeeTimeOff, getEmployeeAvailabilityBlocks
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { formatScheduleDate, formatScheduleTime, type BookingTimeMode } from "@/lib/schedule-time";
 
 const diasDaSemana = [
   "Domingo", "Segunda-feira", "Terça-feira", 
@@ -16,6 +17,9 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
   if (!employee) {
     notFound();
   }
+  const tenantSchedule = await prisma.tenant.findUnique({ where: { id: employee.tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenantSchedule) notFound();
+  const bookingTimeMode = tenantSchedule.bookingTimeMode as BookingTimeMode;
 
   const [schedules, timeOffDays, availabilityBlocks] = await Promise.all([getEmployeeSchedules(id), getEmployeeTimeOff(id), getEmployeeAvailabilityBlocks(id)]);
 
@@ -108,7 +112,7 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
             
             <div className="space-y-6">
               <div className="border-b border-gray-100 pb-4"><h3 className="font-medium text-gray-800 mb-3">Folgas e férias</h3>{timeOffDays.length === 0 ? <p className="text-sm text-gray-500">Nenhuma indisponibilidade cadastrada.</p> : <div className="flex flex-wrap gap-2">{timeOffDays.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{item.date.toLocaleDateString("pt-BR", { timeZone: "UTC" })}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeTimeOff(item.id, id); }}><button className="text-red-600 font-bold" title="Remover">×</button></form></div>)}</div>}</div>
-              <div className="border-b border-gray-100 pb-4"><h3 className="font-medium text-gray-800 mb-3">Bloqueios por período</h3>{availabilityBlocks.length === 0 ? <p className="text-sm text-gray-500">Nenhum período bloqueado.</p> : <div className="flex flex-wrap gap-2">{availabilityBlocks.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{item.startAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })} · {item.startAt.toISOString().slice(11, 16)}–{item.endAt.toISOString().slice(11, 16)}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeAvailabilityBlock(item.id, id); }}><button className="text-red-600 font-bold" title="Remover">×</button></form></div>)}</div>}</div>
+              <div className="border-b border-gray-100 pb-4"><h3 className="font-medium text-gray-800 mb-3">Bloqueios por período</h3>{availabilityBlocks.length === 0 ? <p className="text-sm text-gray-500">Nenhum período bloqueado.</p> : <div className="flex flex-wrap gap-2">{availabilityBlocks.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{formatScheduleDate(item.startAt, tenantSchedule.timezone, bookingTimeMode)} · {formatScheduleTime(item.startAt, tenantSchedule.timezone, bookingTimeMode)}–{formatScheduleTime(item.endAt, tenantSchedule.timezone, bookingTimeMode)}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeAvailabilityBlock(item.id, id); }}><button className="text-red-600 font-bold" title="Remover">×</button></form></div>)}</div>}</div>
               {diasDaSemana.map((nomeDia, index) => {
                 // Filtra os blocos desse dia da semana
                 const blocosDoDia = schedules.filter(s => s.dayOfWeek === index);

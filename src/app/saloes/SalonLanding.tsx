@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Scissors,
   Sparkles,
+  X,
   Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -250,8 +251,11 @@ export default function SalonLanding() {
             <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=agenda&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Agenda%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
               <li><Check size={15} /> Até 2 profissionais</li>
-              <li><Check size={15} /> Agenda e página de agendamento</li>
-              <li><Check size={15} /> Serviços, clientes e horários organizados</li>
+              <li><Check size={15} /> Agenda, página, horários e atendimentos</li>
+              <li><Check size={15} /> Serviços e cadastro de clientes</li>
+              <li><X size={15} /> Sem identidade visual e CRM completo</li>
+              <li><X size={15} /> Financeiro e estoque não incluídos</li>
+              <li><Check size={15} /> WhatsApp manual</li>
               <li><Check size={15} /> Suporte padrão</li>
             </ul>
           </motion.article>
@@ -273,9 +277,11 @@ export default function SalonLanding() {
             <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=profissional&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Profissional%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
               <li><Check size={15} /> Até 5 profissionais</li>
+              <li><Check size={15} /> Tudo do plano Agenda</li>
               <li><Check size={15} /> Identidade visual e CRM completo</li>
-              <li><Check size={15} /> Financeiro e estoque básicos</li>
-              <li><Check size={15} /> WhatsApp opcional via API oficial</li>
+              <li><Check size={15} /> Financeiro básico</li>
+              <li><Check size={15} /> Estoque: produtos, entradas, saídas e ajustes</li>
+              <li><Check size={15} /> WhatsApp opcional via API oficial, taxa à parte</li>
               <li><Check size={15} /> Suporte prioritário</li>
             </ul>
           </motion.article>
@@ -297,14 +303,16 @@ export default function SalonLanding() {
             <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=automacao&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Automa%C3%A7%C3%A3o%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
               <li><Check size={15} /> Até 8 profissionais</li>
-              <li><Check size={15} /> Financeiro com DRE e estoque avançado</li>
-              <li><Check size={15} /> Automação, confirmações e reativação</li>
+              <li><Check size={15} /> Inclui o plano Profissional</li>
+              <li><Check size={15} /> Financeiro avançado com DRE</li>
+              <li><Check size={15} /> Estoque com alertas de reposição</li>
+              <li><Check size={15} /> Automação via API oficial inclusa</li>
+              <li><Check size={15} /> Confirmações, lembretes e reativação</li>
               <li><Check size={15} /> Setup assistido e suporte dedicado</li>
-              <li className={styles.metaFeature}><Check size={15} /> Canal oficial sem risco de bloqueio</li>
             </ul>
           </motion.article>
         </div>
-        <p className={styles.pricingNote}>Primeiro mês grátis nos três planos. No Profissional, a automação via API oficial é um add-on opcional, com taxa à parte e cobrada após a ativação. No Automação, ela já está inclusa, com setup assistido e canal oficial sem risco de bloqueio. Conversas e templates são cobrados diretamente pela Meta.</p>
+        <p className={styles.pricingNote}>Primeiro mês grátis nos três planos. O plano Agenda não inclui estoque. Profissional inclui controle básico de produtos, entradas, saídas e ajustes; Automação acrescenta alertas de reposição. No Profissional, WhatsApp via API oficial é um add-on cobrado após a ativação; no Automação, está incluso com setup assistido. Conversas e templates são cobrados diretamente pela Meta.</p>
       </section>
 
       <section className={styles.finalCta}>

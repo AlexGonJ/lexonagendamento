@@ -11,11 +11,13 @@ export default function AdminLayoutClient({
   session,
   avatar,
   roleDisplay,
+  features,
   children
 }: {
   session: SessionData;
   avatar: string;
   roleDisplay: string;
+  features: string[];
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -109,6 +111,15 @@ export default function AdminLayoutClient({
               >
                 Gerenciamento Financeiro
               </Link>
+              {features.includes("inventory") && (
+                <Link
+                  href="/admin/inventory"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+                >
+                  Estoque
+                </Link>
+              )}
               <Link 
                 href="/admin/plans" 
                 onClick={() => setIsSidebarOpen(false)}

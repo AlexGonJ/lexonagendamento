@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Search, Calendar, Phone, Mail, Award, Clock } from "lucide-react";
+import { formatScheduleDate, formatScheduleDateTime, type BookingTimeMode } from "@/lib/schedule-time";
 
 interface Booking {
   id: string;
@@ -28,9 +29,11 @@ interface ClientData {
 
 interface CRMClientProps {
   clients: ClientData[];
+  timeZone: string;
+  bookingTimeMode: string;
 }
 
-export default function CRMClient({ clients }: CRMClientProps) {
+export default function CRMClient({ clients, timeZone, bookingTimeMode }: CRMClientProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -50,19 +53,12 @@ export default function CRMClient({ clients }: CRMClientProps) {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      timeZone,
     });
   };
 
   const formatDateTimeBR = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const dateFormatted = date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-    const hours = date.getUTCHours().toString().padStart(2, "0");
-    const minutes = date.getUTCMinutes().toString().padStart(2, "0");
-    return `${dateFormatted} às ${hours}:${minutes}`;
+    return `${formatScheduleDateTime(new Date(dateStr), timeZone, bookingTimeMode as BookingTimeMode).replace(" ", " às ")}`;
   };
 
   return (
@@ -152,7 +148,7 @@ export default function CRMClient({ clients }: CRMClientProps) {
                         {lastBooking ? (
                           <span className="flex items-center gap-1.5">
                             <Calendar size={14} className="text-gray-400" />
-                            {formatDateBR(lastBooking.date)}
+                            {formatScheduleDate(new Date(lastBooking.date), timeZone, bookingTimeMode as BookingTimeMode)}
                           </span>
                         ) : (
                           <span className="text-gray-400 text-xs italic">Sem registros</span>

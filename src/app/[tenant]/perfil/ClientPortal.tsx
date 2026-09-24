@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { sendClientOtp, verifyClientOtp, loginClientOAuth, logoutClient, verifyGoogleIdToken } from "@/actions/auth";
 import { cancelBooking } from "@/actions/booking";
+import { formatScheduleDate, formatScheduleMonth, formatScheduleTime, formatScheduleWeekday, scheduleInstant, scheduleParts, type BookingTimeMode } from "@/lib/schedule-time";
 import Link from "next/link";
 
 type Booking = {
@@ -35,6 +36,8 @@ interface ClientPortalProps {
   tenantId: string;
   tenantSlug: string;
   tenantName: string;
+  timeZone: string;
+  bookingTimeMode: string;
   logoUrl: string;
   initialClient: Client | null;
   bookings: Booking[];
@@ -56,6 +59,8 @@ export default function ClientPortal({
   tenantId,
   tenantSlug,
   tenantName,
+  timeZone,
+  bookingTimeMode,
   logoUrl,
   initialClient,
   bookings,
@@ -520,7 +525,7 @@ export default function ClientPortal({
                 </span>
                 <h3 className="text-base font-bold text-white mt-2.5">{activeSubscription.plan.name}</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Válido até {new Date(activeSubscription.endDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                  Válido até {formatScheduleDate(new Date(activeSubscription.endDate), timeZone, bookingTimeMode as BookingTimeMode)}
                 </p>
               </div>
               
@@ -582,14 +587,10 @@ export default function ClientPortal({
                 {bookings.map((booking) => {
                   const isCancelled = booking.status === "CANCELLED";
                   const bDate = new Date(booking.date);
-                  const bookingLocalTime = new Date(
-                    bDate.getUTCFullYear(),
-                    bDate.getUTCMonth(),
-                    bDate.getUTCDate(),
-                    bDate.getUTCHours(),
-                    bDate.getUTCMinutes()
-                  );
-                  const isFuture = bookingLocalTime.getTime() > now;
+                  const mode = bookingTimeMode as BookingTimeMode;
+                  const parts = scheduleParts(bDate, timeZone, mode);
+                  const actualBookingDate = scheduleInstant(bDate, timeZone, mode);
+                  const isFuture = actualBookingDate.getTime() > now;
 
                   return (
                     <div
@@ -607,10 +608,10 @@ export default function ClientPortal({
                         {/* Data Box */}
                         <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-center flex-shrink-0" style={{ background: isCancelled ? "rgba(239, 68, 68, 0.1)" : "rgba(212, 175, 55, 0.15)" }}>
                           <span className="text-xs uppercase font-bold" style={{ color: isCancelled ? "#f87171" : "#d4af37" }}>
-                            {bDate.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}
+                            {formatScheduleMonth(bDate, timeZone, mode)}
                           </span>
                           <span className="text-sm font-extrabold -mt-1" style={{ color: isCancelled ? "#ef4444" : "#ffffff" }}>
-                            {bDate.getDate()}
+                            {parts.day}
                           </span>
                         </div>
 
@@ -631,9 +632,9 @@ export default function ClientPortal({
                           </div>
                           
                           <p className="text-xs text-slate-400 mt-1">
-                            {bDate.toLocaleDateString("pt-BR", { weekday: "long" })} às{" "}
+                            {formatScheduleWeekday(bDate, timeZone, mode)} às{" "}
                             <span className="font-bold text-white">
-                              {bDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              {formatScheduleTime(bDate, timeZone, mode)}
                             </span>
                           </p>
                           <p className="text-[11px] text-slate-500 mt-0.5">
@@ -651,7 +652,7 @@ export default function ClientPortal({
                           <div className="flex gap-2">
                             {booking.status === "CONFIRMED" && (
                               <a
-                                href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${booking.service.name} - ${tenantName.toUpperCase()}`)}&dates=${bDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z/${new Date(bDate.getTime() + (booking.service.duration || 30) * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0]}Z&details=${encodeURIComponent(`Seu agendamento está confirmado!\n\nProfissional: ${booking.employee.name}\nServiço: ${booking.service.name}\nDuração: ${booking.service.duration} min\nValor: R$ ${booking.service.price.toFixed(2)}`)}&location=${encodeURIComponent(tenantName)}`}
+                                href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${booking.service.name} - ${tenantName.toUpperCase()}`)}&dates=${actualBookingDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z/${new Date(actualBookingDate.getTime() + (booking.service.duration || 30) * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0]}Z&details=${encodeURIComponent(`Seu agendamento está confirmado!\n\nProfissional: ${booking.employee.name}\nServiço: ${booking.service.name}\nDuração: ${booking.service.duration} min\nValor: R$ ${booking.service.price.toFixed(2)}`)}&location=${encodeURIComponent(tenantName)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 transition-all border border-emerald-500/10 flex items-center gap-1 cursor-pointer"

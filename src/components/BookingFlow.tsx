@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { getAvailableSlots } from '@/actions/availability';
 import { createBooking } from '@/actions/booking';
 import { getActiveSubscription } from '@/actions/plans';
-import { addDays, format, isSameDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { sendClientOtp, verifyClientOtp, loginClientOAuth, verifyGoogleIdToken } from '@/actions/auth';
 import TurnstileWidget from './TurnstileWidget';
+import { addScheduleCalendarDays, calendarDateString, formatScheduleMonth, scheduleDateTime, scheduleInstant, type BookingTimeMode } from '@/lib/schedule-time';
 type PublicEmployee = { id: string; name: string; role: string; avatarUrl: string | null };
 type PublicService = {
   id: string; name: string; description: string | null; price: number; duration: number;
@@ -74,12 +73,16 @@ interface OAuthData {
 export default function BookingFlow({ 
   tenantId,
   tenantSlug, 
+  tenantTimeZone,
+  bookingTimeMode,
   services, 
   employees,
   initialClient 
 }: { 
   tenantId: string,
   tenantSlug: string, 
+  tenantTimeZone: string,
+  bookingTimeMode: string,
   services: ServiceWithEmployees[], 
   employees: PublicEmployee[],
   initialClient?: ClientSession | null
@@ -330,17 +333,17 @@ export default function BookingFlow({
   const [isLoadingTimes, setIsLoadingTimes] = useState(false);
 
   // Derivar a string da data no formato "YYYY-MM-DD" para a API
-  const selectedDateStr = selectedDateObj ? format(selectedDateObj, 'yyyy-MM-dd') : '';
+  const selectedDateStr = selectedDateObj ? selectedDateObj.toISOString().slice(0, 10) : '';
 
   // Gerar os próximos 30 dias para o carrossel horizontal
   const upcomingDays = useMemo(() => {
     const days = [];
-    const today = new Date();
+    const today = calendarDateString(new Date(), tenantTimeZone);
     for (let i = 0; i < 30; i++) {
-      days.push(addDays(today, i));
+      days.push(new Date(`${addScheduleCalendarDays(today, i)}T12:00:00.000Z`));
     }
     return days;
-  }, []);
+  }, [tenantTimeZone]);
 
   // Efeito para carregar horários reais quando a data for escolhida
   useEffect(() => {
@@ -603,9 +606,7 @@ export default function BookingFlow({
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold text-slate-900 capitalize drop-shadow-sm">
-                    {selectedDateObj 
-                      ? format(selectedDateObj, 'MMMM | yyyy', { locale: ptBR }) 
-                      : format(new Date(), 'MMMM | yyyy', { locale: ptBR })}
+                    {new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(new Date(`${selectedDateStr || calendarDateString(new Date(), tenantTimeZone)}T12:00:00.000Z`))}
                   </h3>
                   <div className="flex gap-2">
                     <button className="w-10 h-10 rounded-full border border-slate-200 bg-white text-slate-800 shadow-sm flex items-center justify-center hover:bg-slate-50 hover:shadow-md transition-all font-bold">&lt;</button>
@@ -615,7 +616,7 @@ export default function BookingFlow({
 
                 <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   {upcomingDays.map((dayObj, i) => {
-                    const isSelected = selectedDateObj && isSameDay(dayObj, selectedDateObj);
+                    const isSelected = selectedDateStr === dayObj.toISOString().slice(0, 10);
                     return (
                       <button
                         key={i}
@@ -629,9 +630,9 @@ export default function BookingFlow({
                             : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 hover:shadow-md'
                         }`}
                       >
-                        <span className="text-xs uppercase font-bold tracking-wider mb-1">{format(dayObj, 'E', { locale: ptBR })}</span>
-                        <span className={`text-2xl font-extrabold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{format(dayObj, 'dd')}</span>
-                        <span className={`text-[10px] font-medium ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>{format(dayObj, 'MMM', { locale: ptBR })}</span>
+                        <span className="text-xs uppercase font-bold tracking-wider mb-1">{new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC', weekday: 'short' }).format(dayObj).replace('.', '')}</span>
+                        <span className={`text-2xl font-extrabold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{dayObj.getUTCDate().toString().padStart(2, '0')}</span>
+                        <span className={`text-[10px] font-medium ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>{formatScheduleMonth(dayObj, 'UTC', 'LEGACY_UTC_WALL')}</span>
                       </button>
                     );
                   })}
@@ -927,7 +928,8 @@ export default function BookingFlow({
               {(() => {
                 if (!selectedService) return null;
                 try {
-                  const start = new Date(`${selectedDateStr}T${selectedTime}:00.000Z`);
+                  const mode = bookingTimeMode as BookingTimeMode;
+                  const start = scheduleInstant(scheduleDateTime(selectedDateStr, selectedTime, tenantTimeZone, mode), tenantTimeZone, mode);
                   const end = new Date(start.getTime() + (selectedService.duration || 30) * 60 * 1000);
                   
                   const formatUTC = (date: Date) => {

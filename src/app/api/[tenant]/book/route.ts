@@ -5,6 +5,7 @@ import { verifySignedToken } from "@/lib/session";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { createBookingForClient } from "@/lib/booking-service";
+import { scheduleDateString, scheduleTimeString } from "@/lib/schedule-time";
 
 function getRequestIp(request: Request) { return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown"; }
 
@@ -18,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ten
     const session = sessionCookie ? await verifySignedToken<{ clientId: string; phone: string }>(sessionCookie, "client-session") : null;
     if (!session) return NextResponse.json({ error: "Cliente não autenticado" }, { status: 401 });
     if (session.clientId !== clientId) return NextResponse.json({ error: "Sessão do cliente inválida" }, { status: 403 });
-    const [tenant, client] = await Promise.all([db.tenant.findUnique({ where: { slug: tenantSlug }, select: { id: true, isActive: true } }), db.client.findFirst({ where: { id: clientId, phone: session.phone } })]);
+    const [tenant, client] = await Promise.all([db.tenant.findUnique({ where: { slug: tenantSlug }, select: { id: true, isActive: true, timezone: true } }), db.client.findFirst({ where: { id: clientId, phone: session.phone } })]);
     if (!tenant?.isActive) return NextResponse.json({ error: "Estabelecimento não encontrado ou indisponível" }, { status: 404 });
     if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 403 });
     const [phoneLimit, ipLimit] = await Promise.all([
@@ -28,9 +29,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ ten
     if (!phoneLimit.allowed || !ipLimit.allowed) return NextResponse.json({ error: "Muitas marcações em pouco tempo. Tente novamente mais tarde." }, { status: 429 });
     const captcha = await verifyTurnstileToken(captchaToken, getRequestIp(request));
     if (!captcha.success) return NextResponse.json({ error: captcha.error }, { status: 400 });
-    const legacyDate = new Date(date);
-    if (Number.isNaN(legacyDate.getTime())) return NextResponse.json({ error: "Data inválida" }, { status: 400 });
-    const result = await createBookingForClient({ tenantSlug, serviceId, employeeId, clientId, notes: typeof notes === "string" ? notes : undefined, dateStr: legacyDate.toISOString().slice(0, 10), timeStr: legacyDate.toISOString().slice(11, 16) });
+    const selectedInstant = new Date(date);
+    if (Number.isNaN(selectedInstant.getTime())) return NextResponse.json({ error: "Data inválida" }, { status: 400 });
+    const result = await createBookingForClient({ tenantSlug, serviceId, employeeId, clientId, notes: typeof notes === "string" ? notes : undefined, dateStr: scheduleDateString(selectedInstant, tenant.timezone, "IANA_UTC"), timeStr: scheduleTimeString(selectedInstant, tenant.timezone, "IANA_UTC") });
     return NextResponse.json({ success: true, message: "Agendamento realizado com sucesso!", booking: { id: result.bookingId, date: result.bookingDate } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro interno do servidor";

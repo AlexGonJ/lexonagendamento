@@ -3,10 +3,10 @@
 import prisma from "@/lib/prisma";
 import { getCurrentClientSession, getCurrentSession } from "./auth";
 import { revalidatePath } from "next/cache";
-import { addDays } from "date-fns";
 import { getAvailableSlots } from "./availability";
 import { acquireEmployeeDayLock } from "@/lib/booking-lock";
 import { debitSubscriptionCredit } from "@/lib/credit-ledger";
+import { addScheduleCalendarDays, calendarDateString, scheduleDateTime, scheduleDayBounds, scheduleInstant, weekdayForDateString, type BookingTimeMode } from "@/lib/schedule-time";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -139,8 +139,14 @@ export async function createSubscription(data: {
   const client = await prisma.client.findFirst({ where: { id: data.clientId, bookings: { some: { tenantId } } }, select: { id: true } });
   if (!plan || !client) throw new Error("Plano ou cliente não encontrado para este estabelecimento.");
 
-  const startDate = data.startDateStr ? new Date(`${data.startDateStr}T12:00:00.000Z`) : new Date();
-  const endDate = addDays(startDate, plan.periodDays);
+  const tenantSchedule = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, bookingTimeMode: true } });
+  if (!tenantSchedule) throw new Error("Estabelecimento não encontrado.");
+  const timeZone = tenantSchedule.timezone;
+  const bookingTimeMode = tenantSchedule.bookingTimeMode as BookingTimeMode;
+  const startDateStr = data.startDateStr || calendarDateString(new Date(), timeZone);
+  const startDate = scheduleDayBounds(startDateStr, timeZone, bookingTimeMode).start;
+  const endDateStr = addScheduleCalendarDays(startDateStr, plan.periodDays);
+  const endDate = new Date(scheduleDayBounds(endDateStr, timeZone, bookingTimeMode).start.getTime() - 1);
 
   await prisma.$transaction(async (tx) => {
     const created = await tx.customerSubscription.create({
@@ -179,14 +185,13 @@ export async function createSubscription(data: {
     
     // Iterar sobre os dias do ciclo do plano (periodDays, ex: 30)
     for (let offset = 0; offset < plan.periodDays; offset++) {
-      const currentDay = addDays(startDate, offset);
+      const dateStr = addScheduleCalendarDays(startDateStr, offset);
       
       // Se o dia da semana bater e ainda tiver slots disponíveis no plano
-      if (currentDay.getDay() === dayOfWeek && slotsUsed < plan.slots) {
-        const dateStr = currentDay.toISOString().split("T")[0];
-        const bookingDate = new Date(`${dateStr}T${timeStr}:00.000Z`);
+      if (weekdayForDateString(dateStr) === dayOfWeek && slotsUsed < plan.slots) {
+        const bookingDate = scheduleDateTime(dateStr, timeStr, timeZone, bookingTimeMode);
 
-        if (bookingDate.getTime() <= Date.now()) continue;
+        if (scheduleInstant(bookingDate, timeZone, bookingTimeMode).getTime() <= Date.now()) continue;
         await acquireEmployeeDayLock(tx, `booking:${tenantId}:${employeeId}:${dateStr}`);
         const availableSlots = await getAvailableSlots(employeeId, dateStr, serviceRecord.duration, tx);
         if (!availableSlots.includes(timeStr)) {

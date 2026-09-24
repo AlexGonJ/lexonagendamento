@@ -18,7 +18,7 @@ const faqs = [
   {
     question: "Como funciona a integração com WhatsApp?",
     answer:
-      "No plano Agenda, a comunicação é manual. No Profissional, você pode contratar a automação como add-on via API oficial da Meta, com taxa à parte cobrada somente após a ativação. No plano Automação, ela já está inclusa, com configuração acompanhada e canal oficial sem risco de bloqueio. Os custos de conversas e templates são pagos diretamente à Meta.",
+      "No plano Agenda, a comunicação é manual. No Profissional, você pode contratar a automação via API oficial da Meta como add-on, com taxa à parte cobrada somente após a ativação. No plano Automação, ela já está inclusa com configuração acompanhada. Os custos de conversas e templates são pagos diretamente à Meta.",
   },
   {
     question: "Posso cancelar a qualquer momento?",

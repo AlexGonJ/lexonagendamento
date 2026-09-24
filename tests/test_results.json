@@ -1,0 +1,184 @@
+[
+  {
+    "id": "SEC3_PROMISES_/",
+    "category": "Seção 3 - Promessas Comerciais",
+    "name": "Ausência de promessa de \"sem risco de bloqueio\" em /",
+    "status": "PASSED",
+    "details": "Nenhuma promessa proibida encontrada na página /."
+  },
+  {
+    "id": "SEC3_PRICES_/",
+    "category": "Seção 3 - Preços nas Landing Pages",
+    "name": "Preços dos planos (R$ 59, R$ 119, R$ 229) em /",
+    "status": "PASSED",
+    "details": "Planos encontrados em /: R$ 59 (true), R$ 119 (true), R$ 229 (true)"
+  },
+  {
+    "id": "SEC3_FREE_MONTH_/",
+    "category": "Seção 3 - Primeiro mês grátis",
+    "name": "Menção de período/mês grátis em /",
+    "status": "PASSED",
+    "details": "Página / apresenta menção consistente ao período gratuito."
+  },
+  {
+    "id": "SEC3_CTAS_/",
+    "category": "Seção 3 - CTAs de Planos",
+    "name": "CTAs de planos ativos e direcionando corretamente em /",
+    "status": "PASSED",
+    "details": "Encontrados 3 links/CTAs direcionando para checkout/cadastro."
+  },
+  {
+    "id": "SEC3_PROMISES_/barbearias",
+    "category": "Seção 3 - Promessas Comerciais",
+    "name": "Ausência de promessa de \"sem risco de bloqueio\" em /barbearias",
+    "status": "PASSED",
+    "details": "Nenhuma promessa proibida encontrada na página /barbearias."
+  },
+  {
+    "id": "SEC3_PRICES_/barbearias",
+    "category": "Seção 3 - Preços nas Landing Pages",
+    "name": "Preços dos planos (R$ 59, R$ 119, R$ 229) em /barbearias",
+    "status": "PASSED",
+    "details": "Planos encontrados em /barbearias: R$ 59 (true), R$ 119 (true), R$ 229 (true)"
+  },
+  {
+    "id": "SEC3_FREE_MONTH_/barbearias",
+    "category": "Seção 3 - Primeiro mês grátis",
+    "name": "Menção de período/mês grátis em /barbearias",
+    "status": "PASSED",
+    "details": "Página /barbearias apresenta menção consistente ao período gratuito."
+  },
+  {
+    "id": "SEC3_CTAS_/barbearias",
+    "category": "Seção 3 - CTAs de Planos",
+    "name": "CTAs de planos ativos e direcionando corretamente em /barbearias",
+    "status": "PASSED",
+    "details": "Encontrados 0 links/CTAs direcionando para checkout/cadastro."
+  },
+  {
+    "id": "SEC3_PROMISES_/saloes",
+    "category": "Seção 3 - Promessas Comerciais",
+    "name": "Ausência de promessa de \"sem risco de bloqueio\" em /saloes",
+    "status": "PASSED",
+    "details": "Nenhuma promessa proibida encontrada na página /saloes."
+  },
+  {
+    "id": "SEC3_PRICES_/saloes",
+    "category": "Seção 3 - Preços nas Landing Pages",
+    "name": "Preços dos planos (R$ 59, R$ 119, R$ 229) em /saloes",
+    "status": "PASSED",
+    "details": "Planos encontrados em /saloes: R$ 59 (true), R$ 119 (true), R$ 229 (true)"
+  },
+  {
+    "id": "SEC3_FREE_MONTH_/saloes",
+    "category": "Seção 3 - Primeiro mês grátis",
+    "name": "Menção de período/mês grátis em /saloes",
+    "status": "PASSED",
+    "details": "Página /saloes apresenta menção consistente ao período gratuito."
+  },
+  {
+    "id": "SEC3_CTAS_/saloes",
+    "category": "Seção 3 - CTAs de Planos",
+    "name": "CTAs de planos ativos e direcionando corretamente em /saloes",
+    "status": "PASSED",
+    "details": "Encontrados 3 links/CTAs direcionando para checkout/cadastro."
+  },
+  {
+    "id": "SEC3_CHECKOUT_VAL",
+    "category": "Seção 3 - Checkout",
+    "name": "Exibição de plano e valores na página de checkout (/checkout)",
+    "status": "PASSED",
+    "details": "Página de checkout renderizou com sucesso com informações do plano selecionado."
+  },
+  {
+    "id": "SEC1_PUBLIC_DATA_LEAK",
+    "category": "Seção 1 - Segurança",
+    "name": "Respostas públicas de funcionários/serviços não expõem hash ou tokens",
+    "status": "PASSED",
+    "details": "Nenhum hash de senha, segredo ou token confidencial exposto no DOM ou rede pública."
+  },
+  {
+    "id": "SEC1_INVALID_LOGIN",
+    "category": "Seção 1 - Segurança",
+    "name": "Tentativa de login com credenciais inválidas é recusada com mensagem de erro",
+    "status": "PASSED",
+    "details": "Login recusado com sucesso com exibição de alerta de segurança ao usuário."
+  },
+  {
+    "id": "SEC1_RBAC_UNAUTH_ADMIN",
+    "category": "Seção 1 - Segurança",
+    "name": "Acesso a rotas administrativas (/admin) sem autenticação é bloqueado",
+    "status": "PASSED",
+    "details": "Tentativa de acesso direto redirecionou para autenticação: http://localhost:3000/login"
+  },
+  {
+    "id": "SEC1_RBAC_UNAUTH_SUPERADMIN",
+    "category": "Seção 1 - Segurança",
+    "name": "Acesso a rotas Super Admin (/super-admin) sem autenticação é bloqueado",
+    "status": "PASSED",
+    "details": "Tentativa de acesso redirecionou para tela de login do Super Admin: http://localhost:3000/super-admin/login"
+  },
+  {
+    "id": "SEC2_BOOKING_UI_1280",
+    "category": "Seção 2 - Agendamento Público",
+    "name": "Interface de agendamento responsiva em Desktop (1280x800)",
+    "status": "PASSED",
+    "details": "Página pública de agendamento carregou perfeitamente e responsiva em Desktop (1280x800)."
+  },
+  {
+    "id": "SEC2_BOOKING_UI_390",
+    "category": "Seção 2 - Agendamento Público",
+    "name": "Interface de agendamento responsiva em Mobile (390x844 - iPhone 14)",
+    "status": "PASSED",
+    "details": "Página pública de agendamento carregou perfeitamente e responsiva em Mobile (390x844 - iPhone 14)."
+  },
+  {
+    "id": "SEC2_SNAPSHOT_FINANCIAL",
+    "category": "Seção 2 - Snapshot Financeiro",
+    "name": "Preservação de snapshots comerciais de preço e comissão na reserva",
+    "status": "PASSED",
+    "details": "Snapshots registrados: Preço R$ 80, Duração 60m, Comissão 50%"
+  },
+  {
+    "id": "SEC2_CANCEL_BOOKING",
+    "category": "Seção 2 - Cancelamento",
+    "name": "Cancelamento de agendamento registra status e timestamp de cancelamento",
+    "status": "PASSED",
+    "details": "Reserva d8dbd7dd-0b81-4359-8318-66808d825b7a cancelada com sucesso em 2026-09-23T17:42:38.029Z"
+  },
+  {
+    "id": "SEC4_SKU_ISOLATION",
+    "category": "Seção 4 - Estoque e Multi-tenancy",
+    "name": "Validação de unicidade de SKU (Rejeitado no mesmo tenant, Permitido em outro)",
+    "status": "PASSED",
+    "details": "Mesmo tenant duplicado rejeitado: true | Tenants diferentes permitido: true"
+  },
+  {
+    "id": "SEC4_STOCK_MOVEMENTS",
+    "category": "Seção 4 - Estoque",
+    "name": "Registro de movimentação de estoque (IN/OUT) com atualização de saldo e histórico",
+    "status": "PASSED",
+    "details": "Saldo inicial: 10 -> Novo saldo: 15 com movimentação registrada no histórico."
+  },
+  {
+    "id": "SEC4_ARCHIVE_PRODUCT",
+    "category": "Seção 4 - Estoque",
+    "name": "Arquivamento de produto remove da lista ativa preservando histórico",
+    "status": "PASSED",
+    "details": "Produto Pomada Modeladora Efeito Seco arquivado com sucesso (isActive: false) e histórico de movimentações preservado."
+  },
+  {
+    "id": "SEC6_PRIVACY_PAGE",
+    "category": "Seção 6 - Políticas e Legal",
+    "name": "Página de Política de Privacidade carregada com conteúdo adequado",
+    "status": "PASSED",
+    "details": "Página /politica-de-privacidade respondeu com 1595 caracteres de texto legal."
+  },
+  {
+    "id": "SEC6_TERMS_PAGE",
+    "category": "Seção 6 - Políticas e Legal",
+    "name": "Página de Termos de Uso carregada com conteúdo adequado",
+    "status": "PASSED",
+    "details": "Página /termos-de-uso respondeu com 1103 caracteres de texto legal."
+  }
+]

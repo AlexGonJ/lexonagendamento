@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import { timingSafeEqual } from "crypto";
 import { recordAuditEvent } from "@/lib/audit";
 import { enqueueWhatsappMessage } from "@/lib/whatsapp-outbox";
+import { addScheduleCalendarDays, calendarDateString, calendarTimeString, formatScheduleDate, formatScheduleTime, scheduleDateTime, scheduleDayBounds, scheduleInstant, type BookingTimeMode } from "@/lib/schedule-time";
 
 function hasValidCronSecret(providedSecret?: string) {
   const expectedSecret = process.env.CRON_SECRET;
@@ -21,20 +22,19 @@ function hasValidCronSecret(providedSecret?: string) {
   return expected.length === provided.length && timingSafeEqual(expected, provided);
 }
 
-// Format date to DD/MM/YYYY in SP timezone
-function formatDateBR(date: Date): string {
+// Formats a real instant for a tenant's configured timezone.
+function formatInstantDateBR(date: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
+    timeZone,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
   }).format(date);
 }
 
-// Format time to HH:MM in SP timezone
-function formatTimeBR(date: Date): string {
+function formatInstantTimeBR(date: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
+    timeZone,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
@@ -196,6 +196,9 @@ export async function sendTestWhatsappMessage(phone: string, text: string) {
   }
 
   const tenantId = session.tenantId;
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true } });
+  if (!tenant) throw new Error("Estabelecimento não encontrado.");
+  const now = new Date();
 
   const result = await sendWhatsappMessage({
     tenantId,
@@ -205,8 +208,8 @@ export async function sendTestWhatsappMessage(phone: string, text: string) {
       clientName: "Cliente Teste",
       serviceName: "Corte de Cabelo (Teste)",
       employeeName: "Profissional Teste",
-      dateStr: formatDateBR(new Date()),
-      timeStr: formatTimeBR(new Date()),
+      dateStr: formatInstantDateBR(now, tenant.timezone),
+      timeStr: formatInstantTimeBR(now, tenant.timezone),
       inactiveDays: 30,
     },
     overrideMessage: text,
@@ -287,21 +290,27 @@ export async function runAppointmentRemindersJob(manualTenantId?: string, cronSe
 
   // Busca agendamentos confirmados futuros que estejam dentro do intervalo e não tenham recebido o lembrete
   // Adiciona um buffer inferior (ex: agendamentos a partir de agora) para não pegar agendamentos passados
-  const bookings = await prisma.booking.findMany({
+  const bookingTimeMode = tenant.bookingTimeMode as BookingTimeMode;
+  const firstCandidateDay = addScheduleCalendarDays(calendarDateString(now, tenant.timezone), -1);
+  const lastCandidateDay = addScheduleCalendarDays(calendarDateString(timeLimit, tenant.timezone), 1);
+  const candidateStart = scheduleDayBounds(firstCandidateDay, tenant.timezone, bookingTimeMode).start;
+  const candidateEnd = scheduleDayBounds(lastCandidateDay, tenant.timezone, bookingTimeMode).end;
+  const candidateBookings = await prisma.booking.findMany({
     where: {
       tenantId: tenant.id,
       status: "CONFIRMED",
       whatsappReminderSent: false,
-      date: {
-        gte: now,
-        lte: timeLimit,
-      },
+      date: { gte: candidateStart, lte: candidateEnd },
     },
     include: {
       client: true,
       service: true,
       employee: true,
     },
+  });
+  const bookings = candidateBookings.filter((booking) => {
+    const instant = scheduleInstant(booking.date, tenant.timezone, bookingTimeMode).getTime();
+    return instant >= now.getTime() && instant <= timeLimit.getTime();
   });
 
   let queuedCount = 0;
@@ -317,8 +326,8 @@ export async function runAppointmentRemindersJob(manualTenantId?: string, cronSe
         clientName: booking.client.name,
         serviceName: booking.service.name,
         employeeName: booking.employee.name,
-        dateStr: formatDateBR(booking.date),
-        timeStr: formatTimeBR(booking.date),
+        dateStr: formatScheduleDate(booking.date, tenant.timezone, bookingTimeMode),
+        timeStr: formatScheduleTime(booking.date, tenant.timezone, bookingTimeMode),
       },
     }));
     queuedCount++;
@@ -357,6 +366,7 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
   }
 
   const now = new Date();
+  const bookingTimeMode = tenant.bookingTimeMode as BookingTimeMode;
   const inactiveDays = tenant.whatsappInactiveDays;
   
   // Limiar de dias atrás (ex: 30 dias atrás)
@@ -394,7 +404,7 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
     const lastBooking = client.bookings[0];
     if (!lastBooking) continue;
 
-    const lastBookingDate = new Date(lastBooking.date);
+    const lastBookingDate = scheduleInstant(lastBooking.date, tenant.timezone, bookingTimeMode);
 
     // Se o último agendamento foi antes do limiar (há mais de 30 dias)
     // E o cliente não recebeu um lembrete de inatividade desde o seu último agendamento
@@ -402,13 +412,14 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
     const optedOut = client.communicationPreferences[0]?.promotionalOptOut === true;
 
     // Adicionalmente, verificamos se o cliente tem algum agendamento futuro agendado
+    const nowStorage = scheduleDateTime(calendarDateString(now, tenant.timezone), calendarTimeString(now, tenant.timezone), tenant.timezone, bookingTimeMode);
     const futureBooking = await prisma.booking.findFirst({
       where: {
         clientId: client.id,
         tenantId: tenant.id,
         status: "CONFIRMED",
         date: {
-          gt: now,
+          gt: nowStorage,
         }
       }
     });
@@ -425,8 +436,8 @@ export async function runInactiveClientRemindersJob(manualTenantId?: string, cro
           clientName: client.name,
           serviceName: service?.name || "Serviço",
           employeeName: employee?.name || "Profissional",
-          dateStr: formatDateBR(lastBookingDate),
-          timeStr: formatTimeBR(lastBookingDate),
+          dateStr: formatScheduleDate(lastBooking.date, tenant.timezone, bookingTimeMode),
+          timeStr: formatScheduleTime(lastBooking.date, tenant.timezone, bookingTimeMode),
           inactiveDays: inactiveDays,
         },
       }));

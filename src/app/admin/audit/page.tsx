@@ -1,6 +1,7 @@
 import { getAuditLogs } from "@/actions/audit";
 import { getCurrentSession } from "@/actions/auth";
 import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +28,11 @@ export default async function AuditPage() {
   }
 
   const logs = await getAuditLogs();
+  const tenant = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true } });
   const formatter = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
-    timeZone: "America/Sao_Paulo",
+    timeZone: tenant?.timezone || "America/Sao_Paulo",
   });
 
   return (
