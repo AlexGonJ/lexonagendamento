@@ -23,10 +23,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ ten
     if (!tenant?.isActive) return NextResponse.json({ error: "Estabelecimento não encontrado ou indisponível" }, { status: 404 });
     if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 403 });
     const [phoneLimit, ipLimit] = await Promise.all([
-      assertRateLimit(`booking:create:phone:${client.phone}:${tenant.id}`, { limit: 5, windowMs: 60 * 60 * 1000, blockMs: 2 * 60 * 60 * 1000 }),
-      assertRateLimit(`booking:create:ip:${getRequestIp(request)}:${tenant.id}`, { limit: 15, windowMs: 60 * 60 * 1000, blockMs: 2 * 60 * 60 * 1000 }),
+      assertRateLimit(`booking:create:phone:${client.phone}:${tenant.id}`, { limit: 5, windowMs: 60 * 60 * 1000, blockMs: 30 * 60 * 1000 }),
+      assertRateLimit(`booking:create:ip:${getRequestIp(request)}:${tenant.id}`, { limit: 15, windowMs: 60 * 60 * 1000, blockMs: 30 * 60 * 1000 }),
     ]);
-    if (!phoneLimit.allowed || !ipLimit.allowed) return NextResponse.json({ error: "Muitas marcações em pouco tempo. Tente novamente mais tarde." }, { status: 429 });
+    if (!phoneLimit.allowed || !ipLimit.allowed) {
+      const retrySecs = Math.max(!phoneLimit.allowed ? phoneLimit.retryAfterSeconds : 0, !ipLimit.allowed ? ipLimit.retryAfterSeconds : 0);
+      const minutes = Math.ceil(retrySecs / 60);
+      const timeMsg = minutes > 1 ? `${minutes} minutos` : `${retrySecs} segundos`;
+      return NextResponse.json({ error: `Muitas tentativas de agendamento em pouco tempo. Por favor, aguarde ${timeMsg} para tentar novamente.` }, { status: 429 });
+    }
     const captcha = await verifyTurnstileToken(captchaToken, getRequestIp(request));
     if (!captcha.success) return NextResponse.json({ error: captcha.error }, { status: 400 });
     const selectedInstant = new Date(date);

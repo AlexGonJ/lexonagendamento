@@ -55,7 +55,7 @@ const plans: Array<{
       { label: "CRM completo", status: "included" },
       { label: "Financeiro básico", status: "included" },
       { label: "Estoque: produtos, entradas, saídas e ajustes", status: "included" },
-      { label: "WhatsApp opcional via API oficial (taxa à parte)", status: "optional" },
+      { label: "WhatsApp opcional via API oficial (add-on à parte)¹", status: "optional" },
       { label: "Confirmações, lembretes e reativação com o add-on", status: "optional" },
       { label: "Suporte prioritário", status: "included" },
     ],
@@ -73,7 +73,7 @@ const plans: Array<{
       { label: "Tudo do plano Profissional", status: "included" },
       { label: "Financeiro avançado com DRE completo", status: "included" },
       { label: "Estoque avançado com alertas de reposição", status: "included" },
-      { label: "Automação por WhatsApp via API oficial inclusa", status: "included" },
+      { label: "Automação por WhatsApp via API oficial inclusa¹", status: "included" },
       { label: "Confirmações, lembretes e reativação", status: "included" },
       { label: "Conexão pela API oficial da Meta", status: "included" },
       { label: "Configuração acompanhada (setup assistido)", status: "included" },
@@ -122,6 +122,9 @@ export default function PricingSection() {
             const PlanIcon = plan.icon;
             const ctaLabel = "Começar mês grátis";
             const whatsappMessage = `Olá! Quero começar o primeiro mês grátis no plano ${plan.name} da Lexon Agenda.`;
+            const planCtaHref = process.env.NODE_ENV !== "production"
+              ? `/checkout?plan=${plan.id}&source=home`
+              : `/whatsapp?source=home&intent=subscription&plan=${plan.id}&text=${encodeURIComponent(whatsappMessage)}`;
 
             return (
               <motion.article
@@ -172,9 +175,7 @@ export default function PricingSection() {
                   </div>
 
                   <a
-                    href={`/whatsapp?source=home&intent=subscription&plan=${plan.id}&text=${encodeURIComponent(whatsappMessage)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={planCtaHref}
                     onClick={() => trackCustomEvent("CliqueAssinatura", { plano: plan.name })}
                     className={`${plan.ctaStyle === "primary" ? "btn-primary animate-pulse-glow" : plan.ctaStyle === "slate" ? "btn-slate" : "btn-secondary"} text-center mb-6 block`}
                   >
@@ -218,7 +219,7 @@ export default function PricingSection() {
         >
           <p className="text-xs text-landing-text-muted leading-relaxed text-center">
             <span className="font-semibold text-slate-300">Sobre a automação por WhatsApp:</span>{" "}
-            no plano Agenda, a comunicação é manual e o estoque não está incluído. O Profissional inclui controle básico de produtos, entradas, saídas e ajustes; a automação via API oficial é um add-on opcional, cobrado após a ativação. O plano Automação inclui alertas de reposição e automação oficial com setup assistido. Conversas e templates da Meta são cobrados diretamente pela Meta.
+            ¹ A mensalidade é da plataforma Lexon. No Profissional, o add-on de conexão/ativação do WhatsApp oficial é cobrado à parte pela Lexon; no Automação, o recurso e o setup assistido estão incluídos. Em ambos, conversas e templates têm cobrança separada, feita diretamente pela Meta conforme as tarifas dela. A comunicação manual está disponível no plano Agenda; estoque não está incluído nele.
           </p>
         </motion.div>
 

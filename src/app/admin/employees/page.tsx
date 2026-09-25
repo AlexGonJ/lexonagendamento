@@ -1,8 +1,20 @@
 import { getEmployees, getEmployeeCapacity, createEmployee, deleteEmployee } from "@/actions/employees";
 import Link from "next/link";
 
-export default async function AdminEmployees() {
+const createMessages: Record<string, { text: string; success?: boolean }> = {
+  created: { text: "Profissional cadastrado com sucesso.", success: true },
+  limit: { text: "O limite de profissionais ativos do plano foi atingido." },
+  "duplicate-email": { text: "Este email já está em uso. Confira os dados e tente novamente." },
+  "password-required": { text: "Informe uma senha para o usuário com email." },
+  "avatar-upload": { text: "Não foi possível enviar a foto. Tente novamente ou cadastre sem foto." },
+  "required-fields": { text: "Preencha nome e cargo para cadastrar o profissional." },
+  error: { text: "Não foi possível cadastrar o profissional. Tente novamente; o erro técnico foi registrado para investigação." },
+};
+
+export default async function AdminEmployees({ searchParams }: { searchParams: Promise<{ createResult?: string }> }) {
   const [employees, capacity] = await Promise.all([getEmployees(), getEmployeeCapacity()]);
+  const params = await searchParams;
+  const createMessage = params.createResult ? createMessages[params.createResult] : undefined;
 
   return (
     <div>
@@ -12,6 +24,8 @@ export default async function AdminEmployees() {
           {capacity && <p className="text-sm text-gray-500 mt-1">{capacity.used} de {capacity.limit} profissionais ativos no plano {capacity.planName}.</p>}
         </div>
       </div>
+
+      {createMessage && <p role="status" className={`mb-5 rounded-lg border p-3 text-sm ${createMessage.success ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-800"}`}>{createMessage.text}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 

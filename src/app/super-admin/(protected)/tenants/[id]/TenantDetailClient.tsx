@@ -57,6 +57,10 @@ export default function TenantDetailClient({ tenant, plans, features }: { tenant
       setEmpMsg({ type: "err", text: "Todos os campos são obrigatórios." });
       return;
     }
+    if (empPassword.length < 8) {
+      setEmpMsg({ type: "err", text: "A senha deve ter pelo menos 8 caracteres." });
+      return;
+    }
     setCreatingEmp(true);
     setEmpMsg({ type: "", text: "" });
 
@@ -319,6 +323,7 @@ export default function TenantDetailClient({ tenant, plans, features }: { tenant
               <input
                 type="password"
                 required
+                minLength={8}
                 value={empPassword}
                 onChange={(e) => setEmpPassword(e.target.value)}
                 placeholder="Defina a senha"

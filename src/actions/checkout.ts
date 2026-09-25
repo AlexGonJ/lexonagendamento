@@ -7,6 +7,8 @@ import { SessionData } from "@/actions/auth";
 import { hashPassword } from "@/lib/password";
 import { createMercadoPagoSubscription } from "@/lib/mercadopago-subscriptions";
 
+const TERMS_VERSION = "2026-09-25-draft";
+
 export async function registerTenant(data: {
   name: string;
   slug: string;
@@ -14,14 +16,24 @@ export async function registerTenant(data: {
   password?: string;
   planId: string;
   billingPeriod: "monthly" | "annual";
+  termsReadConfirmed: boolean;
 }) {
-  const { name, slug, email, password, planId, billingPeriod } = data;
+  const { name, slug, email, password, planId, billingPeriod, termsReadConfirmed } = data;
 
   if (!name || !slug || !email || !password) {
     return { success: false, error: "Todos os campos são obrigatórios." };
   }
   if (billingPeriod !== "monthly" && billingPeriod !== "annual") {
     return { success: false, error: "Ciclo de cobrança inválido." };
+  }
+  if (termsReadConfirmed !== true) {
+    return { success: false, error: "Leia e confirme os Termos de Uso antes de criar o estabelecimento." };
+  }
+  if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    return { success: false, error: "Checkout indisponível: configure a credencial de teste do Mercado Pago antes de concluir o cadastro." };
+  }
+  if (process.env.NODE_ENV !== "production" && process.env.MERCADOPAGO_USE_SANDBOX !== "true") {
+    return { success: false, error: "Checkout local bloqueado: defina MERCADOPAGO_USE_SANDBOX=true e use credenciais de teste do Mercado Pago." };
   }
 
   const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -91,9 +103,14 @@ export async function registerTenant(data: {
           planId: plan.id,
           billingPeriod,
           amount: billingPeriod === "annual" ? plan.price * 12 : plan.price,
+          termsReadConfirmedAt: new Date(),
+          termsVersion: TERMS_VERSION,
         },
       });
       return { tenant: newTenant, employee: newEmployee, order };
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     });
 
     // 5. Auto login by setting the cookie

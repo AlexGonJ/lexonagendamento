@@ -2,56 +2,26 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Política de Privacidade | LexonAgenda",
-  description: "Política de Privacidade da plataforma LexonAgenda",
+  description: "Estrutura em elaboração para a Política de Privacidade da Lexon Agenda",
 };
 
 export default function PoliticaDePrivacidade() {
   return (
     <main className="min-h-screen bg-slate-950 pt-32 pb-16 px-6 lg:px-8 text-slate-300">
-      <div className="max-w-3xl mx-auto prose prose-invert prose-slate prose-a:text-blue-400">
-        <h1 className="text-3xl font-bold text-white mb-8">Política de Privacidade</h1>
-        <p className="mb-4">Última atualização: 28 de julho de 2026</p>
-        
-        <p className="mb-4">
-          A sua privacidade é importante para nós. É política da LexonAgenda respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar, em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei nº 13.709/2018).
+      <div className="max-w-3xl mx-auto">
+        <p className="text-sm font-semibold uppercase tracking-wider text-amber-400 mb-3">Documento em elaboração</p>
+        <h1 className="text-3xl font-bold text-white mb-6">Política de Privacidade</h1>
+        <p className="mb-8 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 leading-relaxed">
+          Esta página já está publicada como espaço reservado. A política final depende do inventário dos dados e integrações realmente utilizados pela Lexon e pelos estabelecimentos. O conteúdo abaixo é um roteiro de elaboração, não uma política vigente.
         </p>
 
-        <h2 className="text-xl font-semibold text-white mt-8 mb-4">1. Coleta de Dados</h2>
-        <p className="mb-4">
-          Coletamos informações pessoais que você nos fornece voluntariamente ao criar uma conta, preencher formulários ou entrar em contato conosco. Essas informações podem incluir nome, e-mail, número de telefone e dados de pagamento.
-        </p>
-
-        <h2 className="text-xl font-semibold text-white mt-8 mb-4">2. Uso dos Dados</h2>
-        <p className="mb-4">
-          Utilizamos suas informações para:
-        </p>
-        <ul className="list-disc pl-6 mb-4 space-y-2">
-          <li>Fornecer, operar e manter nossa plataforma;</li>
-          <li>Melhorar, personalizar e expandir nossos serviços;</li>
-          <li>Entender e analisar como você usa nossa plataforma;</li>
-          <li>Processar transações e gerenciar sua conta;</li>
-          <li>Comunicar-nos com você, incluindo atendimento ao cliente.</li>
-        </ul>
-
-        <h2 className="text-xl font-semibold text-white mt-8 mb-4">3. Compartilhamento de Dados</h2>
-        <p className="mb-4">
-          Não compartilhamos suas informações pessoais publicamente ou com terceiros, exceto quando exigido por lei ou para a prestação de nossos serviços (ex: gateways de pagamento).
-        </p>
-
-        <h2 className="text-xl font-semibold text-white mt-8 mb-4">4. Segurança dos Dados</h2>
-        <p className="mb-4">
-          Adotamos medidas de segurança adequadas para proteger contra acesso, alteração, divulgação ou destruição não autorizada dos seus dados pessoais.
-        </p>
-
-        <h2 className="text-xl font-semibold text-white mt-8 mb-4">5. Seus Direitos (LGPD)</h2>
-        <p className="mb-4">
-          De acordo com a LGPD, você tem o direito de solicitar o acesso, correção, atualização ou exclusão dos seus dados pessoais. Você também pode revogar seu consentimento a qualquer momento.
-        </p>
-
-        <h2 className="text-xl font-semibold text-white mt-8 mb-4">6. Contato</h2>
-        <p className="mb-4">
-          Para exercer seus direitos ou tirar dúvidas sobre nossa Política de Privacidade, entre em contato conosco através do WhatsApp: <a href="https://wa.me/5538999023012" className="text-blue-400 hover:underline">(38) 99902-3012</a>.
-        </p>
+        <div className="space-y-7 leading-relaxed">
+          <section><h2 className="text-xl font-semibold text-white mb-2">Controladores e dados tratados</h2><p>Identificar a Lexon e os estabelecimentos em seus respectivos papéis, e mapear dados de cadastro, autenticação, agenda, clientes, pagamentos, suporte, cookies e telemetria.</p></section>
+          <section><h2 className="text-xl font-semibold text-white mb-2">Finalidades e bases legais</h2><p>Relacionar cada categoria de dado à finalidade, base legal aplicável, necessidade e prazo de retenção, incluindo comunicações operacionais e marketing quando houver.</p></section>
+          <section><h2 className="text-xl font-semibold text-white mb-2">Compartilhamento e transferências</h2><p>Inventariar provedores de hospedagem, banco de dados, autenticação, pagamento, análise e WhatsApp, indicando papéis, dados envolvidos e eventuais transferências internacionais.</p></section>
+          <section><h2 className="text-xl font-semibold text-white mb-2">Segurança, retenção e direitos</h2><p>Descrever medidas e limites reais, períodos de retenção, exclusão e exportação, canal para solicitações de titulares e forma de verificar e responder aos pedidos.</p></section>
+          <section><h2 className="text-xl font-semibold text-white mb-2">Cookies e contato</h2><p>Documentar cookies e pixels, escolha/consentimento aplicável, contato do encarregado quando definido e canal para dúvidas. Durante a elaboração, fale com a Lexon pelo <a className="text-blue-400 hover:underline" href="https://wa.me/5538999023012" target="_blank" rel="noopener noreferrer">WhatsApp (38) 99902-3012</a>.</p></section>
+        </div>
       </div>
     </main>
   );

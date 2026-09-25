@@ -12,6 +12,7 @@ const footerLinks = {
   Empresa: [
     { label: "Sobre nós", href: "https://www.lexondigital.com.br/" },
     { label: "Contato", href: "/whatsapp" },
+    { label: "Suporte Lexon: (38) 99902-3012", href: "https://wa.me/5538999023012" },
   ],
   Legal: [
     { label: "Termos de Uso", href: "/termos-de-uso" },

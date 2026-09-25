@@ -150,14 +150,20 @@ export async function createTenantEmployee(
   tenantId: string,
   data: { name: string; role: string; email: string; password?: string; isAdmin: boolean }
 ) {
+  let stage = "autorização";
   try {
     await requireSuperAdminAuth();
-    const { name, role, email, password, isAdmin } = data;
+    const { name, role, password, isAdmin } = data;
+    const email = data.email.trim().toLowerCase();
     if (!name || !role || !email) {
       return { success: false, error: "Nome, cargo e e-mail são obrigatórios." };
     }
+    if (!password || password.length < 8) {
+      return { success: false, error: "A senha de acesso deve ter pelo menos 8 caracteres." };
+    }
 
     // Verificar se o email já está em uso
+    stage = "verificação do e-mail";
     const existing = await prisma.employee.findUnique({
       where: { email },
     });
@@ -165,11 +171,10 @@ export async function createTenantEmployee(
       return { success: false, error: "Este e-mail já está sendo usado por outro funcionário." };
     }
 
-    let passwordHash: string | null = null;
-    if (password) {
-      passwordHash = await hashPassword(password);
-    }
+    stage = "preparação da senha";
+    const passwordHash = await hashPassword(password);
 
+    stage = "gravação do funcionário";
     await prisma.employee.create({
       data: {
         name,
@@ -181,6 +186,7 @@ export async function createTenantEmployee(
       },
     });
 
+    stage = "auditoria";
     await recordAuditEvent({
       tenantId,
       actorRole: "SUPER_ADMIN",
@@ -192,7 +198,22 @@ export async function createTenantEmployee(
     return { success: true };
   } catch (error) {
     console.error("Erro ao criar funcionário:", error);
-    return { success: false, error: "Erro interno no servidor ao cadastrar funcionário." };
+    // Keep database details in the server log, but return actionable messages
+    // for common constraint failures instead of hiding them behind one generic error.
+    if (typeof error === "object" && error !== null && "code" in error) {
+      const code = String((error as { code?: unknown }).code);
+      if (code === "P2002") {
+        return { success: false, error: "Este e-mail já está cadastrado. Confira o endereço e tente novamente." };
+      }
+      if (code === "P2003" || code === "P2025") {
+        return { success: false, error: "A loja ou o registro relacionado não foi encontrado. Atualize a página e tente novamente." };
+      }
+    }
+    const errorType = error instanceof Error ? error.name : "Erro desconhecido";
+    const errorCode = typeof error === "object" && error !== null && "code" in error
+      ? `, código ${(error as { code?: unknown }).code}`
+      : "";
+    return { success: false, error: `Falha na ${stage} (${errorType}${errorCode}). Atualize a página e tente novamente.` };
   }
 }
 

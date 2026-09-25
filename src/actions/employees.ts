@@ -8,6 +8,7 @@ import { getCurrentSession } from "./auth";
 import { hashPassword } from "@/lib/password";
 import { assertImageUpload } from "@/lib/upload-validation";
 import { assertEmployeeCapacity } from "@/lib/plan-limits";
+import { redirect } from "next/navigation";
 
 async function getActiveTenantId() {
   const session = await getCurrentSession();
@@ -92,6 +93,9 @@ export async function createEmployee(formData: FormData) {
   await requireAdminSession();
   const tenantId = await getActiveTenantId();
 
+  let result = "created";
+  try {
+
   const name = formData.get("name") as string;
   const role = formData.get("role") as string;
   const email = formData.get("email") as string | null;
@@ -146,6 +150,18 @@ export async function createEmployee(formData: FormData) {
 
   revalidatePath("/admin/employees");
   revalidatePath("/brutusbarbearia/book");
+  } catch (error) {
+    console.error("Erro ao cadastrar profissional:", error);
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("limite") || message.includes("Limite")) result = "limit";
+    else if (message.includes("email já está em uso")) result = "duplicate-email";
+    else if (message.includes("senha para o usuário")) result = "password-required";
+    else if (message.includes("upload da foto")) result = "avatar-upload";
+    else if (message.includes("campos obrigatórios")) result = "required-fields";
+    else result = "error";
+  }
+
+  redirect(`/admin/employees?createResult=${result}`);
 }
 
 export async function updateEmployee(id: string, formData: FormData) {

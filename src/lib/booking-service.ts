@@ -16,14 +16,15 @@ export async function createBookingForClient(input: BookingRequest) {
   const bookingInstant = scheduleInstant(bookingDate, tenant.timezone, tenant.bookingTimeMode as BookingTimeMode);
   if (Number.isNaN(bookingInstant.getTime()) || bookingInstant.getTime() <= Date.now()) throw new Error("Data ou horário inválidos.");
 
-  return prisma.$transaction(async (tx) => {
-    await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${input.employeeId}:${input.dateStr}`);
-    await assertMonthlyBookingCapacity(tx, tenant.id, bookingDate, tenant.timezone, tenant.bookingTimeMode as BookingTimeMode);
-    const [service, employee, client] = await Promise.all([
-      tx.service.findFirst({ where: { id: input.serviceId, tenantId: tenant.id, isActive: true } }),
-      tx.employee.findFirst({ where: { id: input.employeeId, tenantId: tenant.id, isActive: true }, include: { services: { select: { id: true } } } }),
-      tx.client.findUnique({ where: { id: input.clientId } }),
-    ]);
+  return prisma.$transaction(
+    async (tx) => {
+      await acquireEmployeeDayLock(tx, `booking:${tenant.id}:${input.employeeId}:${input.dateStr}`);
+      await assertMonthlyBookingCapacity(tx, tenant.id, bookingDate, tenant.timezone, tenant.bookingTimeMode as BookingTimeMode);
+      const [service, employee, client] = await Promise.all([
+        tx.service.findFirst({ where: { id: input.serviceId, tenantId: tenant.id, isActive: true } }),
+        tx.employee.findFirst({ where: { id: input.employeeId, tenantId: tenant.id, isActive: true }, include: { services: { select: { id: true } } } }),
+        tx.client.findUnique({ where: { id: input.clientId } }),
+      ]);
     if (!service) throw new Error("Serviço inválido para este estabelecimento.");
     if (!employee || !employee.services.some((item) => item.id === service.id)) throw new Error("Este profissional não atende o serviço selecionado.");
     if (!client) throw new Error("Cliente não encontrado.");
@@ -34,5 +35,8 @@ export async function createBookingForClient(input: BookingRequest) {
     if (subscription) await debitSubscriptionCredit(tx, subscription.id, booking.id, { tenantId: tenant.id, clientId: client.id, status: "ACTIVE", startDate: { lte: bookingDate }, endDate: { gte: bookingDate } });
     await enqueueWhatsappMessage(tx, { tenantId: tenant.id, eventKey: `booking:${booking.id}:confirmation`, bookingId: booking.id, recipient: client.phone, type: "CONFIRMATION", data: { clientName: client.name, serviceName: service.name, employeeName: employee.name, dateStr: input.dateStr.split("-").reverse().join("/"), timeStr: input.timeStr } });
     return { bookingId: booking.id, bookingDate, serviceName: service.name, employeeName: employee.name, clientName: client.name, clientPhone: client.phone };
+  }, {
+    maxWait: 10000,
+    timeout: 20000,
   });
 }

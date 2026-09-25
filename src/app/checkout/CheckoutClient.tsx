@@ -14,20 +14,33 @@ interface PlanDetails {
   features: string[];
 }
 
+function normalizePlanKey(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^plano[\s-]+/, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
 export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
   const searchParams = useSearchParams();
-  const initialPlan = searchParams.get("plan") || plans[0]?.id || "";
+  const requestedPlan = searchParams.get("plan") || "";
+  const matchingPlan = plans.find((plan) =>
+    plan.id === requestedPlan || normalizePlanKey(plan.name) === normalizePlanKey(requestedPlan)
+  );
 
   const [selectedPlanId, setSelectedPlanId] = useState(
-    plans.some((plan) => plan.id === initialPlan) ? initialPlan : plans[0]?.id || ""
+    matchingPlan?.id || plans[0]?.id || ""
   );
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("annual");
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
   const [isPending, startTransition] = useTransition();
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [termsReadConfirmed, setTermsReadConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [paymentRedirectUrl, setPaymentRedirectUrl] = useState<string | null>(null);
@@ -68,6 +81,7 @@ export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
         password,
         planId: selectedPlanId,
         billingPeriod,
+        termsReadConfirmed,
       });
 
       if (res.success) {
@@ -221,9 +235,34 @@ export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
               </div>
             </div>
 
+            <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="terms-read-confirmation"
+                  type="checkbox"
+                  required
+                  disabled={isPending || !!successMsg}
+                  checked={termsReadConfirmed}
+                  onChange={(event) => setTermsReadConfirmed(event.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-blue-500"
+                />
+                <div className="space-y-1">
+                  <label htmlFor="terms-read-confirmation" className="text-sm text-slate-200">
+                    Confirmo que li os Termos de Uso.
+                  </label>
+                  <p className="text-xs leading-relaxed text-slate-400">
+                    <Link href="/termos-de-uso" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-400 underline underline-offset-2 hover:text-blue-300">
+                      Abrir Termos de Uso (versão de teste)
+                    </Link>
+                    . Esta confirmação e a versão do documento serão registradas com o pedido.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <button
               type="submit"
-              disabled={isPending || !!successMsg}
+              disabled={isPending || !!successMsg || !termsReadConfirmed}
               className="w-full mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm py-4 rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? (
@@ -314,7 +353,7 @@ export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
               >
                 Anual
                 <span className="px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-extrabold">
-                  -20%
+                  12 meses
                 </span>
               </button>
             </div>
@@ -322,14 +361,14 @@ export default function CheckoutClient({ plans }: { plans: PlanDetails[] }) {
 
           {/* Price details */}
           <div className="bg-slate-950/60 p-6 rounded-2xl border border-white/5 text-center space-y-2">
-            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Valor total recorrente</span>
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Valor por cobrança</span>
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-3xl font-extrabold">R$ {currentPrice.toFixed(2)}</span>
-              <span className="text-slate-400 text-xs font-medium">/mês</span>
+              <span className="text-slate-400 text-xs font-medium">/{billingPeriod === "annual" ? "ano" : "mês"}</span>
             </div>
             <p className="text-xs text-slate-500">
               {billingPeriod === "annual"
-                ? `Cobrado anualmente (R$ ${currentPrice * 12}/ano)`
+                ? "Cobrado a cada 12 meses"
                 : "Cobrado mensalmente"}
             </p>
           </div>

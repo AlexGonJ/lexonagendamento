@@ -215,6 +215,9 @@ Recepção opera um dia completo sem acessar configurações financeiras restrit
 - [ ] Documentar implantação, migrações, rollback e atendimento de incidentes.
 - [ ] Revisar rastreamento global, preferências de comunicação e processo de acesso/correção/exportação/exclusão de dados; restringir Pixel ao escopo comercial apropriado.
 - [ ] Garantir coerência entre oferta, termos, privacidade e funções entregues; validar requisitos jurídicos aplicáveis separadamente.
+- [ ] Elaborar os Termos de Uso com identificação da empresa, escopo e limites do serviço, planos/período grátis, cobrança e renovação, add-ons e tarifas de terceiros, cancelamento, responsabilidades e encerramento; revisar e aprovar o texto antes de torná-lo vigente.
+- [ ] Elaborar a Política de Privacidade a partir do inventário real de dados, papéis de controlador/operador, finalidades e bases legais, retenção/exclusão, provedores e transferências, cookies/Pixel, segurança e canal para direitos dos titulares; revisar e aprovar antes de publicá-la como vigente.
+- [ ] Validar a apresentação dos documentos com o responsável jurídico e completar a identificação/canal oficial de privacidade, sem publicar texto genérico como compromisso operacional.
 
 ### Aceite
 

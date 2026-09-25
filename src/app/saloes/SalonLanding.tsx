@@ -20,6 +20,9 @@ import styles from "./SalonLanding.module.css";
 
 const whatsappUrl =
   "/whatsapp?source=saloes&intent=whatsapp_contact&text=Ol%C3%A1!%20Quero%20conhecer%20a%20Lexon%20Agenda%20para%20o%20meu%20sal%C3%A3o.";
+const planCtaUrl = (plan: string, name: string) => process.env.NODE_ENV !== "production"
+  ? `/checkout?plan=${plan}&source=saloes`
+  : `/whatsapp?source=saloes&intent=plan_interest&plan=${plan}&text=${encodeURIComponent(`Olá! Quero conhecer o plano ${name} para meu salão.`)}`;
 
 const reveal = {
   hidden: { opacity: 0, y: 24 },
@@ -248,7 +251,7 @@ export default function SalonLanding() {
             <p className={styles.planDescription}>Para começar com uma agenda online simples e profissional.</p>
             <p className={styles.price}><span>R$ 59</span><small>/mês</small></p>
             <p className={styles.freeMonth}>Primeiro mês da plataforma grátis</p>
-            <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=agenda&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Agenda%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
+            <Link href={planCtaUrl("agenda", "Agenda")} className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
               <li><Check size={15} /> Até 2 profissionais</li>
               <li><Check size={15} /> Agenda, página, horários e atendimentos</li>
@@ -274,14 +277,14 @@ export default function SalonLanding() {
             <p className={styles.planDescription}>Para uma operação mais completa, com espaço para crescer.</p>
             <p className={styles.price}><span>R$ 119</span><small>/mês</small></p>
             <p className={styles.freeMonth}>Primeiro mês da plataforma grátis</p>
-            <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=profissional&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Profissional%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
+            <Link href={planCtaUrl("profissional", "Profissional")} className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
               <li><Check size={15} /> Até 5 profissionais</li>
               <li><Check size={15} /> Tudo do plano Agenda</li>
               <li><Check size={15} /> Identidade visual e CRM completo</li>
               <li><Check size={15} /> Financeiro básico</li>
               <li><Check size={15} /> Estoque: produtos, entradas, saídas e ajustes</li>
-              <li><Check size={15} /> WhatsApp opcional via API oficial, taxa à parte</li>
+              <li><Check size={15} /> WhatsApp opcional via API oficial¹</li>
               <li><Check size={15} /> Suporte prioritário</li>
             </ul>
           </motion.article>
@@ -300,19 +303,19 @@ export default function SalonLanding() {
             <p className={styles.planDescription}>Para quem quer colocar o WhatsApp dentro da operação.</p>
             <p className={styles.price}><span>R$ 229</span><small>/mês</small></p>
             <p className={styles.freeMonth}>Primeiro mês da plataforma grátis</p>
-            <Link href="/whatsapp?source=saloes&intent=plan_interest&plan=automacao&text=Ol%C3%A1!%20Quero%20conhecer%20o%20plano%20Automa%C3%A7%C3%A3o%20para%20meu%20sal%C3%A3o." className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
+            <Link href={planCtaUrl("automacao", "Automação")} className={styles.planButton}>Quero este plano <ArrowUpRight size={16} /></Link>
             <ul>
               <li><Check size={15} /> Até 8 profissionais</li>
               <li><Check size={15} /> Inclui o plano Profissional</li>
               <li><Check size={15} /> Financeiro avançado com DRE</li>
               <li><Check size={15} /> Estoque com alertas de reposição</li>
-              <li><Check size={15} /> Automação via API oficial inclusa</li>
+              <li><Check size={15} /> Automação via API oficial inclusa¹</li>
               <li><Check size={15} /> Confirmações, lembretes e reativação</li>
               <li><Check size={15} /> Setup assistido e suporte dedicado</li>
             </ul>
           </motion.article>
         </div>
-        <p className={styles.pricingNote}>Primeiro mês grátis nos três planos. O plano Agenda não inclui estoque. Profissional inclui controle básico de produtos, entradas, saídas e ajustes; Automação acrescenta alertas de reposição. No Profissional, WhatsApp via API oficial é um add-on cobrado após a ativação; no Automação, está incluso com setup assistido. Conversas e templates são cobrados diretamente pela Meta.</p>
+        <p className={styles.pricingNote}>Primeiro mês grátis nos três planos. O plano Agenda não inclui estoque. Profissional inclui controle básico de produtos, entradas, saídas e ajustes; Automação acrescenta alertas de reposição. ¹ A mensalidade é da plataforma Lexon. No Profissional, o add-on de conexão/ativação do WhatsApp oficial é cobrado à parte pela Lexon; no Automação, recurso e setup assistido estão incluídos. Em ambos, conversas e templates têm cobrança separada, feita diretamente pela Meta conforme as tarifas dela.</p>
       </section>
 
       <section className={styles.finalCta}>
@@ -327,6 +330,11 @@ export default function SalonLanding() {
       <footer className={styles.footer}>
         <Link href="/" className={styles.brand}><span className={styles.brandMark}>L</span><span>lexon<span className={styles.brandDot}>.</span></span></Link>
         <span>Agenda pensada para negócios de beleza.</span>
+        <nav className={styles.footerLinks} aria-label="Links institucionais">
+          <Link href="/termos-de-uso">Termos de Uso</Link>
+          <Link href="/politica-de-privacidade">Privacidade</Link>
+          <a href="https://wa.me/5538999023012" target="_blank" rel="noopener noreferrer">Suporte Lexon: (38) 99902-3012</a>
+        </nav>
         <span>© {new Date().getFullYear()} Lexon Agenda</span>
       </footer>
     </main>

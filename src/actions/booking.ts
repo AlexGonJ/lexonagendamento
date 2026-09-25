@@ -76,12 +76,14 @@ export async function createBooking(data: CreateBookingParams) {
       {
         limit: 5,
         windowMs: 60 * 60 * 1000,
-        blockMs: 2 * 60 * 60 * 1000,
+        blockMs: 30 * 60 * 1000,
       }
     );
 
     if (!bookingRateLimit.allowed) {
-      throw new Error("Muitas marcações em pouco tempo. Tente novamente mais tarde.");
+      const minutes = Math.ceil(bookingRateLimit.retryAfterSeconds / 60);
+      const timeMsg = minutes > 1 ? `${minutes} minutos` : `${bookingRateLimit.retryAfterSeconds} segundos`;
+      throw new Error(`Muitas tentativas de agendamento em pouco tempo. Por favor, aguarde ${timeMsg} para tentar novamente.`);
     }
 
     const captchaResult = await verifyTurnstileToken(data.captchaToken);
