@@ -1,0 +1,87 @@
+{
+  "runId": "915e0eb7-792f-4c5d-ade0-4b05e631f090",
+  "timestamp": "2026-09-24T18:02:52.653Z",
+  "scope": "Funções reais e Postgres; não é teste autenticado E2E",
+  "results": [
+    {
+      "id": "IANA_UTC:past",
+      "status": "PASSED",
+      "details": "Servidor rejeitou passado."
+    },
+    {
+      "id": "IANA_UTC:outside-hours",
+      "status": "PASSED",
+      "details": "Servidor rejeitou fora do expediente."
+    },
+    {
+      "id": "IANA_UTC:blocked",
+      "status": "PASSED",
+      "details": "Servidor rejeitou bloqueio no mesmo dia."
+    },
+    {
+      "id": "IANA_UTC:stored-and-message-time",
+      "status": "FAILED",
+      "details": "\nInvalid `prisma.whatsappOutbox.upsert()` invocation:\n\n\nTransaction API error: Transaction already closed: A query cannot be executed on an expired transaction. The timeout for this transaction was 5000 ms, however 5303 ms passed since the start of the transaction. Consider increasing the interactive transaction timeout or doing less work in the transaction."
+    },
+    {
+      "id": "IANA_UTC:occupied",
+      "status": "FAILED",
+      "details": "The input did not match the regular expression /não está mais disponível/. Input:\n\n'PrismaClientKnownRequestError: \\n' +\n  'Invalid `prisma.whatsappOutbox.upsert()` invocation:\\n' +\n  '\\n' +\n  '\\n' +\n  'Transaction API error: Transaction already closed: A query cannot be executed on an expired transaction. The timeout for this transaction was 5000 ms, however 5176 ms passed since the start of the transaction. Consider increasing the interactive transaction timeout or doing less work in the transaction.'\n"
+    },
+    {
+      "id": "IANA_UTC:concurrent",
+      "status": "FAILED",
+      "details": "Expected values to be strictly equal:\n\n0 !== 1\n"
+    },
+    {
+      "id": "IANA_UTC:previous-day-block",
+      "status": "FAILED",
+      "details": "09:00 foi oferecido apesar do bloqueio terminar às 10:00\n\ntrue !== false\n"
+    },
+    {
+      "id": "LEGACY_UTC_WALL:past",
+      "status": "PASSED",
+      "details": "Servidor rejeitou passado."
+    },
+    {
+      "id": "LEGACY_UTC_WALL:outside-hours",
+      "status": "PASSED",
+      "details": "Servidor rejeitou fora do expediente."
+    },
+    {
+      "id": "LEGACY_UTC_WALL:blocked",
+      "status": "PASSED",
+      "details": "Servidor rejeitou bloqueio no mesmo dia."
+    },
+    {
+      "id": "LEGACY_UTC_WALL:stored-and-message-time",
+      "status": "FAILED",
+      "details": "\nInvalid `prisma.whatsappOutbox.upsert()` invocation:\n\n\nTransaction API error: Transaction already closed: A query cannot be executed on an expired transaction. The timeout for this transaction was 5000 ms, however 5167 ms passed since the start of the transaction. Consider increasing the interactive transaction timeout or doing less work in the transaction."
+    },
+    {
+      "id": "LEGACY_UTC_WALL:occupied",
+      "status": "FAILED",
+      "details": "The input did not match the regular expression /não está mais disponível/. Input:\n\n'PrismaClientKnownRequestError: \\n' +\n  'Invalid `prisma.whatsappOutbox.upsert()` invocation:\\n' +\n  '\\n' +\n  '\\n' +\n  'Transaction API error: Transaction already closed: A query cannot be executed on an expired transaction. The timeout for this transaction was 5000 ms, however 5156 ms passed since the start of the transaction. Consider increasing the interactive transaction timeout or doing less work in the transaction.'\n"
+    },
+    {
+      "id": "LEGACY_UTC_WALL:concurrent",
+      "status": "FAILED",
+      "details": "Expected values to be strictly equal:\n\n0 !== 1\n"
+    },
+    {
+      "id": "LEGACY_UTC_WALL:previous-day-block",
+      "status": "FAILED",
+      "details": "09:00 foi oferecido apesar do bloqueio terminar às 10:00\n\ntrue !== false\n"
+    },
+    {
+      "id": "rate-limit-concurrency-helper",
+      "status": "PASSED",
+      "details": "Helper real/Postgres: 6 chamadas concorrentes, 5 aceitas; próxima bloqueada. Não substitui teste dos endpoints login/OTP."
+    },
+    {
+      "id": "cleanup",
+      "status": "PASSED",
+      "details": "Removidos somente fixtures UUID desta execução; nenhum envio externo."
+    }
+  ]
+}

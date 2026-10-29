@@ -51,7 +51,7 @@ async function assertEmployeeIdsBelongToTenant(employeeIds: string[], tenantId: 
 export async function getServices() {
   const tenantId = await getActiveTenantId();
   return await prisma.service.findMany({
-    where: { tenantId },
+    where: { tenantId, isActive: true },
     orderBy: { createdAt: 'desc' },
     include: { employees: true }
   });

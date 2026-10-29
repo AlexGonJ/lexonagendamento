@@ -12,7 +12,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { refundSubscriptionCredit } from "@/lib/credit-ledger";
 import { enqueueWhatsappMessage } from "@/lib/whatsapp-outbox";
 import { createBookingForClient } from "@/lib/booking-service";
-import { addScheduleCalendarDays, calendarDateString, formatScheduleDate, formatScheduleTime, scheduleDateTime, scheduleDayBounds, scheduleInstant, scheduleMonthBounds, scheduleParts, type BookingTimeMode } from "@/lib/schedule-time";
+import { addScheduleCalendarDays, calendarDateString, formatScheduleDate, formatScheduleTime, scheduleDateString, scheduleDateTime, scheduleDayBounds, scheduleInstant, scheduleMonthBounds, scheduleParts, type BookingTimeMode } from "@/lib/schedule-time";
 
 interface CreateBookingParams {
   tenantSlug: string;
@@ -451,14 +451,29 @@ export async function rescheduleBooking(bookingId: string, dateStr: string, time
     }
 
     await prisma.$transaction(async (tx) => {
-      await acquireEmployeeDayLock(tx, `booking:${booking.id}`);
-      await acquireEmployeeDayLock(tx, `booking:${booking.tenantId}:${booking.employeeId}:${dateStr}`);
+      const currentDateStr = scheduleDateString(booking.date, tenantSchedule.timezone, tenantSchedule.bookingTimeMode as BookingTimeMode);
+      const lockDates = Array.from(new Set([currentDateStr, dateStr])).sort();
+      for (const lockDate of lockDates) {
+        await acquireEmployeeDayLock(tx, `booking:${booking.tenantId}:${booking.employeeId}:${lockDate}`);
+      }
+
+      const latestBooking = await tx.booking.findFirst({
+        where: { id: booking.id, tenantId: booking.tenantId },
+        select: { date: true, status: true },
+      });
+      if (!latestBooking || latestBooking.date.getTime() !== booking.date.getTime()) {
+        throw new Error("Este agendamento foi alterado em outra solicitação. Atualize a página e tente novamente.");
+      }
+      if (!["PENDING", "CONFIRMED"].includes(latestBooking.status)) {
+        throw new Error("Este atendimento não pode mais ser reagendado.");
+      }
 
       const slots = await getAvailableSlots(
         booking.employeeId,
         dateStr,
         booking.serviceDuration ?? booking.service.duration,
-        tx
+        tx,
+        booking.id
       );
       if (!slots.includes(timeStr)) {
         throw new Error("O novo horário não está mais disponível.");

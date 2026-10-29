@@ -1,8 +1,10 @@
-import { getEmployeeSchedules, getEmployeeTimeOff, getEmployeeAvailabilityBlocks, addScheduleBlock, addEmployeeTimeOff, addEmployeeAvailabilityBlock, removeScheduleBlock, removeEmployeeTimeOff, removeEmployeeAvailabilityBlock } from "@/actions/schedule";
+import { getEmployeeSchedules, getEmployeeTimeOff, getEmployeeAvailabilityBlocks, getEmployeeWeeklyAvailabilityBlocks, addEmployeeTimeOff, removeScheduleBlock, removeEmployeeTimeOff, removeEmployeeAvailabilityBlock, removeEmployeeWeeklyAvailabilityBlock } from "@/actions/schedule";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatScheduleDate, formatScheduleTime, type BookingTimeMode } from "@/lib/schedule-time";
+import ScheduleBlockForm from "./ScheduleBlockForm";
+import AvailabilityBlockForms from "./AvailabilityBlockForms";
 
 const diasDaSemana = [
   "Domingo", "Segunda-feira", "Terça-feira", 
@@ -21,7 +23,7 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
   if (!tenantSchedule) notFound();
   const bookingTimeMode = tenantSchedule.bookingTimeMode as BookingTimeMode;
 
-  const [schedules, timeOffDays, availabilityBlocks] = await Promise.all([getEmployeeSchedules(id), getEmployeeTimeOff(id), getEmployeeAvailabilityBlocks(id)]);
+  const [schedules, timeOffDays, availabilityBlocks, weeklyAvailabilityBlocks] = await Promise.all([getEmployeeSchedules(id), getEmployeeTimeOff(id), getEmployeeAvailabilityBlocks(id), getEmployeeWeeklyAvailabilityBlocks(id)]);
 
   return (
     <div>
@@ -41,57 +43,9 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Adicionar Bloco</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Crie intervalos de horas de trabalho. Para pausas de almoço, crie dois blocos no mesmo dia (ex: 09:00 - 12:00 e 13:00 - 18:00).
+              Escolha horários de hora cheia e aplique o mesmo período a um dia, aos dias úteis ou à semana toda. Para pausas, salve dois períodos, como 09:00–12:00 e 13:00–18:00.
             </p>
-            
-            <form action={addScheduleBlock} className="space-y-4">
-              <input type="hidden" name="employeeId" value={id} />
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dia da Semana</label>
-                <select 
-                  name="dayOfWeek"
-                  required
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  <option value="1">Segunda-feira</option>
-                  <option value="2">Terça-feira</option>
-                  <option value="3">Quarta-feira</option>
-                  <option value="4">Quinta-feira</option>
-                  <option value="5">Sexta-feira</option>
-                  <option value="6">Sábado</option>
-                  <option value="0">Domingo</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Início</label>
-                  <input 
-                    type="time" 
-                    name="startTime" 
-                    required 
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fim</label>
-                  <input 
-                    type="time" 
-                    name="endTime" 
-                    required 
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <button 
-                type="submit"
-                className="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors mt-2"
-              >
-                Salvar Bloco de Horário
-              </button>
-            </form>
+            <ScheduleBlockForm employeeId={id} />
           </div>
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Folga ou férias</h2>
@@ -100,8 +54,8 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
           </div>
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Bloqueio por período</h2>
-            <p className="text-sm text-gray-500 mb-4">Use para almoço, consulta ou outro intervalo que não deve aparecer para reserva.</p>
-            <form action={addEmployeeAvailabilityBlock} className="space-y-3"><input type="hidden" name="employeeId" value={id} /><input type="date" name="date" required className="w-full p-2 border border-gray-300 rounded-lg" /><div className="grid grid-cols-2 gap-3"><input type="time" name="startTime" required className="w-full p-2 border border-gray-300 rounded-lg" /><input type="time" name="endTime" required className="w-full p-2 border border-gray-300 rounded-lg" /></div><input type="text" name="reason" placeholder="Motivo opcional" className="w-full p-2 border border-gray-300 rounded-lg" /><button type="submit" className="w-full bg-amber-600 text-white font-semibold py-2 rounded-lg">Bloquear período</button></form>
+            <p className="text-sm text-gray-500 mb-4">Bloqueie um período em uma data ou configure um intervalo de almoço recorrente.</p>
+            <AvailabilityBlockForms employeeId={id} />
           </div>
         </div>
 
@@ -112,7 +66,13 @@ export default async function EmployeeSchedulePage({ params }: { params: Promise
             
             <div className="space-y-6">
               <div className="border-b border-gray-100 pb-4"><h3 className="font-medium text-gray-800 mb-3">Folgas e férias</h3>{timeOffDays.length === 0 ? <p className="text-sm text-gray-500">Nenhuma indisponibilidade cadastrada.</p> : <div className="flex flex-wrap gap-2">{timeOffDays.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{item.date.toLocaleDateString("pt-BR", { timeZone: "UTC" })}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeTimeOff(item.id, id); }}><button className="text-red-600 font-bold" title="Remover">×</button></form></div>)}</div>}</div>
-              <div className="border-b border-gray-100 pb-4"><h3 className="font-medium text-gray-800 mb-3">Bloqueios por período</h3>{availabilityBlocks.length === 0 ? <p className="text-sm text-gray-500">Nenhum período bloqueado.</p> : <div className="flex flex-wrap gap-2">{availabilityBlocks.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{formatScheduleDate(item.startAt, tenantSchedule.timezone, bookingTimeMode)} · {formatScheduleTime(item.startAt, tenantSchedule.timezone, bookingTimeMode)}–{formatScheduleTime(item.endAt, tenantSchedule.timezone, bookingTimeMode)}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeAvailabilityBlock(item.id, id); }}><button className="text-red-600 font-bold" title="Remover">×</button></form></div>)}</div>}</div>
+              <div className="border-b border-gray-100 pb-4">
+                <h3 className="font-medium text-gray-800 mb-3">Bloqueios por período</h3>
+                {availabilityBlocks.length === 0 && weeklyAvailabilityBlocks.length === 0 ? <p className="text-sm text-gray-500">Nenhum período bloqueado.</p> : <div className="flex flex-wrap gap-2">
+                  {availabilityBlocks.map((item) => <div key={item.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm"><span>{formatScheduleDate(item.startAt, tenantSchedule.timezone, bookingTimeMode)} · {formatScheduleTime(item.startAt, tenantSchedule.timezone, bookingTimeMode)}–{formatScheduleTime(item.endAt, tenantSchedule.timezone, bookingTimeMode)}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeAvailabilityBlock(item.id, id); }}><button type="submit" className="text-red-600 font-bold" title="Remover bloqueio" aria-label="Remover bloqueio">×</button></form></div>)}
+                  {weeklyAvailabilityBlocks.map((item) => <div key={item.id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm"><span>Toda {diasDaSemana[item.dayOfWeek]} · {item.startTime}–{item.endTime}{item.reason ? ` · ${item.reason}` : ""}</span><form action={async () => { "use server"; await removeEmployeeWeeklyAvailabilityBlock(item.id, id); }}><button type="submit" className="text-red-600 font-bold" title="Remover horário recorrente" aria-label="Remover horário recorrente">×</button></form></div>)}
+                </div>}
+              </div>
               {diasDaSemana.map((nomeDia, index) => {
                 // Filtra os blocos desse dia da semana
                 const blocosDoDia = schedules.filter(s => s.dayOfWeek === index);

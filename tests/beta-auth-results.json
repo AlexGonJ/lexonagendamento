@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-09-24T18:06:44.097Z",
+  "results": [
+    {
+      "name": "limite-login-funcionario-http",
+      "status": "PASSED",
+      "details": "5 credenciais inválidas; sexta tentativa bloqueada; sem cookie de sessão."
+    },
+    {
+      "name": "limite-superadmin-http",
+      "status": "PASSED",
+      "details": "5 senhas inválidas; sexta bloqueada. IP TEST-NET isolado da sessão do usuário."
+    },
+    {
+      "name": "limite-verificacao-otp-http",
+      "status": "PASSED",
+      "details": "10 códigos inválidos; décima primeira tentativa bloqueada. Nenhum OTP enviado."
+    },
+    {
+      "name": "cron-auth-whatsapp-reminders",
+      "status": "PASSED",
+      "details": "Sem segredo e com segredo inválido: HTTP 401. Job não executado."
+    },
+    {
+      "name": "cron-auth-whatsapp-inactive",
+      "status": "PASSED",
+      "details": "Sem segredo e com segredo inválido: HTTP 401. Job não executado."
+    },
+    {
+      "name": "cron-auth-whatsapp-outbox",
+      "status": "PASSED",
+      "details": "Sem segredo e com segredo inválido: HTTP 401. Job não executado."
+    },
+    {
+      "name": "cron-auth-subscription-lifecycle",
+      "status": "PASSED",
+      "details": "Sem segredo e com segredo inválido: HTTP 401. Job não executado."
+    }
+  ]
+}

@@ -285,30 +285,30 @@ export default function ClientPortal({
   }
 
   const cardStyle = {
-    background: "rgba(15, 23, 42, 0.6)",
-    backdropFilter: "blur(12px)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "16px",
+    background: "#FFFFFF",
+    border: "1px solid rgba(226, 232, 240, 0.9)",
+    borderRadius: "20px",
     padding: "24px",
+    boxShadow: "0 4px 20px -4px rgba(0,0,0,0.04)",
   };
 
   const inputClass =
-    "w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all placeholder:text-slate-600";
+    "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all placeholder:text-slate-400";
 
   return (
-    <main className="min-h-screen bg-background pb-20 p-4 md:p-8 flex flex-col items-center">
+    <main className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20 p-4 md:p-8 flex flex-col items-center">
       {/* Topo / Voltar */}
       <div className="w-full max-w-2xl flex justify-between items-center mb-6">
         <Link
           href={`/${tenantSlug}`}
-          className="flex items-center gap-2 text-white bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors font-medium border border-glass-border text-sm"
+          className="flex items-center gap-2 text-slate-700 bg-white px-4 py-2 rounded-xl hover:bg-slate-50 transition-colors font-medium border border-slate-200 shadow-xs text-sm"
         >
-          &larr; Voltar
+          &larr; Voltar para Agendar
         </Link>
         {initialClient && (
           <button
             onClick={handleLogout}
-            className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-all cursor-pointer font-medium"
+            className="text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-xl hover:bg-red-100 transition-all cursor-pointer font-medium"
           >
             Sair da Conta
           </button>
@@ -317,17 +317,17 @@ export default function ClientPortal({
 
       <div className="w-full max-w-2xl text-center mb-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-full mx-auto border-2 border-primary/40 shadow-lg object-cover mb-3" />
-        <h1 className="text-2xl font-bold text-white">{tenantName}</h1>
-        <p className="text-sm text-slate-400 mt-1">Portal do Cliente</p>
+        <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-full mx-auto border-2 border-slate-200 shadow-sm object-cover mb-3" />
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">{tenantName}</h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">Portal do Cliente • Meus Agendamentos</p>
       </div>
 
       {/* ── SE NÃO ESTIVER LOGADO (TELA DE LOGIN) ────────────────────────────── */}
       {!initialClient ? (
         <div style={cardStyle} className="w-full max-w-md space-y-6">
           <div className="text-center">
-            <h2 className="text-lg font-bold text-white">Acessar Minha Conta</h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <h2 className="text-lg font-bold text-slate-900">Acessar Minha Conta</h2>
+            <p className="text-xs text-slate-500 mt-1">
               {showOauthPhoneLink
                 ? "Vincule seu número para finalizar o login social"
                 : "Entre para ver e gerenciar seus agendamentos"}
@@ -338,7 +338,7 @@ export default function ClientPortal({
             <form onSubmit={handleSendOtp} className="space-y-4">
               {needsName && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
                     Seu Nome Completo
                   </label>
                   <input
@@ -353,7 +353,7 @@ export default function ClientPortal({
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
                   Número de WhatsApp
                 </label>
                 <input
@@ -370,8 +370,8 @@ export default function ClientPortal({
                 <div
                   className={`text-xs p-3 rounded-lg ${
                     msg.type === "info"
-                      ? "bg-blue-500/10 border border-blue-500/20 text-blue-400"
-                      : "bg-red-500/10 border border-red-500/20 text-red-400"
+                      ? "bg-blue-50 border border-blue-200 text-blue-700"
+                      : "bg-red-50 border border-red-200 text-red-700"
                   }`}
                 >
                   {msg.text}
@@ -381,7 +381,7 @@ export default function ClientPortal({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary-hover hover:to-primary text-background font-bold text-sm py-3 rounded-xl shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm py-3.5 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {loading ? "Processando..." : "Receber Código via WhatsApp"}
               </button>
@@ -389,7 +389,7 @@ export default function ClientPortal({
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
                   Código de 6 Dígitos
                 </label>
                 <input
@@ -399,12 +399,12 @@ export default function ClientPortal({
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="000000"
-                  className="w-full text-center tracking-[10px] text-lg bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all placeholder:text-slate-700"
+                  className="w-full text-center tracking-[10px] text-xl bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-900 font-black focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                 />
               </div>
 
               {msg.text && (
-                <div className={`text-xs p-3 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 font-mono`}>
+                <div className={`text-xs p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium`}>
                   {msg.text}
                 </div>
               )}
@@ -416,14 +416,14 @@ export default function ClientPortal({
                     setStep(1);
                     setMsg({ type: "", text: "" });
                   }}
-                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-semibold border border-white/5 transition-all cursor-pointer"
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold border border-slate-200 transition-all cursor-pointer"
                 >
                   Voltar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-[2] py-3 bg-gradient-to-r from-primary to-accent text-background rounded-xl text-sm font-bold shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                  className="flex-[2] py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   {loading ? "Verificando..." : "Confirmar Código"}
                 </button>
@@ -434,8 +434,8 @@ export default function ClientPortal({
           {/* Divisor */}
           {socialLoginEnabled && !showOauthPhoneLink && (
             <div className="relative flex items-center justify-center my-6">
-              <div className="w-full h-px bg-slate-800"></div>
-              <span className="absolute px-3 bg-[#0a0a0f] text-slate-500 text-xs font-medium uppercase tracking-wider">
+              <div className="w-full h-px bg-slate-200"></div>
+              <span className="absolute px-3 bg-white text-slate-400 text-xs font-medium uppercase tracking-wider">
                 ou entrar com
               </span>
             </div>
@@ -498,12 +498,12 @@ export default function ClientPortal({
           <div style={cardStyle} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Bem-vindo(a) de volta</p>
-              <h2 className="text-xl font-bold text-white mt-0.5">{initialClient.name}</h2>
+              <h2 className="text-xl font-black text-slate-900 mt-0.5">{initialClient.name}</h2>
               <p className="text-xs text-slate-500 mt-1 font-mono">{initialClient.phone}</p>
             </div>
             <Link
-              href={`/${tenantSlug}/book`}
-              className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-primary to-accent hover:from-primary-hover hover:to-primary text-background font-bold rounded-xl text-sm transition-all shadow-md"
+              href={`/${tenantSlug}`}
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-primary to-accent hover:opacity-95 text-white font-bold rounded-xl text-sm transition-all shadow-xs"
             >
               Novo Agendamento
             </Link>
@@ -514,24 +514,24 @@ export default function ClientPortal({
             <div 
               style={{
                 ...cardStyle,
-                background: "linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%)",
-                borderColor: "rgba(16, 185, 129, 0.3)"
+                background: "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.03) 100%)",
+                borderColor: "rgba(16, 185, 129, 0.25)"
               }}
-              className="flex items-center justify-between gap-4 border shadow-md animate-fade-in"
+              className="flex items-center justify-between gap-4 border shadow-xs animate-fade-in"
             >
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">
                   Plano Ativo
                 </span>
-                <h3 className="text-base font-bold text-white mt-2.5">{activeSubscription.plan.name}</h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <h3 className="text-base font-bold text-slate-900 mt-2.5">{activeSubscription.plan.name}</h3>
+                <p className="text-xs text-slate-500 mt-1">
                   Válido até {formatScheduleDate(new Date(activeSubscription.endDate), timeZone, bookingTimeMode as BookingTimeMode)}
                 </p>
               </div>
               
-              <div className="bg-emerald-500/25 border border-emerald-500/35 rounded-xl px-4 py-3 text-center min-w-[100px]">
-                <span className="block text-2xl font-black text-white">{activeSubscription.remainingSlots}</span>
-                <span className="block text-[8px] font-bold text-emerald-300 uppercase tracking-widest mt-0.5">Créditos</span>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-center min-w-[100px]">
+                <span className="block text-2xl font-black text-slate-900">{activeSubscription.remainingSlots}</span>
+                <span className="block text-[8px] font-bold text-emerald-700 uppercase tracking-widest mt-0.5">Créditos</span>
               </div>
             </div>
           )}
@@ -539,15 +539,15 @@ export default function ClientPortal({
           {/* Segurança da Conta */}
           {socialLoginEnabled && !initialClient.googleId && (
             <div style={cardStyle} className="space-y-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Segurança da Conta</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Segurança da Conta</h3>
               <p className="text-xs text-slate-500">Vincule sua conta Google para facilitar seus próximos acessos e aumentar a segurança.</p>
               
               {msg.text && (
                 <div
                   className={`text-xs p-3 rounded-lg ${
                     msg.type === "ok"
-                      ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                      : "bg-red-500/10 border border-red-500/20 text-red-400"
+                      ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                      : "bg-red-50 border border-red-200 text-red-700"
                   }`}
                 >
                   {msg.text}
@@ -562,7 +562,7 @@ export default function ClientPortal({
                     type="button"
                     onClick={() => handleSimulateOAuth("google")}
                     disabled={loading}
-                    className="flex items-center justify-center gap-2 py-2.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer w-full max-w-xs"
+                    className="flex items-center justify-center gap-2 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl transition-all cursor-pointer w-full max-w-xs"
                   >
                     <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.176 4.113-3.415 0-6.19-2.775-6.19-6.19 0-3.415 2.775-6.19 6.19-6.19 1.488 0 2.85.535 3.903 1.488l3.123-3.123C18.91 2.215 15.8 1 12.24 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.48 0 11.24-4.514 11.24-11.24 0-.765-.078-1.503-.23-1.955H12.24z" />
@@ -576,7 +576,7 @@ export default function ClientPortal({
 
           {/* Listagem de Agendamentos */}
           <div style={cardStyle} className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Meus Agendamentos</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Meus Agendamentos</h3>
 
             {bookings.length === 0 ? (
               <div className="text-center py-12 space-y-3">
@@ -595,56 +595,55 @@ export default function ClientPortal({
                   return (
                     <div
                       key={booking.id}
-                      className="p-4 rounded-xl border flex flex-col sm:flex-row justify-between sm:items-center gap-4 transition-all"
+                      className="p-4 rounded-xl border flex flex-col sm:flex-row justify-between sm:items-center gap-4 transition-all bg-white"
                       style={{
-                        background: "rgba(255, 255, 255, 0.02)",
                         borderColor: isCancelled
-                          ? "rgba(239, 68, 68, 0.1)"
-                          : "rgba(255, 255, 255, 0.05)",
+                          ? "rgba(239, 68, 68, 0.2)"
+                          : "rgba(226, 232, 240, 0.9)",
                         opacity: isCancelled ? 0.6 : 1,
                       }}
                     >
                       <div className="flex gap-4 items-start">
                         {/* Data Box */}
-                        <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-center flex-shrink-0" style={{ background: isCancelled ? "rgba(239, 68, 68, 0.1)" : "rgba(212, 175, 55, 0.15)" }}>
-                          <span className="text-xs uppercase font-bold" style={{ color: isCancelled ? "#f87171" : "#d4af37" }}>
+                        <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-center flex-shrink-0" style={{ background: isCancelled ? "rgba(239, 68, 68, 0.1)" : "rgba(212, 175, 55, 0.12)" }}>
+                          <span className="text-xs uppercase font-bold" style={{ color: isCancelled ? "#ef4444" : "#b45309" }}>
                             {formatScheduleMonth(bDate, timeZone, mode)}
                           </span>
-                          <span className="text-sm font-extrabold -mt-1" style={{ color: isCancelled ? "#ef4444" : "#ffffff" }}>
+                          <span className="text-sm font-black -mt-1" style={{ color: isCancelled ? "#ef4444" : "#0f172a" }}>
                             {parts.day}
                           </span>
                         </div>
 
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-sm font-bold text-white">{booking.service.name}</h4>
+                            <h4 className="text-sm font-bold text-slate-900">{booking.service.name}</h4>
                             <span
                               className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
                                 isCancelled
-                                  ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                                  ? "bg-red-50 text-red-600 border border-red-200"
                                   : booking.status === "CONFIRMED"
-                                  ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                                  : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
                               }`}
                             >
                               {isCancelled ? "Cancelado" : booking.status === "CONFIRMED" ? "Confirmado" : "Pendente"}
                             </span>
                           </div>
                           
-                          <p className="text-xs text-slate-400 mt-1">
+                          <p className="text-xs text-slate-500 mt-1">
                             {formatScheduleWeekday(bDate, timeZone, mode)} às{" "}
-                            <span className="font-bold text-white">
+                            <span className="font-bold text-slate-900">
                               {formatScheduleTime(bDate, timeZone, mode)}
                             </span>
                           </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
+                          <p className="text-[11px] text-slate-400 mt-0.5">
                             Profissional: {booking.employee.name} ({booking.employee.role})
                           </p>
                         </div>
                       </div>
 
                       <div className="flex sm:flex-col items-end justify-between sm:justify-center gap-2">
-                        <span className="text-sm font-bold text-primary">
+                        <span className="text-sm font-black text-primary">
                           R$ {booking.service.price.toFixed(2).replace(".", ",")}
                         </span>
 
@@ -655,7 +654,7 @@ export default function ClientPortal({
                                 href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${booking.service.name} - ${tenantName.toUpperCase()}`)}&dates=${actualBookingDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z/${new Date(actualBookingDate.getTime() + (booking.service.duration || 30) * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0]}Z&details=${encodeURIComponent(`Seu agendamento está confirmado!\n\nProfissional: ${booking.employee.name}\nServiço: ${booking.service.name}\nDuração: ${booking.service.duration} min\nValor: R$ ${booking.service.price.toFixed(2)}`)}&location=${encodeURIComponent(tenantName)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 transition-all border border-emerald-500/10 flex items-center gap-1 cursor-pointer"
+                                className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-all border border-emerald-200 flex items-center gap-1 cursor-pointer"
                               >
                                 <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                                   <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
@@ -668,7 +667,7 @@ export default function ClientPortal({
                               <button
                                 onClick={() => handleCancelBooking(booking.id)}
                                 disabled={cancellingId === booking.id}
-                                className="text-[11px] text-red-400 hover:text-red-300 font-semibold px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-all border border-red-500/10 cursor-pointer"
+                                className="text-[11px] text-red-600 hover:text-red-700 font-semibold px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 transition-all border border-red-200 cursor-pointer"
                               >
                                 {cancellingId === booking.id ? "Cancelando..." : "Desmarcar"}
                               </button>

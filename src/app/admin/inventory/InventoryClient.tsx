@@ -84,15 +84,21 @@ export default function InventoryClient({
     setSaving(true);
     resetFeedback();
     const form = movementForms[productId] || { kind: "IN", quantity: "", note: "" };
-    const result = await recordInventoryMovement({ productId, ...form });
-    setSaving(false);
-    if (!result.success) {
-      setError(result.error || "Não foi possível registrar a movimentação.");
-      return;
+    try {
+      const result = await recordInventoryMovement({ productId, ...form });
+      if (!result.success) {
+        setError(result.error || "Não foi possível registrar a movimentação.");
+        return;
+      }
+      setMovementForms((previous) => ({ ...previous, [productId]: { ...form, quantity: "", note: "" } }));
+      setFeedback("Movimentação registrada.");
+      router.refresh();
+    } catch (movementError) {
+      console.error("Erro inesperado ao registrar movimentação de estoque", movementError);
+      setError("Não foi possível registrar a movimentação. Tente novamente.");
+    } finally {
+      setSaving(false);
     }
-    setMovementForms((previous) => ({ ...previous, [productId]: { ...form, quantity: "", note: "" } }));
-    setFeedback("Movimentação registrada.");
-    router.refresh();
   }
 
   async function handleUpdate(event: React.FormEvent<HTMLFormElement>) {

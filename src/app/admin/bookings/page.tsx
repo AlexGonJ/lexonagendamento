@@ -1,6 +1,7 @@
-import { getBookings, updateBookingStatus, deleteBooking, rescheduleBooking } from "@/actions/booking";
+import { getBookings, updateBookingStatus, deleteBooking } from "@/actions/booking";
 import { formatScheduleDate, formatScheduleTime, scheduleDateString, type BookingTimeMode } from "@/lib/schedule-time";
 import Link from "next/link";
+import BookingRescheduleForm from "./BookingRescheduleForm";
 
 interface PageProps {
   searchParams: Promise<{
@@ -266,23 +267,11 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
                           )}
 
                           {["PENDING", "CONFIRMED"].includes(booking.status) && (
-                            <form
-                              className="flex items-center gap-1"
-                              action={async (formData) => {
-                                "use server";
-                                await rescheduleBooking(
-                                  booking.id,
-                                  String(formData.get("date")),
-                                  String(formData.get("time"))
-                                );
-                              }}
-                            >
-                              <input name="date" type="date" defaultValue={scheduleDateString(bookingDate, timeZone, bookingTimeMode as BookingTimeMode)} className="w-28 rounded border border-gray-300 px-1 py-1 text-xs" aria-label="Nova data" />
-                              <input name="time" type="time" defaultValue={formattedTime} className="w-20 rounded border border-gray-300 px-1 py-1 text-xs" aria-label="Novo horário" />
-                              <button type="submit" className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-lg transition-colors cursor-pointer">
-                                Reagendar
-                              </button>
-                            </form>
+                            <BookingRescheduleForm
+                              bookingId={booking.id}
+                              initialDate={scheduleDateString(bookingDate, timeZone, bookingTimeMode as BookingTimeMode)}
+                              initialTime={formattedTime}
+                            />
                           )}
 
                           <form

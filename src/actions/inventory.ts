@@ -170,7 +170,8 @@ export async function recordInventoryMovement(data: {
 
   try {
     const movement = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`inventory:${session.tenantId}:${data.productId}`}))`;
+      // O lock retorna VOID; executeRaw evita que o Prisma tente desserializar esse retorno.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`inventory:${session.tenantId}:${data.productId}`}))`;
       const product = await tx.inventoryProduct.findFirst({
         where: { id: data.productId, tenantId: session.tenantId, isActive: true },
         select: { id: true, quantity: true },

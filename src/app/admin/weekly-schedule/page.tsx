@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { addScheduleCalendarDays, calendarDateString, formatScheduleDate, formatScheduleTime, scheduleDateString, scheduleDayBounds, scheduleParts, weekdayForDateString, type BookingTimeMode } from "@/lib/schedule-time";
+import EmployeeScheduleFilter from "./EmployeeScheduleFilter";
 
 interface PageProps {
   searchParams: Promise<{
@@ -149,29 +150,7 @@ export default async function WeeklySchedulePage({ searchParams }: PageProps) {
 
       {/* Seletor de Funcionário (Apenas Admin da Loja vê) */}
       {session.isAdmin && (
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-          <label className="text-sm font-semibold text-gray-700">Visualizar Profissional:</label>
-          <form method="GET" className="flex items-center gap-2">
-            <input type="hidden" name="weekOffset" value={weekOffset} />
-            <select
-              name="employeeId"
-              defaultValue={selectedEmployeeId}
-              className="p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50/50 cursor-pointer font-medium"
-            >
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} ({emp.role})
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg transition-colors cursor-pointer"
-            >
-              Filtrar
-            </button>
-          </form>
-        </div>
+        <EmployeeScheduleFilter employees={employees} selectedEmployeeId={selectedEmployeeId} weekOffset={weekOffset} />
       )}
 
       {/* Calendário Semanal Grid */}

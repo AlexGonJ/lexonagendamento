@@ -28,29 +28,34 @@ export async function getEmployeeSchedules(employeeId: string) {
 
 export async function addScheduleBlock(formData: FormData) {
   const employeeId = formData.get("employeeId") as string;
-  const dayOfWeek = parseInt(formData.get("dayOfWeek") as string);
+  const dayOfWeeks = [...new Set(formData.getAll("dayOfWeek").map((value) => Number(value)))];
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
 
-  if (!employeeId || isNaN(dayOfWeek) || !startTime || !endTime) {
+  if (!employeeId || dayOfWeeks.length === 0 || !startTime || !endTime) {
     throw new Error("Preencha todos os campos corretamente.");
   }
 
-  if (dayOfWeek < 0 || dayOfWeek > 6 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) {
+  if (dayOfWeeks.some((day) => !Number.isInteger(day) || day < 0 || day > 6) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) {
     throw new Error("Informe dia e horários válidos.");
   }
-  await assertScheduleAccess(employeeId, true);
+  await assertScheduleAccess(employeeId);
 
   if (startTime >= endTime) {
     throw new Error("O horário de fim deve ser posterior ao horário de início.");
   }
 
-  await prisma.employeeSchedule.create({
-    data: {
-      employeeId,
-      dayOfWeek,
-      startTime,
-      endTime,
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.employeeSchedule.findMany({
+      where: { employeeId, dayOfWeek: { in: dayOfWeeks }, startTime, endTime },
+      select: { dayOfWeek: true },
+    });
+    const existingDays = new Set(existing.map((schedule) => schedule.dayOfWeek));
+    const daysToCreate = dayOfWeeks.filter((day) => !existingDays.has(day));
+    if (daysToCreate.length > 0) {
+      await tx.employeeSchedule.createMany({
+        data: daysToCreate.map((dayOfWeek) => ({ employeeId, dayOfWeek, startTime, endTime })),
+      });
     }
   });
 
@@ -59,7 +64,7 @@ export async function addScheduleBlock(formData: FormData) {
 }
 
 export async function removeScheduleBlock(scheduleId: string, employeeId: string) {
-  await assertScheduleAccess(employeeId, true);
+  await assertScheduleAccess(employeeId);
   const schedule = await prisma.employeeSchedule.findFirst({ where: { id: scheduleId, employeeId }, select: { id: true } });
   if (!schedule) throw new Error("Horário não encontrado.");
   await prisma.employeeSchedule.delete({ where: { id: schedule.id } });
@@ -96,7 +101,7 @@ export async function addEmployeeAvailabilityBlock(formData: FormData) {
   const endTime = String(formData.get("endTime") || "");
   const reason = String(formData.get("reason") || "").trim();
   if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || startTime >= endTime) throw new Error("Informe uma data e um intervalo de horário válido.");
-  const session = await assertScheduleAccess(employeeId, true);
+  const session = await assertScheduleAccess(employeeId);
   const tenant = await prisma.tenant.findUnique({ where: { id: session.tenantId }, select: { timezone: true, bookingTimeMode: true } });
   if (!tenant) throw new Error("Estabelecimento não encontrado.");
   const mode = tenant.bookingTimeMode as BookingTimeMode;
@@ -104,13 +109,61 @@ export async function addEmployeeAvailabilityBlock(formData: FormData) {
   revalidatePath(`/admin/employees/${employeeId}/schedule`);
 }
 
+export async function addEmployeeWeeklyAvailabilityBlock(formData: FormData) {
+  const employeeId = String(formData.get("employeeId") || "");
+  const dayOfWeeks = [...new Set(formData.getAll("dayOfWeek").map((value) => Number(value)))];
+  const startTime = String(formData.get("startTime") || "");
+  const endTime = String(formData.get("endTime") || "");
+  const reason = String(formData.get("reason") || "Almoço").trim() || "Almoço";
+
+  if (!employeeId || dayOfWeeks.length === 0 || dayOfWeeks.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) {
+    throw new Error("Selecione ao menos um dia para o bloqueio semanal.");
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime) || startTime >= endTime) {
+    throw new Error("Informe um intervalo de horário válido.");
+  }
+  await assertScheduleAccess(employeeId);
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.employeeWeeklyAvailabilityBlock.findMany({
+      where: { employeeId, dayOfWeek: { in: dayOfWeeks }, startTime, endTime },
+      select: { dayOfWeek: true },
+    });
+    const existingDays = new Set(existing.map((block) => block.dayOfWeek));
+    const daysToCreate = dayOfWeeks.filter((day) => !existingDays.has(day));
+    if (daysToCreate.length > 0) {
+      await tx.employeeWeeklyAvailabilityBlock.createMany({
+        data: daysToCreate.map((dayOfWeek) => ({ employeeId, dayOfWeek, startTime, endTime, reason })),
+      });
+    }
+  });
+
+  revalidatePath(`/admin/employees/${employeeId}/schedule`);
+  revalidatePath("/brutusbarbearia/book");
+}
+
 export async function getEmployeeAvailabilityBlocks(employeeId: string) {
   await assertScheduleAccess(employeeId);
   return prisma.employeeAvailabilityBlock.findMany({ where: { employeeId }, orderBy: { startAt: "asc" } });
 }
 
+export async function getEmployeeWeeklyAvailabilityBlocks(employeeId: string) {
+  await assertScheduleAccess(employeeId);
+  return prisma.employeeWeeklyAvailabilityBlock.findMany({
+    where: { employeeId },
+    orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+  });
+}
+
 export async function removeEmployeeAvailabilityBlock(id: string, employeeId: string) {
-  await assertScheduleAccess(employeeId, true);
+  await assertScheduleAccess(employeeId);
   await prisma.employeeAvailabilityBlock.deleteMany({ where: { id, employeeId } });
   revalidatePath(`/admin/employees/${employeeId}/schedule`);
+}
+
+export async function removeEmployeeWeeklyAvailabilityBlock(id: string, employeeId: string) {
+  await assertScheduleAccess(employeeId);
+  await prisma.employeeWeeklyAvailabilityBlock.deleteMany({ where: { id, employeeId } });
+  revalidatePath(`/admin/employees/${employeeId}/schedule`);
+  revalidatePath("/brutusbarbearia/book");
 }

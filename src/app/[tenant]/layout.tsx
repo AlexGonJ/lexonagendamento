@@ -20,16 +20,21 @@ export default async function TenantLayout({
     notFound();
   }
 
+  // Cor de fundo do tenant: se não tiver ou for quase preto (#0f0f0f, etc), usamos fundo clean moderno (#F8FAFC)
+  const isDark = (c: string) => ["#0f0f0f", "#000000", "#0a0a0a", "#111827", "#18181b"].includes(c.toLowerCase());
+  const effectiveBgColor = tenant.themeBgColor && !isDark(tenant.themeBgColor) 
+    ? tenant.themeBgColor 
+    : "#F8FAFC";
+
   // Inject dynamic theme variables into the root layout of the tenant
   const style = {
-    ...(tenant.themeBgColor && {
-      "--color-background": tenant.themeBgColor,
-      "--background": tenant.themeBgColor,
-      "backgroundColor": tenant.themeBgColor, // fallback for root
-    }),
+    "--color-background": effectiveBgColor,
+    "--background": effectiveBgColor,
+    backgroundColor: effectiveBgColor,
+    color: "#0f172a",
     ...(tenant.themeButtonColor && {
       "--color-primary": tenant.themeButtonColor,
-      "--color-primary-hover": tenant.themeButtonColor, // For simplicity, we can reuse it or darken it. We'll stick to primary.
+      "--color-primary-hover": tenant.themeButtonColor,
     }),
   } as React.CSSProperties;
 
